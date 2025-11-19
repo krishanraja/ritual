@@ -13,15 +13,18 @@ const Index = () => {
   const [showJoin, setShowJoin] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [couple, setCouple] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -66,6 +69,14 @@ const Index = () => {
     await supabase.auth.signOut();
     setCouple(null);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-warm flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-warm flex flex-col items-center justify-center p-6 relative">
