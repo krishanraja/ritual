@@ -196,9 +196,9 @@ const WeeklyInput = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-calm flex flex-col p-6">
+    <div className="min-h-screen bg-gradient-calm flex flex-col">
       {/* Progress */}
-      <div className="max-w-md mx-auto w-full space-y-2 mb-8">
+      <div className="max-w-md mx-auto w-full space-y-2 mb-6 px-4 sm:px-6 pt-4 safe-top">
         <div className="flex justify-between text-sm text-muted-foreground">
           <span>Your weekly input</span>
           <span>{currentStep + 1} / {QUESTIONS.length}</span>
@@ -214,7 +214,7 @@ const WeeklyInput = () => {
       </div>
 
       {/* Question Card */}
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 pb-32">
         <div className="w-full max-w-md">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
@@ -225,9 +225,9 @@ const WeeklyInput = () => {
               animate="center"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="bg-white rounded-3xl shadow-card p-8 space-y-8"
+              className="bg-white rounded-3xl shadow-card p-6 sm:p-8 space-y-6 sm:space-y-8"
             >
-              <h2 className="text-2xl font-bold text-foreground text-center">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center">
                 {currentQuestion.question}
               </h2>
 
@@ -282,27 +282,29 @@ const WeeklyInput = () => {
       </div>
 
       {/* Navigation */}
-      <div className="max-w-md mx-auto w-full flex gap-3 pt-6">
-        {currentStep > 0 && (
+      <div className="fixed bottom-0 left-0 right-0 px-4 sm:px-6 pb-6 pb-safe bg-gradient-to-t from-background via-background to-transparent pt-4">
+        <div className="max-w-md mx-auto w-full flex gap-3">
+          {currentStep > 0 && (
+            <Button
+              onClick={handleBack}
+              variant="outline"
+              size="lg"
+              className="border-2 border-primary/30 rounded-2xl"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+          )}
+          
           <Button
-            onClick={handleBack}
-            variant="outline"
+            onClick={handleNext}
+            disabled={!answers[currentQuestion.id] || submitting}
             size="lg"
-            className="border-2 border-primary/30 rounded-2xl"
+            className="flex-1 bg-gradient-ritual text-white hover:opacity-90 rounded-2xl h-14 text-lg"
           >
-            <ChevronLeft className="w-5 h-5" />
+            {submitting ? "Saving..." : isLastQuestion ? "Submit" : "Next"}
+            {!isLastQuestion && !submitting && <ChevronRight className="w-5 h-5 ml-2" />}
           </Button>
-        )}
-        
-        <Button
-          onClick={handleNext}
-          disabled={!answers[currentQuestion.id] || submitting}
-          size="lg"
-          className="flex-1 bg-gradient-ritual text-white hover:opacity-90 rounded-2xl h-14 text-lg"
-        >
-          {submitting ? "Saving..." : isLastQuestion ? "Submit" : "Next"}
-          {!isLastQuestion && !submitting && <ChevronRight className="w-5 h-5 ml-2" />}
-        </Button>
+        </div>
       </div>
     </div>
   );

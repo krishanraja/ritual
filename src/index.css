@@ -105,3 +105,30 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .pb-safe {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+  
+  .safe-area-inset {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .bg-gradient-calm {
+    background: linear-gradient(180deg, hsl(270 50% 95%), hsl(120 30% 92%));
+  }
+  
+  .bg-gradient-ritual {
+    background: linear-gradient(135deg, hsl(270 50% 85%), hsl(340 100% 92%));
+  }
+}
