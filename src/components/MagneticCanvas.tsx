@@ -15,15 +15,19 @@ import { Sparkles, Users } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface MagneticCanvasProps {
-  weeklyCycleId: string;
+  weeklyCycleId?: string;
   onComplete: (canvasState: any) => void;
+  demoMode?: boolean;
+  onDemoComplete?: () => void;
 }
 
-export const MagneticCanvas = ({ weeklyCycleId, onComplete }: MagneticCanvasProps) => {
+export const MagneticCanvas = ({ weeklyCycleId, onComplete, demoMode = false, onDemoComplete }: MagneticCanvasProps) => {
   const [tokens, setTokens] = useState<EmotionalTokenData[]>(INITIAL_TOKENS);
   const [activeToken, setActiveToken] = useState<TokenType | null>(null);
   const [snapCount, setSnapCount] = useState(0);
   
+  // Only use sync in non-demo mode
+  const syncHook = useMagneticSync(weeklyCycleId || '');
   const {
     partnerPresence,
     partnerTokens,
@@ -31,7 +35,14 @@ export const MagneticCanvas = ({ weeklyCycleId, onComplete }: MagneticCanvasProp
     broadcastTokenMove,
     broadcastTokenSnap,
     broadcastCanvasComplete
-  } = useMagneticSync(weeklyCycleId);
+  } = demoMode ? {
+    partnerPresence: { position: { x: 0, y: 0 }, activeToken: null },
+    partnerTokens: new Map(),
+    isPartnerOnline: false,
+    broadcastTokenMove: () => {},
+    broadcastTokenSnap: () => {},
+    broadcastCanvasComplete: async () => {}
+  } : syncHook;
 
   const calculateDistance = (pos1: { x: number; y: number }, pos2: { x: number; y: number }) => {
     return Math.sqrt(Math.pow(pos2.x - pos1.x, 2) + Math.pow(pos2.y - pos1.y, 2));
@@ -84,6 +95,11 @@ export const MagneticCanvas = ({ weeklyCycleId, onComplete }: MagneticCanvasProp
   }, [partnerTokens, tokens, broadcastTokenMove, broadcastTokenSnap]);
 
   const handleComplete = async () => {
+    if (demoMode && onDemoComplete) {
+      onDemoComplete();
+      return;
+    }
+
     const alignments = tokens.filter(t => t.isSnapped).map(t => t.id);
     const priorities = tokens.map(token => {
       const centerX = window.innerWidth / 2;
@@ -140,15 +156,19 @@ export const MagneticCanvas = ({ weeklyCycleId, onComplete }: MagneticCanvasProp
                 <Sparkles className="w-6 h-6 text-primary" />
                 Magnetic Canvas
               </h2>
-              <div className="flex items-center gap-2">
-                <Users className={`w-5 h-5 ${isPartnerOnline ? 'text-green-500' : 'text-muted-foreground'}`} />
-                <span className="text-sm text-muted-foreground">
-                  {isPartnerOnline ? 'Partner Online' : 'Waiting...'}
-                </span>
-              </div>
+              {!demoMode && (
+                <div className="flex items-center gap-2">
+                  <Users className={`w-5 h-5 ${isPartnerOnline ? 'text-green-500' : 'text-muted-foreground'}`} />
+                  <span className="text-sm text-muted-foreground">
+                    {isPartnerOnline ? 'Partner Online' : 'Waiting...'}
+                  </span>
+                </div>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Drag your emotional tokens. When they're close to your partner's, they'll snap together with a burst of energy.
+              {demoMode 
+                ? "Drag the tokens around to explore. Sign up to create rituals with your partner!"
+                : "Drag your emotional tokens. When they're close to your partner's, they'll snap together with a burst of energy."}
             </p>
             {snapCount > 0 && (
               <motion.div
@@ -201,7 +221,7 @@ export const MagneticCanvas = ({ weeklyCycleId, onComplete }: MagneticCanvasProp
                 className="w-full text-lg font-semibold shadow-xl"
               >
                 <Sparkles className="w-5 h-5 mr-2" />
-                Generate Our Rituals
+                {demoMode ? "Sign Up to Create Rituals" : "Generate Our Rituals"}
               </Button>
             </div>
           </motion.div>

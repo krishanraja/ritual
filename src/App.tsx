@@ -25,9 +25,9 @@ const App = () => (
         <CoupleProvider>
           <AppShell>
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/welcome" element={<Landing />} />
+              <Route path="/home" element={<Home />} />
               <Route path="/input" element={<MagneticInput />} />
               <Route path="/rituals" element={<RitualCards />} />
               <Route path="/history" element={<History />} />

@@ -15,6 +15,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { rituals, isShowingSamples } = useSampleRituals();
 
+  // Redirect to auth if not logged in
   useEffect(() => {
     if (!loading && !user) navigate('/auth');
   }, [user, loading, navigate]);
