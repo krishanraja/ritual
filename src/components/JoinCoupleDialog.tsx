@@ -67,7 +67,7 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
         .from('couples')
         .select('*')
         .eq('couple_code', code)
-        .maybeSingle();
+        .single();
 
       if (findError) throw findError;
       if (!couple) {
