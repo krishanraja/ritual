@@ -57,7 +57,7 @@ const WeeklyInput = () => {
   const currentQuestion = QUESTIONS[currentStep];
   const isLastQuestion = currentStep === QUESTIONS.length - 1;
 
-  // Fetch couple data
+  // Fetch couple data and check if partner is waiting
   useEffect(() => {
     const fetchCouple = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -67,7 +67,33 @@ const WeeklyInput = () => {
           .select('*')
           .or(`partner_one.eq.${user.id},partner_two.eq.${user.id}`)
           .maybeSingle();
-        if (data) setCouple(data);
+        
+        if (data) {
+          setCouple(data);
+          
+          // Check if partner already submitted this week
+          const weekStart = new Date();
+          weekStart.setHours(0, 0, 0, 0);
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+
+          const { data: cycleData } = await supabase
+            .from('weekly_cycles')
+            .select('*')
+            .eq('couple_id', data.id)
+            .eq('week_start_date', weekStart.toISOString().split('T')[0])
+            .maybeSingle();
+
+          if (cycleData) {
+            const isPartnerOne = data.partner_one === user.id;
+            const partnerSubmitted = isPartnerOne 
+              ? !!cycleData.partner_two_input 
+              : !!cycleData.partner_one_input;
+            
+            if (partnerSubmitted) {
+              toast.info("Your partner is waiting for you! 💕", { duration: 3000 });
+            }
+          }
+        }
       }
     };
     fetchCouple();
