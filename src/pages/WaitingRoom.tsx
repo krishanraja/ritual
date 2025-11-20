@@ -38,13 +38,6 @@ const WaitingRoom = () => {
         return;
       }
 
-      // Check if couple is complete
-      if (!coupleData.partner_two) {
-        toast.info("Share your code with your partner to get started!");
-        navigate("/");
-        return;
-      }
-
       setCouple(coupleData);
 
       // Get current week's cycle
@@ -74,11 +67,6 @@ const WaitingRoom = () => {
         if (bothDone && !cycleData.synthesized_output) {
           triggerRitualGeneration(cycleData, coupleData);
         }
-      } else {
-        // No cycle yet - redirect to input page
-        toast.info("Submit your weekly input to get started!");
-        navigate("/input");
-        return;
       }
     };
 
@@ -188,13 +176,142 @@ const WaitingRoom = () => {
     };
   }, [cycle, bothSubmitted, couple, navigate]);
 
-  if (!couple || !cycle) {
+  // Show loading state
+  if (!couple) {
     return (
       <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Loading...</p>
         </div>
+      </div>
+    );
+  }
+
+  // If couple is incomplete, show share code prominently
+  if (!couple.partner_two) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex flex-col">
+        <header className="w-full px-6 py-4 flex items-center justify-between bg-white/80 backdrop-blur-sm border-b border-border/30">
+          <div className="flex items-center gap-3">
+            <img src={ritualLogo} alt="Ritual" className="h-8" />
+            <span className="text-sm font-medium text-muted-foreground">Waiting Room</span>
+          </div>
+          <Button
+            onClick={() => navigate("/")}
+            variant="ghost"
+            size="sm"
+          >
+            Back to Home
+          </Button>
+        </header>
+
+        <div className="flex-1 flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-lg w-full text-center space-y-8"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="flex justify-center"
+            >
+              <Users className="w-24 h-24 text-primary" />
+            </motion.div>
+
+            <div className="space-y-4">
+              <h1 className="text-3xl font-bold text-foreground">
+                Invite Your Partner
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                Share your couple code so you can start creating rituals together
+              </p>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-card border border-border/30">
+              <p className="text-sm text-muted-foreground mb-4">Your Couple Code</p>
+              <div className="text-6xl font-bold text-primary tracking-widest mb-6">
+                {couple.couple_code}
+              </div>
+              <Button
+                onClick={() => {
+                  navigator.clipboard.writeText(couple.couple_code);
+                  toast.success("Code copied to clipboard!");
+                }}
+                size="lg"
+                className="w-full gap-2"
+              >
+                <Share2 className="w-5 h-5" />
+                Copy & Share Code
+              </Button>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Once your partner joins with this code, you'll both be able to submit your weekly inputs and create rituals together.
+            </p>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // If no cycle yet, prompt to submit input
+  if (!cycle) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex flex-col">
+        <header className="w-full px-6 py-4 flex items-center justify-between bg-white/80 backdrop-blur-sm border-b border-border/30">
+          <div className="flex items-center gap-3">
+            <img src={ritualLogo} alt="Ritual" className="h-8" />
+            <span className="text-sm font-medium text-muted-foreground">Waiting Room</span>
+          </div>
+          <Button
+            onClick={() => setShowViewCode(true)}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Share2 className="w-4 h-4" />
+            Share Code
+          </Button>
+        </header>
+
+        <div className="flex-1 flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-lg w-full text-center space-y-8"
+          >
+            <Heart className="w-24 h-24 text-primary mx-auto" />
+            
+            <div className="space-y-4">
+              <h1 className="text-3xl font-bold text-foreground">
+                Ready to Start?
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                Submit your weekly input to begin creating rituals together
+              </p>
+            </div>
+
+            <Button
+              onClick={() => navigate("/input")}
+              size="lg"
+              className="w-full"
+            >
+              Submit Weekly Input
+            </Button>
+          </motion.div>
+        </div>
+
+        <ViewCoupleCodeDialog 
+          open={showViewCode} 
+          onOpenChange={setShowViewCode} 
+          coupleCode={couple.couple_code} 
+        />
       </div>
     );
   }
