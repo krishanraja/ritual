@@ -46,8 +46,19 @@ const RitualCards = () => {
   const currentCard = cards[currentIndex];
 
   const handleSwap = () => {
-    // In real implementation, this would call AI to generate a new ritual
-    setCards([...cards]);
+    // For now, replace with a new mock ritual (different from the ones we have)
+    const newRitual = {
+      id: Date.now(),
+      title: "Sunrise Coffee Date",
+      category: "Connection",
+      description: "Wake up early together and find a spot to watch the sunrise. Bring a thermos of coffee and enjoy the quiet morning moments.",
+      time_estimate: "1 hour",
+      budget_band: "$",
+    };
+    
+    const newCards = [...cards];
+    newCards[currentIndex] = newRitual;
+    setCards(newCards);
   };
 
   const handleKeep = () => {
@@ -75,6 +86,21 @@ const RitualCards = () => {
       {/* Card Stack */}
       <div className="flex-1 flex items-center justify-center relative px-4">
         <div className="w-full max-w-md h-[500px] relative">
+          {/* Background stacked cards */}
+          {cards.slice(currentIndex + 1, currentIndex + 3).map((ritual, index) => (
+            <div
+              key={ritual.id}
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                transform: `translateY(${(index + 1) * 12}px) scale(${1 - (index + 1) * 0.03})`,
+                opacity: 0.5 - index * 0.2,
+                zIndex: -(index + 1)
+              }}
+            >
+              <Card className="h-full bg-card rounded-3xl shadow-card border-none p-8" />
+            </div>
+          ))}
+          
           <AnimatePresence mode="wait">
             {currentCard && (
               <motion.div
@@ -94,7 +120,7 @@ const RitualCards = () => {
                     }
                   }
                 }}
-                className="absolute inset-0"
+                className="absolute inset-0 z-10"
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}

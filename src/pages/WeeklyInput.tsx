@@ -56,7 +56,7 @@ const WeeklyInput = () => {
   // Handle Enter key press
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey && answers[currentQuestion.id]) {
+      if (e.key === 'Enter' && !e.shiftKey && answers[currentQuestion.id] !== undefined) {
         handleNext();
       }
     };
@@ -297,7 +297,7 @@ const WeeklyInput = () => {
           
           <Button
             onClick={handleNext}
-            disabled={!answers[currentQuestion.id] || submitting}
+            disabled={answers[currentQuestion.id] === undefined || submitting}
             size="lg"
             className="flex-1 bg-gradient-ritual text-white hover:opacity-90 rounded-2xl h-14 text-lg"
           >
