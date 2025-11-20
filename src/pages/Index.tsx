@@ -17,43 +17,40 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      console.error("Session check timed out");
-      setLoading(false);
-    }, 5000);
-
-    // Check for Supabase configuration
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
-      console.error("Supabase environment variables not configured");
-      setLoading(false);
-      return;
-    }
-
-    supabase.auth.getSession()
-      .then(({ data: { session }, error }) => {
-        clearTimeout(timeout);
-        if (error) {
-          console.error("Error fetching session:", error);
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        // If refresh token error, clear storage and reset
+        if (error?.message?.includes('Refresh Token')) {
+          console.log("Clearing invalid auth tokens");
+          await supabase.auth.signOut();
+          setUser(null);
+          setLoading(false);
+          return;
         }
+        
+        if (error) {
+          console.error("Session error:", error);
+        }
+        
         setUser(session?.user ?? null);
         setLoading(false);
-      })
-      .catch((error) => {
-        clearTimeout(timeout);
-        console.error("Session fetch failed:", error);
+      } catch (error) {
+        console.error("Auth initialization failed:", error);
+        setUser(null);
         setLoading(false);
-      });
+      }
+    };
+
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {

@@ -16,24 +16,24 @@ const Auth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      console.error("Auth session check timed out");
-    }, 5000);
-
-    supabase.auth.getSession()
-      .then(({ data: { session }, error }) => {
-        clearTimeout(timeout);
-        if (error) {
-          console.error("Error checking auth session:", error);
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error?.message?.includes('Refresh Token')) {
+          await supabase.auth.signOut();
+          return;
         }
+        
         if (session) {
           navigate("/");
         }
-      })
-      .catch((error) => {
-        clearTimeout(timeout);
-        console.error("Auth session check failed:", error);
-      });
+      } catch (error) {
+        console.error("Auth check failed:", error);
+      }
+    };
+
+    checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
@@ -41,10 +41,7 @@ const Auth = () => {
       }
     });
 
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
