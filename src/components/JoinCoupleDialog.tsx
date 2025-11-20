@@ -18,6 +18,12 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !loading && yourName.trim() && code.length === 6) {
+      handleJoin();
+    }
+  };
+
   const handleJoin = async () => {
     if (!yourName.trim() || !code.trim()) {
       toast.error("Please fill in all fields");
@@ -132,6 +138,7 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
               placeholder="Enter your name"
               value={yourName}
               onChange={(e) => setYourName(e.target.value)}
+              onKeyPress={handleKeyPress}
               className="border-primary/30 rounded-xl h-12 text-lg"
             />
           </div>
@@ -143,8 +150,10 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
               placeholder="000000"
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onKeyPress={handleKeyPress}
               className="border-primary/30 rounded-xl h-12 text-lg text-center tracking-widest text-2xl font-bold"
               maxLength={6}
+              autoFocus
             />
           </div>
 

@@ -145,6 +145,19 @@ const Index = () => {
           <p className="text-lg text-muted-foreground max-w-sm mx-auto">
             Build weekly rituals with someone special. Both contribute, AI synthesizes your perfect week.
           </p>
+          {!user && (
+            <p className="text-sm text-muted-foreground pt-2">
+              <button 
+                onClick={() => {
+                  navigate("/auth");
+                  setTimeout(() => setShowJoin(true), 500);
+                }}
+                className="text-primary hover:underline"
+              >
+                Have a partner code?
+              </button>
+            </p>
+          )}
         </motion.div>
 
         {/* Heart animation */}
