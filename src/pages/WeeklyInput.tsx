@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import { ViewCoupleCodeDialog } from "@/components/ViewCoupleCodeDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -48,10 +49,28 @@ const WeeklyInput = () => {
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [direction, setDirection] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [couple, setCouple] = useState<any>(null);
+  const [showViewCode, setShowViewCode] = useState(false);
   const navigate = useNavigate();
 
   const currentQuestion = QUESTIONS[currentStep];
   const isLastQuestion = currentStep === QUESTIONS.length - 1;
+
+  // Fetch couple data
+  useEffect(() => {
+    const fetchCouple = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('couples')
+          .select('*')
+          .or(`partner_one.eq.${user.id},partner_two.eq.${user.id}`)
+          .maybeSingle();
+        if (data) setCouple(data);
+      }
+    };
+    fetchCouple();
+  }, []);
 
   // Handle Enter key press
   useEffect(() => {
@@ -198,7 +217,7 @@ const WeeklyInput = () => {
   return (
     <div className="min-h-screen bg-gradient-calm flex flex-col">
       {/* Progress */}
-      <div className="max-w-md mx-auto w-full space-y-2 mb-6 px-4 sm:px-6 pt-4 safe-top">
+      <div className="max-w-md mx-auto w-full space-y-2 mb-6 px-4 sm:px-6 pt-4 safe-top relative">
         <div className="flex justify-between text-sm text-muted-foreground">
           <span>Your weekly input</span>
           <span>{currentStep + 1} / {QUESTIONS.length}</span>
@@ -211,6 +230,17 @@ const WeeklyInput = () => {
             transition={{ duration: 0.3 }}
           />
         </div>
+        {couple && (
+          <Button
+            onClick={() => setShowViewCode(true)}
+            variant="ghost"
+            size="sm"
+            className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share Code
+          </Button>
+        )}
       </div>
 
       {/* Question Card */}
@@ -306,6 +336,14 @@ const WeeklyInput = () => {
           </Button>
         </div>
       </div>
+      
+      {couple && (
+        <ViewCoupleCodeDialog 
+          open={showViewCode} 
+          onOpenChange={setShowViewCode} 
+          coupleCode={couple.couple_code} 
+        />
+      )}
     </div>
   );
 };

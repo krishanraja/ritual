@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Heart, LogOut } from "lucide-react";
+import { Heart, LogOut, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ritualLogo from "@/assets/ritual-logo.png";
 import { CreateCoupleDialog } from "@/components/CreateCoupleDialog";
 import { JoinCoupleDialog } from "@/components/JoinCoupleDialog";
+import { ViewCoupleCodeDialog } from "@/components/ViewCoupleCodeDialog";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [showViewCode, setShowViewCode] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
   const [couple, setCouple] = useState<any>(null);
@@ -196,6 +198,15 @@ const Index = () => {
                   View Rituals
                 </Button>
               )}
+              <Button
+                onClick={() => setShowViewCode(true)}
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share Couple Code
+              </Button>
             </>
           ) : (
             <>
@@ -232,6 +243,13 @@ const Index = () => {
 
       <CreateCoupleDialog open={showCreate} onOpenChange={setShowCreate} />
       <JoinCoupleDialog open={showJoin} onOpenChange={setShowJoin} />
+      {couple && (
+        <ViewCoupleCodeDialog 
+          open={showViewCode} 
+          onOpenChange={setShowViewCode} 
+          coupleCode={couple.couple_code} 
+        />
+      )}
     </div>
   );
 };
