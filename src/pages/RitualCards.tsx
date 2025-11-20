@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { Clock, DollarSign, Sparkles, RotateCcw } from "lucide-react";
+import { Clock, DollarSign, Sparkles, RotateCcw, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ViewCoupleCodeDialog } from "@/components/ViewCoupleCodeDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 const MOCK_RITUALS = [
   {
@@ -42,8 +44,26 @@ const MOCK_RITUALS = [
 const RitualCards = () => {
   const [cards, setCards] = useState(MOCK_RITUALS);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [couple, setCouple] = useState<any>(null);
+  const [showViewCode, setShowViewCode] = useState(false);
 
   const currentCard = cards[currentIndex];
+
+  // Fetch couple data
+  useEffect(() => {
+    const fetchCouple = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('couples')
+          .select('*')
+          .or(`partner_one.eq.${user.id},partner_two.eq.${user.id}`)
+          .maybeSingle();
+        if (data) setCouple(data);
+      }
+    };
+    fetchCouple();
+  }, []);
 
   const handleSwap = () => {
     // For now, replace with a new mock ritual (different from the ones we have)
@@ -74,13 +94,24 @@ const RitualCards = () => {
   return (
     <div className="min-h-screen bg-gradient-calm flex flex-col p-6">
       {/* Header */}
-      <div className="max-w-md mx-auto w-full py-4">
+      <div className="max-w-md mx-auto w-full py-4 relative">
         <h1 className="text-3xl font-bold text-center text-foreground mb-2">
           Your Weekly Rituals
         </h1>
         <p className="text-center text-muted-foreground">
           Swipe to keep or swap rituals
         </p>
+        {couple && (
+          <Button
+            onClick={() => setShowViewCode(true)}
+            variant="ghost"
+            size="sm"
+            className="absolute top-4 right-0 text-muted-foreground hover:text-foreground"
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share Code
+          </Button>
+        )}
       </div>
 
       {/* Card Stack */}
@@ -189,6 +220,14 @@ const RitualCards = () => {
       <div className="max-w-md mx-auto w-full text-center pt-4 text-sm text-muted-foreground">
         {currentIndex + 1} of {cards.length} rituals
       </div>
+      
+      {couple && (
+        <ViewCoupleCodeDialog 
+          open={showViewCode} 
+          onOpenChange={setShowViewCode} 
+          coupleCode={couple.couple_code} 
+        />
+      )}
     </div>
   );
 };
