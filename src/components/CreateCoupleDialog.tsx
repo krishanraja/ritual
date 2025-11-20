@@ -81,7 +81,15 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
           couple_code: code,
         });
 
-      if (error) throw error;
+      if (error) {
+        // Check if it's a uniqueness violation
+        if (error.code === '23505') { // PostgreSQL unique violation
+          toast.error("Code collision detected. Generating a new code...");
+          generateCode(); // Retry automatically
+          return;
+        }
+        throw error;
+      }
 
       setCoupleCode(code);
       toast.success("Couple created! Share your code with your partner.");
