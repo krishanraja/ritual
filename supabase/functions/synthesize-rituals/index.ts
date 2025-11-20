@@ -23,24 +23,33 @@ serve(async (req) => {
     if (action === 'swap') {
       const { currentRitual, inputs } = weeklyInputs;
       
-      const swapPrompt = `You are a creative ritual designer. Generate ONE surprising and delightful alternative ritual that is different from this current one:
+      const swapPrompt = `You are a creative ritual designer for couples in New York City. Generate ONE surprising and delightful alternative ritual that is different from this current one:
 
 Current Ritual: ${currentRitual.title}
 ${currentRitual.description}
 
-User Inputs:
-- Energy: ${inputs.partner_one_input.energy} / ${inputs.partner_two_input.energy}
-- Time: ${inputs.partner_one_input.availability} / ${inputs.partner_two_input.availability}
-- Budget: ${inputs.partner_one_input.budget} / ${inputs.partner_two_input.budget}
-- Cravings: ${inputs.partner_one_input.craving} / ${inputs.partner_two_input.craving}
-- Desires: "${inputs.partner_one_input.desire}" / "${inputs.partner_two_input.desire}"
+Partner 1 Inputs:
+- Energy: ${inputs.partner_one_input.energy}
+- Time: ${inputs.partner_one_input.availability}
+- Budget: ${inputs.partner_one_input.budget}
+- Craving: ${inputs.partner_one_input.craving}
+- Desire: "${inputs.partner_one_input.desire}"
 
-Create a completely different ritual that:
+Partner 2 Inputs:
+- Energy: ${inputs.partner_two_input.energy}
+- Time: ${inputs.partner_two_input.availability}
+- Budget: ${inputs.partner_two_input.budget}
+- Craving: ${inputs.partner_two_input.craving}
+- Desire: "${inputs.partner_two_input.desire}"
+
+Create a completely different NYC-specific ritual that:
 - Is unexpected and delightful, not generic
-- Matches their inputs but is more creative than the current one
-- Has personality and spark
+- Takes advantage of NYC's unique neighborhoods, culture, food scene, or hidden gems
+- Balances BOTH partners' energy levels, time availability, budget, cravings, and desires
+- Synthesizes their different inputs into one harmonious experience
+- Has personality and spark specific to NYC living
 - Feels special, not like a typical date
-- Include sensory details and specificity
+- Include sensory details and NYC-specific locations or experiences
 
 Return ONLY valid JSON (no markdown, no explanation) in this exact format:
 {
@@ -106,7 +115,7 @@ Return ONLY valid JSON (no markdown, no explanation) in this exact format:
     const partner_one = partnerOneInput;
     const partner_two = partnerTwoInput;
     
-    const synthesisPrompt = `You are a creative ritual designer creating a week of shared experiences for a couple. Be creative, unexpected, and delightful.
+    const synthesisPrompt = `You are a creative ritual designer creating a week of shared experiences for a couple living in New York City. Be creative, unexpected, and delightful.
 
 Partner 1:
 - Energy: ${partner_one.energy}
@@ -122,14 +131,24 @@ Partner 2:
 - Craving: ${partner_two.craving}
 - Desire: "${partner_two.desire}"
 
-Create 4-5 surprising, creative rituals that:
-- Are NOT generic (avoid "sunset picnic", "coffee date" unless adding unique twist)
-- Have personality and sensory details
-- Balance both partners' needs creatively
-- Feel special and memorable
-- Range from quick moments to longer experiences
-- Include unexpected combinations
-- Make people say "wow, I never thought of that!"
+CRITICAL: Analyze BOTH partners' inputs carefully and create rituals that:
+- Balance and synthesize their different energy levels, time constraints, budgets, and desires
+- Find creative compromises when their inputs differ (e.g., one has low energy, one has high)
+- Respect BOTH partners' cravings and incorporate elements from each
+- Consider the time availability of BOTH (if one has 30min and other has 2hrs, suggest ~1hr activities)
+- Stay within the lower budget constraint to ensure accessibility for both
+- Weave BOTH desires into each ritual in meaningful ways
+
+Create 4-5 surprising, NYC-specific rituals that:
+- Are NOT generic (avoid "sunset picnic", "coffee date" unless adding unique NYC twist)
+- Leverage NYC's unique neighborhoods, hidden gems, food scene, culture, and energy
+- Have personality and rich sensory details specific to NYC
+- Balance BOTH partners' needs creatively and explicitly
+- Feel special and memorable - uniquely New York moments
+- Range from quick moments to longer experiences based on their time availability
+- Include unexpected combinations that only NYC can offer
+- Make people say "wow, I never thought of that!" and "this is so us AND so NYC!"
+- Reference specific NYC locations, neighborhoods, or experiences when relevant
 
 Return ONLY valid JSON (no markdown, no explanation) in this exact format:
 [
