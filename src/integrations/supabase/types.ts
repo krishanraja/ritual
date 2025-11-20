@@ -273,6 +273,8 @@ export type Database = {
       }
       weekly_cycles: {
         Row: {
+          canvas_state_one: Json | null
+          canvas_state_two: Json | null
           couple_id: string
           created_at: string
           generated_at: string | null
@@ -281,10 +283,13 @@ export type Database = {
           partner_one_submitted_at: string | null
           partner_two_input: Json | null
           partner_two_submitted_at: string | null
+          sync_completed_at: string | null
           synthesized_output: Json | null
           week_start_date: string
         }
         Insert: {
+          canvas_state_one?: Json | null
+          canvas_state_two?: Json | null
           couple_id: string
           created_at?: string
           generated_at?: string | null
@@ -293,10 +298,13 @@ export type Database = {
           partner_one_submitted_at?: string | null
           partner_two_input?: Json | null
           partner_two_submitted_at?: string | null
+          sync_completed_at?: string | null
           synthesized_output?: Json | null
           week_start_date: string
         }
         Update: {
+          canvas_state_one?: Json | null
+          canvas_state_two?: Json | null
           couple_id?: string
           created_at?: string
           generated_at?: string | null
@@ -305,6 +313,7 @@ export type Database = {
           partner_one_submitted_at?: string | null
           partner_two_input?: Json | null
           partner_two_submitted_at?: string | null
+          sync_completed_at?: string | null
           synthesized_output?: Json | null
           week_start_date?: string
         }

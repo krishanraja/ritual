@@ -9,6 +9,7 @@ import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import WeeklyInput from "./pages/WeeklyInput";
+import MagneticInput from "./pages/MagneticInput";
 import RitualCards from "./pages/RitualCards";
 import History from "./pages/History";
 import Profile from "./pages/Profile";
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/home" element={<Home />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/input" element={<WeeklyInput />} />
+              <Route path="/magnetic" element={<MagneticInput />} />
               <Route path="/rituals" element={<RitualCards />} />
               <Route path="/history" element={<History />} />
               <Route path="/profile" element={<Profile />} />
