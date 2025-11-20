@@ -38,6 +38,13 @@ const WaitingRoom = () => {
         return;
       }
 
+      // Check if couple is complete
+      if (!coupleData.partner_two) {
+        toast.info("Share your code with your partner to get started!");
+        navigate("/");
+        return;
+      }
+
       setCouple(coupleData);
 
       // Get current week's cycle
@@ -67,6 +74,11 @@ const WaitingRoom = () => {
         if (bothDone && !cycleData.synthesized_output) {
           triggerRitualGeneration(cycleData, coupleData);
         }
+      } else {
+        // No cycle yet - redirect to input page
+        toast.info("Submit your weekly input to get started!");
+        navigate("/input");
+        return;
       }
     };
 
