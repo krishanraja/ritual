@@ -128,7 +128,7 @@ const WeeklyInput = () => {
       const isPartnerOne = couple.partner_one === user.id;
       const weekStart = new Date();
       weekStart.setHours(0, 0, 0, 0);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 
       // Check if there's an existing cycle for this week
       const { data: existingCycle } = await supabase
@@ -140,39 +140,92 @@ const WeeklyInput = () => {
 
       const inputData = {
         energy: finalAnswers.energy,
-        time: finalAnswers.availability,
+        availability: finalAnswers.availability,
         budget: finalAnswers.budget,
         craving: finalAnswers.craving,
         desire: finalAnswers.desire,
       };
 
+      let updatedCycle;
+      
       if (existingCycle) {
         // Update existing cycle
-        const { error: updateError } = await supabase
+        const { data, error: updateError } = await supabase
           .from('weekly_cycles')
           .update({
             [isPartnerOne ? 'partner_one_input' : 'partner_two_input']: inputData,
             [isPartnerOne ? 'partner_one_submitted_at' : 'partner_two_submitted_at']: new Date().toISOString(),
           })
-          .eq('id', existingCycle.id);
+          .eq('id', existingCycle.id)
+          .select()
+          .single();
 
         if (updateError) throw updateError;
+        updatedCycle = data;
       } else {
         // Create new cycle
-        const { error: insertError } = await supabase
+        const { data, error: insertError } = await supabase
           .from('weekly_cycles')
           .insert({
             couple_id: couple.id,
             week_start_date: weekStart.toISOString().split('T')[0],
             [isPartnerOne ? 'partner_one_input' : 'partner_two_input']: inputData,
             [isPartnerOne ? 'partner_one_submitted_at' : 'partner_two_submitted_at']: new Date().toISOString(),
-          });
+          })
+          .select()
+          .single();
 
         if (insertError) throw insertError;
+        updatedCycle = data;
       }
 
-      toast.success("Input saved! Waiting for your partner...");
-      navigate("/rituals");
+      // Check if both partners have submitted
+      const bothSubmitted = updatedCycle.partner_one_input && updatedCycle.partner_two_input;
+
+      if (bothSubmitted && !updatedCycle.synthesized_output) {
+        // Both partners submitted - trigger synthesis!
+        toast.loading("Creating your rituals...", { id: "synthesis" });
+        
+        try {
+          const { data: synthesisData, error: synthesisError } = await supabase.functions.invoke('synthesize-rituals', {
+            body: {
+              partnerOneInput: updatedCycle.partner_one_input,
+              partnerTwoInput: updatedCycle.partner_two_input,
+              coupleId: couple.id
+            }
+          });
+
+          if (synthesisError) throw synthesisError;
+
+          if (synthesisData.error) {
+            toast.error(synthesisData.error, { id: "synthesis" });
+            toast.info("Your inputs are saved. Rituals will generate when available.");
+            navigate("/");
+            return;
+          }
+
+          // Save synthesized rituals to database
+          const { error: updateSynthesisError } = await supabase
+            .from('weekly_cycles')
+            .update({
+              synthesized_output: synthesisData.rituals,
+              generated_at: new Date().toISOString(),
+            })
+            .eq('id', updatedCycle.id);
+
+          if (updateSynthesisError) throw updateSynthesisError;
+
+          toast.success("Your weekly rituals are ready!", { id: "synthesis" });
+          navigate("/rituals");
+        } catch (synthError: any) {
+          console.error('Synthesis error:', synthError);
+          toast.error("Failed to generate rituals. Your inputs are saved.", { id: "synthesis" });
+          navigate("/");
+        }
+      } else {
+        toast.success("Input saved! Waiting for your partner...");
+        navigate("/");
+      }
     } catch (error: any) {
       console.error('Submit error:', error);
       toast.error(error.message);
@@ -329,10 +382,19 @@ const WeeklyInput = () => {
             onClick={handleNext}
             disabled={answers[currentQuestion.id] === undefined || submitting}
             size="lg"
-            className="flex-1 bg-gradient-ritual text-white hover:opacity-90 rounded-2xl h-14 text-lg"
+            className="flex-1 bg-gradient-ritual text-white hover:opacity-90 rounded-2xl h-14 text-lg disabled:opacity-50"
           >
-            {submitting ? "Saving..." : isLastQuestion ? "Submit" : "Next"}
-            {!isLastQuestion && !submitting && <ChevronRight className="w-5 h-5 ml-2" />}
+            {submitting ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                {isLastQuestion ? "Creating rituals..." : "Saving..."}
+              </span>
+            ) : (
+              <>
+                {isLastQuestion ? "Submit" : "Next"}
+                {!isLastQuestion && <ChevronRight className="w-5 h-5 ml-2" />}
+              </>
+            )}
           </Button>
         </div>
       </div>

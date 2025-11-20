@@ -8,6 +8,7 @@ import { JoinCoupleDialog } from "@/components/JoinCoupleDialog";
 import { ViewCoupleCodeDialog } from "@/components/ViewCoupleCodeDialog";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Index = () => {
   const [showCreate, setShowCreate] = useState(false);
@@ -62,8 +63,8 @@ const Index = () => {
       };
       fetchCouple();
 
-      // Subscribe to realtime updates
-      const channel = supabase
+      // Subscribe to realtime updates for couples and weekly cycles
+      const couplesChannel = supabase
         .channel('couples-changes')
         .on(
           'postgres_changes',
@@ -78,8 +79,27 @@ const Index = () => {
         )
         .subscribe();
 
+      const cyclesChannel = supabase
+        .channel('cycles-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'weekly_cycles',
+          },
+          (payload) => {
+            // Check if synthesis was just completed
+            if (payload.new.synthesized_output && !payload.old.synthesized_output) {
+              toast.success("Your weekly rituals are ready! 🎉");
+            }
+          }
+        )
+        .subscribe();
+
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(couplesChannel);
+        supabase.removeChannel(cyclesChannel);
       };
     }
   }, [user]);

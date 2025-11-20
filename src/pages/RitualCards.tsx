@@ -96,6 +96,24 @@ const RitualCards = () => {
         if (cycle?.synthesized_output) {
           setCards(cycle.synthesized_output as any[]);
           setWeeklyInputs(cycle);
+        } else if (cycle) {
+          // Check if waiting for partner
+          const hasPartnerOne = !!cycle.partner_one_input;
+          const hasPartnerTwo = !!cycle.partner_two_input;
+          
+          if (hasPartnerOne && hasPartnerTwo) {
+            toast.info("Rituals are being generated...");
+          } else {
+            const isPartnerOne = coupleData.partner_one === user.id;
+            const userSubmitted = isPartnerOne ? hasPartnerOne : hasPartnerTwo;
+            
+            if (userSubmitted) {
+              toast.info("Waiting for your partner to submit their input...");
+            } else {
+              toast.info("Submit your weekly input to get started!");
+            }
+          }
+          navigate("/input");
         } else {
           toast.info("No rituals for this week yet. Submit your weekly inputs!");
           navigate("/input");
