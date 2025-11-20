@@ -341,6 +341,7 @@ const RitualCards = () => {
           coupleCode={couple.couple_code} 
         />
       )}
+      </div>
     </div>
   );
 };
