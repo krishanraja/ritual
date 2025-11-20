@@ -282,6 +282,7 @@ const Index = () => {
           Free to start • Weekly rituals designed by AI
         </motion.p>
       </motion.div>
+      </div>
 
       <CreateCoupleDialog open={showCreate} onOpenChange={setShowCreate} />
       <JoinCoupleDialog open={showJoin} onOpenChange={setShowJoin} />
