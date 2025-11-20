@@ -16,11 +16,24 @@ const Auth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/");
-      }
-    });
+    const timeout = setTimeout(() => {
+      console.error("Auth session check timed out");
+    }, 5000);
+
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        clearTimeout(timeout);
+        if (error) {
+          console.error("Error checking auth session:", error);
+        }
+        if (session) {
+          navigate("/");
+        }
+      })
+      .catch((error) => {
+        clearTimeout(timeout);
+        console.error("Auth session check failed:", error);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
@@ -28,7 +41,10 @@ const Auth = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {

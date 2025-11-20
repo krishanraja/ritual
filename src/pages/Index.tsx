@@ -17,29 +17,62 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    // Timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      console.error("Session check timed out");
       setLoading(false);
-    });
+    }, 5000);
+
+    // Check for Supabase configuration
+    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+      console.error("Supabase environment variables not configured");
+      setLoading(false);
+      return;
+    }
+
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        clearTimeout(timeout);
+        if (error) {
+          console.error("Error fetching session:", error);
+        }
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch((error) => {
+        clearTimeout(timeout);
+        console.error("Session fetch failed:", error);
+        setLoading(false);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
     if (user) {
       const fetchCouple = async () => {
-        const { data } = await supabase
-          .from('couples')
-          .select('*')
-          .or(`partner_one.eq.${user.id},partner_two.eq.${user.id}`)
-          .maybeSingle();
-        
-        setCouple(data);
+        try {
+          const { data, error } = await supabase
+            .from('couples')
+            .select('*')
+            .or(`partner_one.eq.${user.id},partner_two.eq.${user.id}`)
+            .maybeSingle();
+          
+          if (error) {
+            console.error("Error fetching couple:", error);
+          }
+          setCouple(data);
+        } catch (error) {
+          console.error("Failed to fetch couple:", error);
+        }
       };
       fetchCouple();
 
@@ -72,8 +105,9 @@ const Index = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-warm flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-warm flex flex-col items-center justify-center gap-4">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-muted-foreground text-sm">Loading...</p>
       </div>
     );
   }
