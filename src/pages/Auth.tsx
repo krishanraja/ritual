@@ -16,26 +16,19 @@ const Auth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error?.message?.includes('Refresh Token')) {
-          await supabase.auth.signOut();
-          return;
-        }
-        
-        if (session) {
-          navigate("/");
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error);
-      }
-    };
-
-    checkAuth();
-
+    // Set up listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth event on /auth:", event);
+      if (session) {
+        navigate("/");
+      }
+    });
+
+    // Then check existing session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.log("Auth page session check error:", error.message);
+      }
       if (session) {
         navigate("/");
       }

@@ -12,40 +12,27 @@ const Index = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [session, setSession] = useState<any>(null);
   const [couple, setCouple] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        // If refresh token error, clear storage and reset
-        if (error?.message?.includes('Refresh Token')) {
-          console.log("Clearing invalid auth tokens");
-          await supabase.auth.signOut();
-          setUser(null);
-          setLoading(false);
-          return;
-        }
-        
-        if (error) {
-          console.error("Session error:", error);
-        }
-        
-        setUser(session?.user ?? null);
-        setLoading(false);
-      } catch (error) {
-        console.error("Auth initialization failed:", error);
-        setUser(null);
-        setLoading(false);
-      }
-    };
-
-    initAuth();
-
+    // Set up listener FIRST before checking session
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("Auth state changed:", _event, !!session);
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      // Only log errors, don't sign out - let auth state change handle it
+      if (error) {
+        console.log("Session check error (may be stale):", error.message);
+      }
+      setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -97,6 +84,8 @@ const Index = () => {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
     setCouple(null);
   };
 
