@@ -105,39 +105,17 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
       if (updateError) throw updateError;
       
       if (!updatedCouple) {
-        toast.error("Someone else just joined this couple. Please try a different code.");
+        toast.error("Unable to join couple. Please try again or contact support.");
         return;
       }
-
-      // Check if there's a pending weekly cycle
-      const weekStart = new Date();
-      weekStart.setHours(0, 0, 0, 0);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-
-      const { data: pendingCycle } = await supabase
-        .from('weekly_cycles')
-        .select('*')
-        .eq('couple_id', updatedCouple.id)
-        .eq('week_start_date', weekStart.toISOString().split('T')[0])
-        .maybeSingle();
-
-      const partnerAlreadySubmitted = pendingCycle && (
-        (updatedCouple.partner_one === user.id && pendingCycle.partner_two_input) ||
-        (updatedCouple.partner_two === user.id && pendingCycle.partner_one_input)
-      );
 
       toast.success("Successfully joined your partner's ritual!");
       onOpenChange(false);
       setYourName("");
       setCode("");
 
-      // Navigate based on whether partner already submitted
-      if (partnerAlreadySubmitted) {
-        toast.info("Your partner is waiting! Submit your input now.", { duration: 5000 });
-        navigate("/input");
-      } else {
-        navigate("/");
-      }
+      // Always navigate to input - the joining partner needs to submit their preferences
+      navigate("/input");
     } catch (error: any) {
       console.error("Join error:", error);
       toast.error(error.message || "Failed to join couple. Please try again.");
