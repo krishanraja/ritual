@@ -43,19 +43,19 @@ export const RitualCarousel = ({
   }, [api]);
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col pb-2">
       <Carousel
         setApi={setApi}
-        className="w-full flex-1"
+        className="w-full flex-1 min-h-0"
         opts={{
           align: 'center',
           loop: false,
         }}
       >
-        <CarouselContent className="h-full">
+        <CarouselContent className="h-full items-center">
           {rituals.map((ritual) => (
             <CarouselItem key={ritual.id} className="pl-4 basis-[85vw]">
-              <div className="h-full flex items-center justify-center px-1">
+              <div className="h-full flex items-center justify-center px-1 py-2">
                 <RitualCard
                   ritual={ritual}
                   isComplete={completions.has(ritual.title)}
