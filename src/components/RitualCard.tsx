@@ -33,9 +33,9 @@ export const RitualCard = ({
   showActions = true 
 }: RitualCardProps) => {
   const heights = {
-    full: 'max-h-[calc(100vh-180px)] min-h-[380px]',
-    compact: 'max-h-[calc(100vh-200px)] min-h-[320px]',
-    sample: 'max-h-[calc(100vh-200px)] min-h-[320px]'
+    full: 'max-h-[calc(100vh-220px)] min-h-[340px]',
+    compact: 'max-h-[calc(100vh-240px)] min-h-[280px]',
+    sample: 'max-h-[calc(100vh-240px)] min-h-[280px]'
   };
 
   const getCategoryColor = (category?: string) => {
