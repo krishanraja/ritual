@@ -114,11 +114,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
           // Celebrate when partner joins
           if (payload.eventType === 'UPDATE' && payload.new.partner_two && !payload.old?.partner_two) {
             toast.success("🎉 Your partner joined! Time to create rituals together!", { 
-              duration: 5000,
-              action: {
-                label: 'Start',
-                onClick: () => navigate('/input')
-              }
+              duration: 5000
             });
           }
           fetchCouple(user.id);
