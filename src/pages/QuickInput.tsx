@@ -70,7 +70,27 @@ export default function QuickInput() {
     }
 
     const initializeCycle = async () => {
+      const isPartnerOne = couple.partner_one === user?.id;
+
       if (currentCycle?.id) {
+        // Guard: Check if user already submitted
+        const userSubmitted = isPartnerOne 
+          ? currentCycle.partner_one_input 
+          : currentCycle.partner_two_input;
+        
+        const partnerSubmitted = isPartnerOne
+          ? currentCycle.partner_two_input
+          : currentCycle.partner_one_input;
+
+        if (userSubmitted) {
+          if (partnerSubmitted && currentCycle.synthesized_output) {
+            navigate('/rituals');
+          } else {
+            navigate('/home');
+          }
+          return;
+        }
+
         setWeeklyCycleId(currentCycle.id);
         return;
       }
@@ -85,9 +105,27 @@ export default function QuickInput() {
         .select('*')
         .eq('couple_id', couple.id)
         .eq('week_start_date', weekStartStr)
-        .single();
+        .maybeSingle();
 
       if (existingCycle) {
+        // Guard: Check if user already submitted
+        const userSubmitted = isPartnerOne 
+          ? existingCycle.partner_one_input 
+          : existingCycle.partner_two_input;
+        
+        const partnerSubmitted = isPartnerOne
+          ? existingCycle.partner_two_input
+          : existingCycle.partner_one_input;
+
+        if (userSubmitted) {
+          if (partnerSubmitted && existingCycle.synthesized_output) {
+            navigate('/rituals');
+          } else {
+            navigate('/home');
+          }
+          return;
+        }
+
         setWeeklyCycleId(existingCycle.id);
       } else {
         const { data: newCycle, error } = await supabase
@@ -115,6 +153,13 @@ export default function QuickInput() {
   const handleAnswer = (value: string) => {
     const key = QUESTIONS[currentStep].id;
     setAnswers(prev => ({ ...prev, [key]: value }));
+    
+    // Auto-advance for radio questions (0-3)
+    if (currentStep < 4) {
+      setTimeout(() => {
+        setCurrentStep(prev => prev + 1);
+      }, 300);
+    }
   };
 
   const handleNext = () => {
@@ -309,17 +354,7 @@ export default function QuickInput() {
                 Back
               </Button>
             )}
-            {!isLastQuestion ? (
-              <Button
-                onClick={handleNext}
-                disabled={!canProceed}
-                size="lg"
-                className="flex-1"
-              >
-                Next
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            ) : (
+            {isLastQuestion && (
               <Button
                 onClick={handleSubmit}
                 disabled={!canProceed || isSubmitting}
