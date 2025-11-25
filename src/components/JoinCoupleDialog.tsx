@@ -13,7 +13,6 @@ interface JoinCoupleDialogProps {
 }
 
 export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) => {
-  const [yourName, setYourName] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -21,25 +20,20 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     const formattedCode = code.replace('-', '');
-    if (e.key === 'Enter' && !loading && yourName.trim() && formattedCode.length === 8) {
+    if (e.key === 'Enter' && !loading && formattedCode.length === 8) {
       handleJoin();
     }
   };
 
   const handleJoin = async () => {
-    if (!yourName.trim() || !code.trim()) {
-      toast.error("Please fill in all fields");
+    if (!code.trim()) {
+      toast.error("Please enter a code");
       return;
     }
 
     const formattedCode = code.replace('-', '');
     if (formattedCode.length !== 8) {
       toast.error("Code must be 8 characters (format: XXXX-XXXX)");
-      return;
-    }
-
-    if (yourName.trim().length > 100) {
-      toast.error("Name must be less than 100 characters");
       return;
     }
 
@@ -97,14 +91,6 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
         return;
       }
 
-      // Update user's profile name
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ name: yourName.trim() })
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
-
       // Join the couple (with optimistic locking check)
       const { data: updatedCouple, error: updateError } = await supabase
         .from('couples')
@@ -123,7 +109,6 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
 
       toast.success("Successfully joined your partner's ritual!");
       onOpenChange(false);
-      setYourName("");
       setCode("");
       setErrorMessage("");
       navigate("/input");
@@ -145,18 +130,6 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
         </DialogHeader>
         
         <div className="space-y-6 pt-4">
-          <div className="space-y-2">
-            <Label htmlFor="join-name" className="text-foreground">Your name</Label>
-            <Input
-              id="join-name"
-              placeholder="Enter your name"
-              value={yourName}
-              onChange={(e) => setYourName(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="border-primary/30 rounded-xl h-12 text-lg"
-            />
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="code" className="text-foreground">Partner's code</Label>
             <Input
@@ -184,7 +157,7 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
 
           <Button
             onClick={handleJoin}
-            disabled={!yourName.trim() || code.replace('-', '').length !== 8 || loading}
+            disabled={code.replace('-', '').length !== 8 || loading}
             className="w-full bg-gradient-ritual text-white hover:opacity-90 h-12 rounded-xl text-lg"
           >
             {loading ? "Joining..." : "Join Ritual"}

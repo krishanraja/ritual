@@ -15,7 +15,6 @@ interface JoinDrawerProps {
 
 export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
   const [code, setCode] = useState('');
-  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
   const [isCodeValid, setIsCodeValid] = useState<boolean | null>(null);
@@ -81,8 +80,8 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
 
   const handleJoin = async () => {
     const formattedCode = code.replace('-', '');
-    if (!name.trim() || formattedCode.length !== 8) {
-      toast.error('Please fill in all fields');
+    if (formattedCode.length !== 8) {
+      toast.error('Please enter a valid code');
       return;
     }
 
@@ -94,12 +93,6 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
     setLoading(true);
     try {
       if (!user) throw new Error('Not authenticated');
-
-      // Update profile name
-      await supabase
-        .from('profiles')
-        .update({ name: name.trim() })
-        .eq('id', user.id);
 
       // Find and join couple
       const { data: couple } = await supabase
@@ -124,7 +117,6 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
       toast.success('Successfully joined! 🎉');
       onOpenChange(false);
       setCode('');
-      setName('');
       navigate('/');
     } catch (error: any) {
       toast.error(error.message || 'Failed to join');
@@ -145,18 +137,6 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
 
         <div className="px-6 pb-8 space-y-6">
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Your Name</Label>
-              <Input
-                id="name"
-                placeholder="Enter your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={100}
-                className="h-12 text-lg rounded-xl"
-              />
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="code">Couple Code</Label>
               <div className="relative">
@@ -199,7 +179,7 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
 
           <Button
             onClick={handleJoin}
-            disabled={loading || !isCodeValid || !name.trim()}
+            disabled={loading || !isCodeValid}
             className="w-full bg-gradient-ritual text-white hover:opacity-90 h-12 rounded-xl"
           >
             {loading ? 'Joining...' : 'Join Couple'}
