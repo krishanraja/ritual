@@ -34,8 +34,8 @@ export const WaitingForPartner = ({
 
       if (error) throw error;
 
-      toast.success(`💕 Gentle reminder sent to ${partnerName}`, {
-        description: 'They\'ll be notified when they open the app'
+      toast.success(`Nudge sent! ${partnerName} will see a reminder when they open the app`, {
+        duration: 4000
       });
     } catch (error) {
       console.error('Error sending nudge:', error);

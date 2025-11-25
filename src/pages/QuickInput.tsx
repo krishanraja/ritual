@@ -173,6 +173,8 @@ export default function QuickInput() {
           })
           .eq('id', weeklyCycleId);
 
+        // Refresh cycle data before showing animation
+        await refreshCycle();
         // Navigate will happen from SynthesisAnimation
       } else {
         toast.success('All set! We\'ll notify you when your partner is ready', {
@@ -214,7 +216,7 @@ export default function QuickInput() {
     <StrictMobileViewport>
       <div className="h-full bg-gradient-warm flex flex-col">
         {/* Progress Bar */}
-        <div className="flex-none px-6 pt-6 pb-4">
+        <div className="flex-none px-4 pt-4 pb-2">
           <div className="flex gap-1">
             {[...Array(5)].map((_, i) => (
               <div
@@ -231,7 +233,7 @@ export default function QuickInput() {
         </div>
 
         {/* Question Content */}
-        <div className="flex-1 px-6 py-8 overflow-y-auto">
+        <div className="flex-1 px-4 py-4 overflow-y-auto">
           <AnimatePresence mode="wait">
             {currentStep < QUESTIONS.length ? (
               <motion.div
@@ -241,17 +243,17 @@ export default function QuickInput() {
                 exit={{ opacity: 0, x: -20 }}
                 className="space-y-8"
               >
-                <h2 className="text-2xl font-bold">{currentQuestion.question}</h2>
+                <h2 className="text-xl md:text-2xl font-bold">{currentQuestion.question}</h2>
                 
                 <RadioGroup
                   value={answers[currentQuestion.id as keyof typeof answers]}
                   onValueChange={handleAnswer}
-                  className="space-y-3"
+                  className="space-y-2"
                 >
                   {currentQuestion.options.map((option) => (
                     <div
                       key={option}
-                      className="flex items-center space-x-3 bg-white/80 p-4 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all"
+                      className="flex items-center space-x-3 bg-white/80 p-3 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all"
                     >
                       <RadioGroupItem value={option} id={option} />
                       <Label htmlFor={option} className="flex-1 cursor-pointer text-base">
@@ -270,7 +272,7 @@ export default function QuickInput() {
                 className="space-y-6"
               >
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold">What are you hoping for this week?</h2>
+                  <h2 className="text-xl md:text-2xl font-bold">What are you hoping for this week?</h2>
                   <p className="text-sm text-muted-foreground">
                     Be specific or dreamy - whatever feels right
                   </p>
@@ -287,7 +289,7 @@ export default function QuickInput() {
         </div>
 
         {/* Navigation */}
-        <div className="flex-none p-6 space-y-3">
+        <div className="flex-none p-4 space-y-3">
           <div className="flex gap-3">
             {currentStep > 0 && (
               <Button

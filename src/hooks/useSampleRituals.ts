@@ -37,14 +37,21 @@ export function useSampleRituals() {
   }, [user]);
 
   useEffect(() => {
-    // If we have real rituals, show those
+    // Safety check: if we have synthesized_output, always show real rituals
     if (currentCycle?.synthesized_output) {
       const output = currentCycle.synthesized_output as any;
-      setRituals(output.rituals || []);
-      setIsShowingSamples(false);
+      const realRituals = output.rituals || [];
+      
+      // Only update if we actually have rituals
+      if (realRituals.length > 0) {
+        setRituals(realRituals);
+        setIsShowingSamples(false);
+        return;
+      }
     }
+    
     // If couple exists but no partner yet, or no synthesized output, show samples
-    else if (couple) {
+    if (couple) {
       const filteredRituals = userCity ? getRitualsByCity(userCity) : SAMPLE_RITUALS;
       setRituals(filteredRituals);
       setIsShowingSamples(true);

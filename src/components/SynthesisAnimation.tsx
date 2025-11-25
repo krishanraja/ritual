@@ -4,9 +4,11 @@ import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useCouple } from '@/contexts/CoupleContext';
 
 export const SynthesisAnimation = () => {
   const navigate = useNavigate();
+  const { refreshCycle } = useCouple();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -16,13 +18,15 @@ export const SynthesisAnimation = () => {
         origin: { y: 0.6 }
       });
       
-      setTimeout(() => {
+      setTimeout(async () => {
+        // Ensure cycle data is fresh before navigating
+        await refreshCycle();
         navigate('/rituals');
       }, 1000);
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [navigate, refreshCycle]);
 
   return (
     <StrictMobileViewport>

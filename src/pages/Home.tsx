@@ -1,10 +1,10 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
-import { Heart, Sparkles, Share2 } from 'lucide-react';
+import { Heart, Sparkles, Share2, X } from 'lucide-react';
 import { StreakBadge } from '@/components/StreakBadge';
 import { RitualLogo } from '@/components/RitualLogo';
 import { WaitingForPartner } from '@/components/WaitingForPartner';
@@ -14,6 +14,7 @@ import { SynthesisAnimation } from '@/components/SynthesisAnimation';
 export default function Home() {
   const { user, couple, partnerProfile, currentCycle, loading, createCouple, shareCode, joinCouple } = useCouple();
   const navigate = useNavigate();
+  const [nudgeBannerDismissed, setNudgeBannerDismissed] = useState(false);
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -120,6 +121,11 @@ export default function Home() {
   const userSubmitted = userIsPartnerOne ? hasPartnerOne : hasPartnerTwo;
   const partnerSubmitted = userIsPartnerOne ? hasPartnerTwo : hasPartnerOne;
 
+  // Check if there's a recent nudge (within 24 hours)
+  const hasRecentNudge = currentCycle?.nudged_at && 
+    (Date.now() - new Date(currentCycle.nudged_at).getTime()) < 24 * 60 * 60 * 1000;
+  const shouldShowNudgeBanner = hasRecentNudge && !userSubmitted && partnerProfile && !nudgeBannerDismissed;
+
   // Synthesis in progress: show animation
   if (userSubmitted && partnerSubmitted && !hasSynthesized) {
     return (
@@ -155,6 +161,29 @@ export default function Home() {
             <StreakBadge />
           </div>
         </div>
+
+        {/* Nudge Banner */}
+        {shouldShowNudgeBanner && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex-none mx-4 mb-2"
+          >
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+              <p className="text-sm flex-1">
+                <span className="font-semibold">{partnerProfile.name}</span> is excited to start! Complete your input to create this week's rituals.
+              </p>
+              <button
+                onClick={() => setNudgeBannerDismissed(true)}
+                className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Main Content - Centered */}
         <div className="flex-1 px-4 pb-4 flex flex-col justify-center">
