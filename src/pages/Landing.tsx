@@ -1,14 +1,47 @@
 import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import { X, MapPin, Heart, Sparkles, TrendingUp } from 'lucide-react';
 import { RitualLogo } from '@/components/RitualLogo';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSEO, addStructuredData } from '@/hooks/useSEO';
 
 export default function Landing() {
   const navigate = useNavigate();
   const { user } = useCouple();
   const [showAuthBanner, setShowAuthBanner] = useState(true);
+
+  // SEO optimization
+  useSEO({
+    title: 'Create Meaningful Weekly Rituals with Your Partner',
+    description: 'Build meaningful weekly rituals with your partner. AI-powered ritual suggestions tailored to your location in London, Sydney, Melbourne, or New York. Track completions, build streaks, and strengthen your relationship.',
+    keywords: 'relationship rituals, couple activities, weekly rituals, relationship building, shared moments, couple goals, date ideas, relationship app, partner activities',
+  });
+
+  useEffect(() => {
+    // Add structured data for landing page
+    addStructuredData({
+      '@context': 'https://schema.org',
+      '@type': 'WebApplication',
+      name: 'Ritual',
+      applicationCategory: 'LifestyleApplication',
+      operatingSystem: 'Web',
+      description: 'Build meaningful weekly rituals with your partner. AI-powered relationship building through shared experiences.',
+      url: 'https://ritual.lovable.app/',
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+      },
+      featureList: [
+        'AI-powered ritual suggestions',
+        'Location-based activities in London, Sydney, Melbourne, and New York',
+        'Partner synchronization and ranking',
+        'Streak tracking and gamification',
+        'Calendar integration',
+      ],
+    });
+  }, []);
 
   return (
     <div className="h-screen bg-gradient-warm overflow-hidden flex flex-col">
@@ -32,11 +65,33 @@ export default function Landing() {
         <RitualLogo size="xl" className="max-w-[280px]" />
         
         {/* Heading */}
-        <div className="text-center space-y-3">
-          <h1 className="text-2xl font-bold text-foreground">Create Rituals Together</h1>
-          <p className="text-sm text-foreground/70 max-w-sm mx-auto">
-            Build weekly rituals with someone special. Both contribute, AI synthesizes your perfect week.
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-bold text-foreground leading-tight">
+            Create Meaningful Weekly Rituals with Your Partner
+          </h1>
+          <p className="text-sm text-foreground/70 max-w-sm mx-auto leading-relaxed">
+            Build weekly rituals with someone special. Both contribute ideas, AI synthesizes your perfect week together. Available in London, Sydney, Melbourne, and New York.
           </p>
+          
+          {/* Feature highlights */}
+          <div className="flex flex-wrap justify-center gap-3 pt-2">
+            <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>AI-Powered</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              <MapPin className="w-3.5 h-3.5" />
+              <span>Location-Aware</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>Streak Tracking</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              <Heart className="w-3.5 h-3.5" />
+              <span>Build Together</span>
+            </div>
+          </div>
         </div>
         
         {/* CTA Buttons */}

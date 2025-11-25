@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { usePresence } from '@/hooks/usePresence';
 import { UserCircle } from 'lucide-react';
+import { useSEO } from '@/hooks/useSEO';
 
 interface AgreedRitual {
   agreed_ritual?: any;
@@ -36,6 +37,12 @@ export default function RitualCards() {
   const [completions, setCompletions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // SEO for ritual cards page
+  useSEO({
+    title: "This Week's Rituals",
+    description: "Explore your personalized weekly rituals created with your partner. Complete activities, build streaks, and strengthen your relationship.",
+  });
 
   useEffect(() => {
     if (!user) {

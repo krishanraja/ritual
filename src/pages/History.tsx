@@ -6,11 +6,18 @@ import { motion } from 'framer-motion';
 import { Calendar, Clock, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { StrictMobileViewport } from '@/components/StrictMobileViewport';
+import { useSEO } from '@/hooks/useSEO';
 
 export default function History() {
   const { couple } = useCouple();
   const [pastCycles, setPastCycles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // SEO for history page
+  useSEO({
+    title: 'Ritual History',
+    description: 'View your past weekly rituals and memories. Track your relationship journey and revisit meaningful moments.',
+  });
 
   useEffect(() => {
     if (couple?.id) {

@@ -7,6 +7,83 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Location context utilities
+type City = 'London' | 'Sydney' | 'Melbourne' | 'New York';
+
+const CITY_DATA: Record<City, { timezone: string; country: string; emoji: string }> = {
+  'London': { timezone: 'Europe/London', country: 'United Kingdom', emoji: '🇬🇧' },
+  'Sydney': { timezone: 'Australia/Sydney', country: 'Australia', emoji: '🦘' },
+  'Melbourne': { timezone: 'Australia/Melbourne', country: 'Australia', emoji: '☕' },
+  'New York': { timezone: 'America/New_York', country: 'United States', emoji: '🗽' },
+};
+
+const getCityTime = (city: City): Date => {
+  const timezone = CITY_DATA[city].timezone;
+  const now = new Date();
+  return new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+};
+
+const getTimeOfDay = (city: City): string => {
+  const hour = getCityTime(city).getHours();
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  if (hour >= 17 && hour < 22) return 'evening';
+  return 'night';
+};
+
+const getSeason = (city: City): string => {
+  const now = getCityTime(city);
+  const month = now.getMonth();
+  const isSouthern = city === 'Sydney' || city === 'Melbourne';
+  
+  if (isSouthern) {
+    if (month >= 9 && month <= 11) return 'spring';
+    if (month >= 0 && month <= 2) return 'summer';
+    if (month >= 3 && month <= 5) return 'autumn';
+    return 'winter';
+  }
+  
+  if (month >= 3 && month <= 5) return 'spring';
+  if (month >= 6 && month <= 8) return 'summer';
+  if (month >= 9 && month <= 11) return 'autumn';
+  return 'winter';
+};
+
+const getSeasonalGuidance = (season: string, city: City): string => {
+  const seasonal = {
+    spring: 'Outdoor activities emerging, mild weather, blooming nature',
+    summer: 'Peak outdoor season, long daylight, beach/park activities',
+    autumn: 'Cozy indoor-outdoor mix, changing foliage, harvest themes',
+    winter: 'Indoor-focused with occasional outdoor adventures, warm experiences',
+  };
+  
+  if (city === 'Sydney' || city === 'Melbourne') {
+    return seasonal[season as keyof typeof seasonal] + ' (Southern Hemisphere)';
+  }
+  return seasonal[season as keyof typeof seasonal];
+};
+
+const getLocationContext = (city: City) => {
+  const season = getSeason(city);
+  const timeOfDay = getTimeOfDay(city);
+  const cityData = CITY_DATA[city];
+  const localTime = getCityTime(city).toLocaleString('en-US', {
+    timeZone: cityData.timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
+  
+  return {
+    city,
+    timezone: cityData.timezone,
+    country: cityData.country,
+    season,
+    timeOfDay,
+    localTime,
+  };
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -30,6 +107,12 @@ serve(async (req) => {
     );
 
     const { action, currentRitual, coupleId, partnerOneInput, partnerTwoInput } = await req.json();
+
+    // Get location context
+    const preferredCity = (partnerOneInput?.location || 'New York') as City;
+    const locationContext = getLocationContext(preferredCity);
+    
+    console.log('Location context:', locationContext);
 
     // Fetch historical data for context
     let historicalContext = '';
@@ -90,7 +173,13 @@ ${notesWithContent.slice(0, 5).map(m => `- "${m.ritual_title}": ${m.notes}`).joi
 CONTEXT:
 Current ritual to replace: "${currentRitual.title}"
 Why they want to swap: They want something different but similarly matched to their needs.
-Location context: ${partnerOneInput?.location || 'Not specified'}
+
+LOCATION CONTEXT:
+- City: ${locationContext.city}, ${locationContext.country}
+- Local time: ${locationContext.localTime}
+- Season: ${locationContext.season}
+- Time of day: ${locationContext.timeOfDay}
+- Seasonal guidance: ${getSeasonalGuidance(locationContext.season, preferredCity)}
 
 ${historicalContext}
 
@@ -104,6 +193,8 @@ CRITICAL CREATIVE CONSTRAINTS:
 3. SURPRISE FACTOR: Make this something they'd never think of themselves (rate your own surprise 1-10, must be 7+)
 4. Must feel "worth the swap" - more interesting than what they're replacing
 5. Include a micro-detail that makes it memorable
+6. LOCATION-AWARE: Must be perfect for ${locationContext.city} in ${locationContext.season}
+7. Make it authentically ${locationContext.city}, not a generic date idea
 
 Return ONE ritual as JSON:
 {
@@ -175,7 +266,12 @@ Partner 2:
 - Craving: ${partnerTwoInput?.craving}
 - Heart's Desire: ${partnerTwoInput?.desire || 'Not specified'}
 
-Location: ${partnerOneInput?.location || 'Not specified'}
+LOCATION CONTEXT (CRITICAL - All rituals must fit this):
+- City: ${locationContext.city}, ${locationContext.country}
+- Local time: ${locationContext.localTime}
+- Season: ${locationContext.season}
+- Time of day: ${locationContext.timeOfDay}
+- Seasonal guidance: ${getSeasonalGuidance(locationContext.season, preferredCity)}
 
 CRITICAL CREATIVE CONSTRAINTS:
 1. Generate 4-5 rituals that span different categories (connection, adventure, relaxation, creativity, spontaneity)
@@ -186,6 +282,10 @@ CRITICAL CREATIVE CONSTRAINTS:
 6. Include at least ONE ritual that gently challenges their comfort zone
 7. Honor their heart's desires and cravings with creative interpretation
 8. Match their energy and budget constraints realistically
+9. LOCATION-AWARE: All rituals must be perfect for ${locationContext.city} in ${locationContext.season}
+   - Consider local weather, season, and cultural context
+   - ${getSeasonalGuidance(locationContext.season, preferredCity)}
+   - Make rituals feel AUTHENTIC to ${locationContext.city}, not generic ideas
 
 SURPRISE FACTOR TEST:
 After creating each ritual, ask yourself: "Would they come up with this on their own?" If yes, make it bolder.

@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SynthesisAnimation } from '@/components/SynthesisAnimation';
+import { useSEO } from '@/hooks/useSEO';
 
 const QUESTIONS = [
   {
@@ -49,6 +50,12 @@ export default function QuickInput() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
+
+  // SEO for input page
+  useSEO({
+    title: 'Weekly Ritual Input',
+    description: 'Share your preferences for this week\'s rituals. Your input will be combined with your partner\'s to create personalized experiences.',
+  });
 
   useEffect(() => {
     if (!loading && !user) {
