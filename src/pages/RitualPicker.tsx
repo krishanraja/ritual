@@ -123,17 +123,27 @@ export default function RitualPicker() {
   }, [user, couple, currentCycle, navigate]);
 
   const handleSelectRitual = (ritual: Ritual, rank: number) => {
+    // Check if already selected at this exact rank - if so, deselect
+    if (selectedRanks[rank]?.title === ritual.title) {
+      setSelectedRanks(prev => ({
+        ...prev,
+        [rank]: null
+      }));
+      return;
+    }
+
     // Check if already selected at another rank
     const currentRankForThis = Object.entries(selectedRanks).find(([_, r]) => r?.title === ritual.title)?.[0];
     
     if (currentRankForThis) {
-      // Swap or deselect
+      // Swap ranks
       setSelectedRanks(prev => ({
         ...prev,
         [currentRankForThis]: null,
         [rank]: ritual
       }));
     } else {
+      // Fresh selection
       setSelectedRanks(prev => ({
         ...prev,
         [rank]: ritual
@@ -202,10 +212,17 @@ export default function RitualPicker() {
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[1, 2, 3].map(rank => (
           <div key={rank} className="text-center">
-            <div className={cn(
-              "h-16 rounded-lg border-2 flex items-center justify-center",
-              selectedRanks[rank] ? "bg-primary/10 border-primary" : "bg-muted/50 border-dashed border-muted"
-            )}>
+            <div 
+              className={cn(
+                "h-16 rounded-lg border-2 flex items-center justify-center cursor-pointer transition-all",
+                selectedRanks[rank] ? "bg-primary/10 border-primary hover:bg-primary/20" : "bg-muted/50 border-dashed border-muted"
+              )}
+              onClick={() => {
+                if (selectedRanks[rank]) {
+                  setSelectedRanks(prev => ({ ...prev, [rank]: null }));
+                }
+              }}
+            >
               {selectedRanks[rank] ? (
                 <div className="px-2">
                   <Star className="w-4 h-4 mx-auto mb-1 text-primary" fill="currentColor" />
@@ -278,7 +295,7 @@ export default function RitualPicker() {
   );
 
   const renderScheduleStep = () => (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 h-full overflow-y-auto">
       <div className="text-center mb-4">
         <h2 className="text-xl font-bold mb-2">When works for you?</h2>
         <p className="text-sm text-muted-foreground">
@@ -294,7 +311,7 @@ export default function RitualPicker() {
             selected={proposedDate}
             onSelect={setProposedDate}
             disabled={(date) => date < new Date()}
-            className="rounded-md border"
+            className="rounded-md border w-full"
           />
         </div>
 
@@ -304,12 +321,12 @@ export default function RitualPicker() {
             type="time"
             value={proposedTime}
             onChange={(e) => setProposedTime(e.target.value)}
-            className="w-full h-12 px-4 rounded-lg border bg-background"
+            className="w-full h-12 px-4 rounded-lg border bg-background text-[16px]"
           />
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 pb-4">
         <Button
           onClick={() => setStep('rank')}
           variant="outline"

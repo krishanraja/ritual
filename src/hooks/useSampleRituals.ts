@@ -19,25 +19,28 @@ export function useSampleRituals() {
   const [isShowingSamples, setIsShowingSamples] = useState(false);
   const [userCity, setUserCity] = useState<string | null>(null);
 
-  // Fetch user's preferred city
+  // Fetch couple's preferred city (not user's individual city)
   useEffect(() => {
-    const fetchUserCity = async () => {
-      if (!user) return;
+    const fetchCoupleCity = async () => {
+      if (!couple) {
+        setUserCity(null);
+        return;
+      }
       
       const { data } = await supabase
-        .from('profiles')
+        .from('couples')
         .select('preferred_city')
-        .eq('id', user.id)
+        .eq('id', couple.id)
         .single();
       
       setUserCity(data?.preferred_city || null);
     };
 
-    fetchUserCity();
-  }, [user]);
+    fetchCoupleCity();
+  }, [couple]);
 
   useEffect(() => {
-    // Safety check: if we have synthesized_output, always show real rituals
+    // CRITICAL: if we have synthesized_output, always show real rituals
     if (currentCycle?.synthesized_output) {
       const output = currentCycle.synthesized_output as any;
       const realRituals = output.rituals || [];
@@ -49,18 +52,26 @@ export function useSampleRituals() {
         return;
       }
     }
+
+    // Check if both partners have submitted inputs (awaiting synthesis)
+    const bothSubmitted = currentCycle?.partner_one_input && currentCycle?.partner_two_input;
     
-    // If couple exists but no partner yet, or no synthesized output, show samples
-    if (couple) {
+    // If couple exists and both haven't submitted yet, or no partner yet, show samples
+    if (couple && !bothSubmitted) {
       const filteredRituals = userCity ? getRitualsByCity(userCity) : SAMPLE_RITUALS;
       setRituals(filteredRituals);
       setIsShowingSamples(true);
     }
     // If no couple at all, show samples
-    else {
+    else if (!couple) {
       const filteredRituals = userCity ? getRitualsByCity(userCity) : SAMPLE_RITUALS;
       setRituals(filteredRituals);
       setIsShowingSamples(true);
+    }
+    // If both submitted but no rituals yet, show empty (synthesis in progress)
+    else {
+      setRituals([]);
+      setIsShowingSamples(false);
     }
   }, [couple, currentCycle, userCity]);
 
