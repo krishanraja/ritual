@@ -106,6 +106,18 @@ export default function Home() {
               Invite Your Partner
             </Button>
 
+            {/* Recovery Option: Join someone else instead */}
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-2">Or</p>
+              <Button 
+                onClick={joinCouple}
+                variant="outline"
+                className="w-full h-12 rounded-xl"
+              >
+                Join Someone Else's Code
+              </Button>
+            </div>
+
             {/* Secondary: Preview Samples */}
             <div className="text-center space-y-2">
               <p className="text-xs text-muted-foreground">
@@ -113,8 +125,9 @@ export default function Home() {
               </p>
               <Button 
                 onClick={() => navigate('/rituals')} 
-                variant="outline"
-                className="w-full h-12 rounded-xl"
+                variant="ghost"
+                size="sm"
+                className="text-xs"
               >
                 Preview Sample Rituals
               </Button>
