@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 
 export default function Profile() {
-  const { user, couple, shareCode, joinCouple, leaveCouple } = useCouple();
+  const { user, couple, partnerProfile, shareCode, joinCouple, leaveCouple } = useCouple();
   const navigate = useNavigate();
   const [selectedCity, setSelectedCity] = useState<City>('New York');
   const [loading, setLoading] = useState(true);
@@ -91,7 +91,11 @@ export default function Profile() {
             <div>
               <h1 className="text-xl font-bold">{user?.email}</h1>
               <p className="text-sm text-muted-foreground">
-                {couple ? `Connected with ${couple.partner_two ? 'partner' : 'waiting...'}` : 'Solo Mode'}
+                {couple ? (
+                  couple.partner_two 
+                    ? `Connected with ${partnerProfile?.name || 'partner'}` 
+                    : 'Waiting for partner...'
+                ) : 'Solo Mode'}
               </p>
             </div>
           </motion.div>

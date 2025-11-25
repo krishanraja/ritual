@@ -16,10 +16,12 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
   const [yourName, setYourName] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !loading && yourName.trim() && code.length === 6) {
+    const formattedCode = code.replace('-', '');
+    if (e.key === 'Enter' && !loading && yourName.trim() && formattedCode.length === 8) {
       handleJoin();
     }
   };
@@ -30,8 +32,9 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
       return;
     }
 
-    if (code.length !== 6) {
-      toast.error("Code must be 6 digits");
+    const formattedCode = code.replace('-', '');
+    if (formattedCode.length !== 8) {
+      toast.error("Code must be 8 characters (format: XXXX-XXXX)");
       return;
     }
 
@@ -41,6 +44,7 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
     }
 
     setLoading(true);
+    setErrorMessage("");
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -54,6 +58,7 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
         .from('couples')
         .select('*')
         .or(`partner_one.eq.${user.id},partner_two.eq.${user.id}`)
+        .eq('is_active', true)
         .maybeSingle();
 
       if (existingCouple) {
@@ -67,21 +72,28 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
         .from('couples')
         .select('*')
         .eq('couple_code', code)
+        .eq('is_active', true)
         .single();
 
       if (findError) throw findError;
       if (!couple) {
-        toast.error("Invalid couple code. Please check and try again.");
+        setErrorMessage("Invalid couple code. Please check and try again.");
+        return;
+      }
+
+      // Check expiration
+      if (new Date(couple.code_expires_at) < new Date()) {
+        setErrorMessage("This code has expired. Ask your partner for a new code.");
         return;
       }
 
       if (couple.partner_two) {
-        toast.error("This couple is already complete. Please check the code.");
+        setErrorMessage("This couple is already complete. Please check the code.");
         return;
       }
 
       if (couple.partner_one === user.id) {
-        toast.error("You can't join your own couple code!");
+        setErrorMessage("You can't join your own couple code!");
         return;
       }
 
@@ -98,14 +110,14 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
         .from('couples')
         .update({ partner_two: user.id })
         .eq('id', couple.id)
-        .is('partner_two', null) // Only update if still null
+        .is('partner_two', null)
         .select()
         .maybeSingle();
 
       if (updateError) throw updateError;
       
       if (!updatedCouple) {
-        toast.error("Unable to join couple. Please try again or contact support.");
+        setErrorMessage("Unable to join couple. Please try again.");
         return;
       }
 
@@ -113,12 +125,11 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
       onOpenChange(false);
       setYourName("");
       setCode("");
-
-      // Always navigate to input - the joining partner needs to submit their preferences
+      setErrorMessage("");
       navigate("/input");
     } catch (error: any) {
       console.error("Join error:", error);
-      toast.error(error.message || "Failed to join couple. Please try again.");
+      setErrorMessage(error.message || "Failed to join couple. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -150,19 +161,30 @@ export const JoinCoupleDialog = ({ open, onOpenChange }: JoinCoupleDialogProps) 
             <Label htmlFor="code" className="text-foreground">Partner's code</Label>
             <Input
               id="code"
-              placeholder="000000"
+              placeholder="XXXX-XXXX"
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(e) => {
+                let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+                // Auto-format with dash
+                if (val.length > 4 && !val.includes('-')) {
+                  val = val.slice(0, 4) + '-' + val.slice(4);
+                }
+                setCode(val.slice(0, 9));
+                setErrorMessage("");
+              }}
               onKeyPress={handleKeyPress}
-              className="border-primary/30 rounded-xl h-12 text-lg text-center tracking-widest text-2xl font-bold"
-              maxLength={6}
+              className="border-primary/30 rounded-xl h-12 text-lg text-center tracking-widest text-xl font-bold font-mono"
+              maxLength={9}
               autoFocus
             />
+            {errorMessage && (
+              <p className="text-sm text-destructive">{errorMessage}</p>
+            )}
           </div>
 
           <Button
             onClick={handleJoin}
-            disabled={!yourName.trim() || code.length !== 6 || loading}
+            disabled={!yourName.trim() || code.replace('-', '').length !== 8 || loading}
             className="w-full bg-gradient-ritual text-white hover:opacity-90 h-12 rounded-xl text-lg"
           >
             {loading ? "Joining..." : "Join Ritual"}

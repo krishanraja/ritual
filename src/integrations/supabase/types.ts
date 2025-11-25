@@ -48,28 +48,34 @@ export type Database = {
       }
       couples: {
         Row: {
+          code_expires_at: string | null
           couple_code: string
           created_at: string
           current_cycle_week_start: string | null
           id: string
+          is_active: boolean | null
           partner_one: string
           partner_two: string | null
           synthesis_ready: boolean | null
         }
         Insert: {
+          code_expires_at?: string | null
           couple_code: string
           created_at?: string
           current_cycle_week_start?: string | null
           id?: string
+          is_active?: boolean | null
           partner_one: string
           partner_two?: string | null
           synthesis_ready?: boolean | null
         }
         Update: {
+          code_expires_at?: string | null
           couple_code?: string
           created_at?: string
           current_cycle_week_start?: string | null
           id?: string
+          is_active?: boolean | null
           partner_one?: string
           partner_two?: string | null
           synthesis_ready?: boolean | null

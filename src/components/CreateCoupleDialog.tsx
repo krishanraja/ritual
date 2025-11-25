@@ -39,6 +39,7 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
         .from('couples')
         .select('*')
         .or(`partner_one.eq.${user.id},partner_two.eq.${user.id}`)
+        .eq('is_active', true)
         .maybeSingle();
 
       if (existingCouple) {
@@ -48,19 +49,26 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
         return;
       }
 
-      // Generate a unique 6-digit code
+      // Generate a unique 8-character alphanumeric code (format: XXXX-XXXX)
+      // Excludes confusing characters: 0/O, 1/I/L
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
       let code = '';
       let isUnique = false;
       let attempts = 0;
       
       while (!isUnique && attempts < 10) {
-        code = Math.floor(100000 + Math.random() * 900000).toString();
+        let rawCode = '';
+        for (let i = 0; i < 8; i++) {
+          rawCode += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        code = `${rawCode.slice(0, 4)}-${rawCode.slice(4)}`; // Format: K7M2-P9X4
         
         // Check if code already exists
         const { data: existingCode } = await supabase
           .from('couples')
           .select('id')
           .eq('couple_code', code)
+          .eq('is_active', true)
           .maybeSingle();
         
         if (!existingCode) {
@@ -73,17 +81,19 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
         throw new Error("Unable to generate unique code. Please try again.");
       }
       
-      // Create couple in database
+      // Create couple in database with 24-hour expiration
       const { error } = await supabase
         .from('couples')
         .insert({
           partner_one: user.id,
           couple_code: code,
+          is_active: true,
+          code_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         });
 
       if (error) {
         // Check if it's a uniqueness violation
-        if (error.code === '23505') { // PostgreSQL unique violation
+        if (error.code === '23505') {
           toast.error("Code collision detected. Generating a new code...");
           generateCode(); // Retry automatically
           return;
@@ -92,7 +102,7 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
       }
 
       setCoupleCode(code);
-      toast.success("Couple created! Share your code with your partner.");
+      toast.success("Couple created! Code expires in 24 hours.");
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -135,9 +145,10 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
               <div className="bg-white/80 rounded-2xl p-6 space-y-4">
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground mb-2">Couple Code</p>
-                  <p className="text-4xl font-bold text-primary tracking-wider">
+                  <p className="text-3xl font-bold text-primary tracking-wider font-mono">
                     {coupleCode}
                   </p>
+                  <p className="text-xs text-muted-foreground mt-2">Expires in 24 hours</p>
                 </div>
                 
                 <Button

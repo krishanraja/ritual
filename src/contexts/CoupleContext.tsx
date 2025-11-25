@@ -7,6 +7,7 @@ interface CoupleContextType {
   user: any;
   session: any;
   couple: any;
+  partnerProfile: any;
   currentCycle: any;
   loading: boolean;
   refreshCouple: () => Promise<void>;
@@ -22,6 +23,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
   const [couple, setCouple] = useState<any>(null);
+  const [partnerProfile, setPartnerProfile] = useState<any>(null);
   const [currentCycle, setCurrentCycle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -30,12 +32,27 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data, error } = await supabase
         .from('couples')
-        .select('*')
+        .select(`
+          *,
+          partner_one_profile:profiles!couples_partner_one_fkey(id, name, email),
+          partner_two_profile:profiles!couples_partner_two_fkey(id, name, email)
+        `)
         .or(`partner_one.eq.${userId},partner_two.eq.${userId}`)
+        .eq('is_active', true)
         .maybeSingle();
       
       if (error) throw error;
       setCouple(data);
+      
+      // Set partner profile (the other person in the couple)
+      if (data) {
+        const isPartnerOne = data.partner_one === userId;
+        const partner = isPartnerOne ? data.partner_two_profile : data.partner_one_profile;
+        setPartnerProfile(partner);
+      } else {
+        setPartnerProfile(null);
+      }
+      
       return data;
     } catch (error) {
       console.error('Error fetching couple:', error);
@@ -151,13 +168,20 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       
       if (isPartnerOne) {
         // If partner one leaves, delete the couple
-        await supabase.from('couples').delete().eq('id', couple.id);
+        const { error } = await supabase.from('couples').delete().eq('id', couple.id);
+        if (error) throw error;
       } else {
-        // If partner two leaves, just remove them
-        await supabase.from('couples').update({ partner_two: null }).eq('id', couple.id);
+        // If partner two leaves, set partner_two to null
+        const { error } = await supabase
+          .from('couples')
+          .update({ partner_two: null })
+          .eq('id', couple.id)
+          .eq('partner_two', user.id);
+        if (error) throw error;
       }
       
       setCouple(null);
+      setPartnerProfile(null);
       setCurrentCycle(null);
       toast.success('Left couple successfully');
       navigate('/');
@@ -172,6 +196,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       user,
       session,
       couple,
+      partnerProfile,
       currentCycle,
       loading,
       refreshCouple,
