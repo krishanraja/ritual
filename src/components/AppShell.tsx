@@ -16,7 +16,7 @@ interface AppShellProps {
 export const AppShell = ({ children }: AppShellProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, couple } = useCouple();
+  const { user, couple, currentCycle } = useCouple();
   const [shareOpen, setShareOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -24,9 +24,31 @@ export const AppShell = ({ children }: AppShellProps) => {
   const isAuthPage = location.pathname === '/auth';
   const showNav = user && !isAuthPage;
 
+  const getThisWeekRoute = () => {
+    if (!couple || !couple.partner_two) return '/home';
+    
+    if (!currentCycle) return '/input';
+    
+    const isPartnerOne = couple.partner_one === user?.id;
+    const userSubmitted = isPartnerOne 
+      ? currentCycle.partner_one_input 
+      : currentCycle.partner_two_input;
+    const partnerSubmitted = isPartnerOne
+      ? currentCycle.partner_two_input
+      : currentCycle.partner_one_input;
+    
+    if (userSubmitted && partnerSubmitted && currentCycle.synthesized_output) {
+      return '/rituals';
+    }
+    if (userSubmitted) {
+      return '/home';
+    }
+    return '/input';
+  };
+
   const navItems = [
     { path: '/home', icon: Home, label: 'Home' },
-    { path: '/input', icon: Calendar, label: 'This Week' },
+    { path: getThisWeekRoute(), icon: Calendar, label: 'This Week' },
     { path: '/history', icon: Clock, label: 'History' },
     { path: '/profile', icon: User, label: 'Profile' }
   ];

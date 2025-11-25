@@ -83,7 +83,7 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
       
       toast.success('Successfully joined! 🎉');
       onOpenChange(false);
-      navigate('/home');
+      navigate('/input');
     } catch (error: any) {
       toast.error(error.message || 'Failed to join couple');
     } finally {

@@ -153,6 +153,8 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
               description: 'Time to create rituals together',
               duration: 5000
             });
+            // Redirect both users to /input
+            navigate('/input');
           } else {
             await fetchCouple(user.id);
           }
@@ -162,12 +164,23 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       const cyclesChannel = supabase
         .channel('cycles-changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_cycles' }, (payload: any) => {
-          if (payload.new?.synthesized_output && !payload.old?.synthesized_output) {
+          const oldData = payload.old;
+          const newData = payload.new;
+          
+          // Detect when partner submits input
+          const partnerOneInputChanged = newData?.partner_one_input && !oldData?.partner_one_input;
+          const partnerTwoInputChanged = newData?.partner_two_input && !oldData?.partner_two_input;
+          const synthesisReady = newData?.synthesized_output && !oldData?.synthesized_output;
+          
+          if (partnerOneInputChanged || partnerTwoInputChanged) {
+            if (couple) fetchCycle(couple.id);
+          }
+          
+          if (synthesisReady) {
             const partnerName = partnerProfile?.name || 'Your partner';
             toast.success(`✨ ${partnerName} finished! Your rituals are ready`, { duration: 5000 });
             navigate('/rituals');
           }
-          if (couple) fetchCycle(couple.id);
         })
         .subscribe();
 
