@@ -15,10 +15,26 @@ export default function Home() {
   const { user, couple, partnerProfile, currentCycle, loading, createCouple, shareCode, joinCouple } = useCouple();
   const navigate = useNavigate();
   const [nudgeBannerDismissed, setNudgeBannerDismissed] = useState(false);
+  const [slowLoading, setSlowLoading] = useState(false);
 
-  // Redirect to auth if not logged in
+  // Show slow loading indicator after 3 seconds
   useEffect(() => {
-    if (!loading && !user) navigate('/auth');
+    if (loading) {
+      const timer = setTimeout(() => {
+        console.log('[HOME] Loading taking longer than expected...');
+        setSlowLoading(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+    setSlowLoading(false);
+  }, [loading]);
+
+  // Redirect to landing if not logged in (not auth, to avoid loops)
+  useEffect(() => {
+    if (!loading && !user) {
+      console.log('[HOME] No user found, redirecting to landing');
+      navigate('/');
+    }
   }, [user, loading, navigate]);
 
   // Handle pending join action after auth
@@ -42,8 +58,13 @@ export default function Home() {
   if (loading) {
     return (
       <StrictMobileViewport>
-        <div className="h-full bg-gradient-warm flex flex-col items-center justify-center">
+        <div className="h-full bg-gradient-warm flex flex-col items-center justify-center gap-4">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          {slowLoading && (
+            <p className="text-sm text-muted-foreground animate-pulse">
+              Reconnecting...
+            </p>
+          )}
         </div>
       </StrictMobileViewport>
     );

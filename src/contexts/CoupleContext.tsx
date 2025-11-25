@@ -95,19 +95,38 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    console.log('[AUTH] Initializing auth state...');
+    
+    // SAFETY NET: Force loading=false after 5 seconds no matter what
+    const safetyTimeout = setTimeout(() => {
+      console.log('[AUTH] ⚠️ Safety timeout triggered - forcing loading=false');
+      setLoading(false);
+    }, 5000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('[AUTH] onAuthStateChange event:', _event, 'has session:', !!session);
+      clearTimeout(safetyTimeout);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[AUTH] getSession result - has session:', !!session);
+      clearTimeout(safetyTimeout);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+    }).catch((error) => {
+      console.error('[AUTH] getSession error:', error);
+      clearTimeout(safetyTimeout);
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(safetyTimeout);
+    };
   }, []);
 
   useEffect(() => {
