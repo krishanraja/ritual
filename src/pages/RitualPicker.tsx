@@ -12,6 +12,7 @@ import { Clock, DollarSign, Calendar as CalendarIcon, Star } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgreementGame } from '@/components/AgreementGame';
 import { cn } from '@/lib/utils';
+import { useSEO } from '@/hooks/useSEO';
 
 interface Ritual {
   id: string | number;
@@ -33,6 +34,12 @@ export default function RitualPicker() {
   const [step, setStep] = useState<'rank' | 'schedule' | 'waiting' | 'agreement'>('rank');
   const [partnerPreferences, setPartnerPreferences] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // SEO for ritual picker page
+  useSEO({
+    title: 'Pick Your Rituals',
+    description: 'Rank your top 3 ritual preferences and propose a time. Work with your partner to find the perfect shared activity.',
+  });
 
   useEffect(() => {
     if (!user || !couple || !currentCycle) {

@@ -9,6 +9,7 @@ import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 import { LocationToggle, City } from '@/components/LocationToggle';
 import { useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
+import { useSEO, addStructuredData, getLocationStructuredData } from '@/hooks/useSEO';
 
 export default function Profile() {
   const { user, couple, partnerProfile, shareCode, joinCouple, leaveCouple } = useCouple();
@@ -16,11 +17,24 @@ export default function Profile() {
   const [selectedCity, setSelectedCity] = useState<City>('New York');
   const [loading, setLoading] = useState(true);
 
+  // SEO for profile page
+  useSEO({
+    title: 'Profile & Settings',
+    description: 'Manage your profile, select your city location, and customize your ritual preferences.',
+  });
+
   useEffect(() => {
     if (user && couple) {
       loadPreferredCity();
     }
   }, [user, couple]);
+
+  useEffect(() => {
+    // Add location-specific structured data
+    if (selectedCity) {
+      addStructuredData(getLocationStructuredData(selectedCity));
+    }
+  }, [selectedCity]);
 
   const loadPreferredCity = async () => {
     try {

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { StrictMobileViewport } from "@/components/StrictMobileViewport";
+import { useSEO } from '@/hooks/useSEO';
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -16,6 +17,12 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // SEO for auth page
+  useSEO({
+    title: isLogin ? 'Sign In' : 'Create Account',
+    description: 'Sign in or create an account to start building meaningful weekly rituals with your partner.',
+  });
 
   // Store join intent if user came to join
   useEffect(() => {
