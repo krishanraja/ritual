@@ -79,7 +79,7 @@ export const AppShell = ({ children }: AppShellProps) => {
               </Button>
             )}
             
-            {!couple && (
+            {(!couple || (couple && !couple.partner_two)) && (
               <Button 
                 variant="ghost" 
                 size="sm"

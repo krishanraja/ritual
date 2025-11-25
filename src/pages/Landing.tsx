@@ -39,14 +39,25 @@ export default function Landing() {
           </p>
         </div>
         
-        {/* CTA */}
-        <Button 
-          onClick={() => navigate('/auth')}
-          size="lg"
-          className="h-14 px-12 text-lg"
-        >
-          Get Started
-        </Button>
+        {/* CTA Buttons */}
+        <div className="w-full max-w-sm space-y-3">
+          <Button 
+            onClick={() => navigate('/auth')}
+            size="lg"
+            className="w-full h-14 text-base bg-gradient-ritual text-white"
+          >
+            Start New Ritual
+          </Button>
+          
+          <Button 
+            onClick={() => navigate('/auth?join=true')}
+            variant="outline"
+            size="lg"
+            className="w-full h-14 text-base"
+          >
+            Join Your Partner
+          </Button>
+        </div>
         
         {/* Sign in link */}
         <p className="text-xs text-muted-foreground">

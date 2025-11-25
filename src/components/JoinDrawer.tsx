@@ -106,6 +106,20 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
     try {
       if (!user) throw new Error('Not authenticated');
 
+      // Check if user has an existing solo couple and delete it
+      const { data: existingCouple } = await supabase
+        .from('couples')
+        .select('id, partner_two')
+        .eq('partner_one', user.id)
+        .maybeSingle();
+
+      if (existingCouple && !existingCouple.partner_two) {
+        await supabase
+          .from('couples')
+          .delete()
+          .eq('id', existingCouple.id);
+      }
+
       // Format code for query (with hyphen)
       const formattedCode = `${cleanCode.slice(0, 4)}-${cleanCode.slice(4)}`;
 
