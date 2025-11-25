@@ -70,7 +70,7 @@ export default function Landing() {
             Create Meaningful Weekly Rituals with Your Partner
           </h1>
           <p className="text-sm text-foreground/70 max-w-sm mx-auto leading-relaxed">
-            Build weekly rituals with someone special. Both contribute ideas, AI synthesizes your perfect week together. Available in London, Sydney, Melbourne, and New York.
+            Spend 2 minutes a week syncing, and explore and schedule fresh, local ideas that will strengthen your bond with one another.
           </p>
           
           {/* Feature highlights */}
