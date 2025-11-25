@@ -12,6 +12,7 @@ interface CoupleContextType {
   loading: boolean;
   refreshCouple: () => Promise<void>;
   refreshCycle: () => Promise<void>;
+  createCouple: () => void;
   shareCode: () => void;
   joinCouple: () => void;
   leaveCouple: () => Promise<void>;
@@ -150,6 +151,11 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
     if (couple) await fetchCycle(couple.id);
   };
 
+  const createCouple = () => {
+    const event = new CustomEvent('openCreateDialog');
+    window.dispatchEvent(event);
+  };
+
   const shareCode = () => {
     const event = new CustomEvent('openShareDrawer');
     window.dispatchEvent(event);
@@ -161,33 +167,46 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const leaveCouple = async () => {
-    if (!couple || !user) return;
+    if (!couple || !user) {
+      toast.error("No couple to leave");
+      return;
+    }
     
     try {
       const isPartnerOne = couple.partner_one === user.id;
       
       if (isPartnerOne) {
-        // If partner one leaves, delete the couple
-        const { error } = await supabase.from('couples').delete().eq('id', couple.id);
-        if (error) throw error;
+        // Partner one deletes the couple entirely
+        const { error } = await supabase
+          .from('couples')
+          .delete()
+          .eq('id', couple.id);
+        
+        if (error) {
+          console.error('Delete error:', error);
+          throw error;
+        }
       } else {
-        // If partner two leaves, set partner_two to null
+        // Partner two removes themselves
         const { error } = await supabase
           .from('couples')
           .update({ partner_two: null })
-          .eq('id', couple.id)
-          .eq('partner_two', user.id);
-        if (error) throw error;
+          .eq('id', couple.id);
+        
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
       }
       
       setCouple(null);
       setPartnerProfile(null);
       setCurrentCycle(null);
-      toast.success('Left couple successfully');
-      navigate('/');
-    } catch (error) {
+      toast.success("Left couple successfully");
+      navigate('/home');
+    } catch (error: any) {
       console.error('Error leaving couple:', error);
-      toast.error('Failed to leave couple');
+      toast.error(`Failed to leave couple: ${error.message}`);
     }
   };
 
@@ -201,6 +220,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       loading,
       refreshCouple,
       refreshCycle,
+      createCouple,
       shareCode,
       joinCouple,
       leaveCouple,

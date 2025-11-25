@@ -12,7 +12,7 @@ import { RitualCarousel } from '@/components/RitualCarousel';
 import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 
 export default function Home() {
-  const { user, couple, currentCycle, loading, shareCode, joinCouple } = useCouple();
+  const { user, couple, currentCycle, loading, createCouple, shareCode, joinCouple } = useCouple();
   const navigate = useNavigate();
   const { rituals, isShowingSamples } = useSampleRituals();
 
@@ -44,7 +44,7 @@ export default function Home() {
               <p className="text-sm text-muted-foreground">Create weekly rituals together</p>
             </div>
             <div className="space-y-2">
-              <Button onClick={shareCode} className="w-full bg-gradient-ritual text-white h-12 rounded-xl">
+              <Button onClick={createCouple} className="w-full bg-gradient-ritual text-white h-12 rounded-xl">
                 <Heart className="w-4 h-4 mr-2" />Start a Ritual Space
               </Button>
               <Button onClick={joinCouple} variant="outline" className="w-full h-12 rounded-xl">

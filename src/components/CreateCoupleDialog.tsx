@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useCouple } from "@/contexts/CoupleContext";
 
 interface CreateCoupleDialogProps {
   open: boolean;
@@ -16,6 +17,7 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { refreshCouple } = useCouple();
 
   // Auto-generate code when dialog opens
   useEffect(() => {
@@ -103,6 +105,9 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
 
       setCoupleCode(code);
       toast.success("Couple created! Code expires in 24 hours.");
+      
+      // Refresh couple context so UI updates immediately
+      await refreshCouple();
     } catch (error: any) {
       toast.error(error.message);
     } finally {

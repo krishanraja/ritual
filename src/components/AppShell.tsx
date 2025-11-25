@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { useCouple } from '@/contexts/CoupleContext';
 import { ShareDrawer } from './ShareDrawer';
 import { JoinDrawer } from './JoinDrawer';
+import { CreateCoupleDialog } from './CreateCoupleDialog';
 import { RitualLogo } from './RitualLogo';
 import { motion } from 'framer-motion';
 
@@ -18,6 +19,7 @@ export const AppShell = ({ children }: AppShellProps) => {
   const { user, couple } = useCouple();
   const [shareOpen, setShareOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   
   const isAuthPage = location.pathname === '/auth';
   const showNav = user && !isAuthPage;
@@ -25,13 +27,16 @@ export const AppShell = ({ children }: AppShellProps) => {
   useEffect(() => {
     const handleOpenShare = () => setShareOpen(true);
     const handleOpenJoin = () => setJoinOpen(true);
+    const handleOpenCreate = () => setCreateOpen(true);
     
     window.addEventListener('openShareDrawer', handleOpenShare);
     window.addEventListener('openJoinDrawer', handleOpenJoin);
+    window.addEventListener('openCreateDialog', handleOpenCreate);
     
     return () => {
       window.removeEventListener('openShareDrawer', handleOpenShare);
       window.removeEventListener('openJoinDrawer', handleOpenJoin);
+      window.removeEventListener('openCreateDialog', handleOpenCreate);
     };
   }, []);
 
@@ -144,6 +149,7 @@ export const AppShell = ({ children }: AppShellProps) => {
         />
       )}
       <JoinDrawer open={joinOpen} onOpenChange={setJoinOpen} />
+      <CreateCoupleDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 };
