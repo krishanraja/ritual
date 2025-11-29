@@ -285,7 +285,7 @@ export default function QuickInput() {
         </div>
 
         {/* Question Content */}
-        <div className="flex-1 px-4 py-4 overflow-y-auto">
+        <div className="flex-1 px-4 py-4 overflow-y-auto min-h-0">
           <AnimatePresence mode="wait">
             {currentStep < QUESTIONS.length ? (
               <motion.div
@@ -321,7 +321,7 @@ export default function QuickInput() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="space-y-6"
+                className="space-y-4 pb-2"
               >
                 <div className="space-y-2">
                   <h2 className="text-xl md:text-2xl font-bold">What are you hoping for this week?</h2>
@@ -333,46 +333,43 @@ export default function QuickInput() {
                   value={answers.desire}
                   onChange={(e) => setAnswers(prev => ({ ...prev, desire: e.target.value }))}
                   placeholder="e.g., Try a new neighborhood we've never been to..."
-                  className="min-h-32 bg-white/80 border-2 resize-none"
+                  className="min-h-[120px] max-h-[160px] bg-white/80 border-2 resize-none"
+                  rows={4}
                 />
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!canProceed || isSubmitting}
+                  size="lg"
+                  className="w-full"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Complete'
+                  )}
+                </Button>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
         {/* Navigation */}
-        <div className="flex-none p-4 space-y-3">
-          <div className="flex gap-3">
-            {currentStep > 0 && (
-              <Button
-                onClick={handleBack}
-                variant="outline"
-                size="lg"
-                className="flex-1"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-            )}
-            {isLastQuestion && (
-              <Button
-                onClick={handleSubmit}
-                disabled={!canProceed || isSubmitting}
-                size="lg"
-                className="flex-1"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Complete'
-                )}
-              </Button>
-            )}
+        {currentStep > 0 && currentStep < QUESTIONS.length && (
+          <div className="flex-none p-4">
+            <Button
+              onClick={handleBack}
+              variant="outline"
+              size="lg"
+              className="w-full"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
           </div>
-        </div>
+        )}
       </div>
     </StrictMobileViewport>
   );
