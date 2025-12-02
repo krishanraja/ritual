@@ -78,20 +78,40 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchCycle = async (coupleId: string) => {
     try {
+      // First, try to find the most recent incomplete cycle
+      // (where partners haven't finished or no synthesis/agreement yet)
+      const { data: incompleteCycle, error: incompleteError } = await supabase
+        .from('weekly_cycles')
+        .select('*')
+        .eq('couple_id', coupleId)
+        .or('synthesized_output.is.null,agreement_reached.eq.false')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (incompleteError) throw incompleteError;
+
+      // If we found an incomplete cycle, use it
+      if (incompleteCycle) {
+        setCurrentCycle(incompleteCycle);
+        return incompleteCycle;
+      }
+
+      // Otherwise, check for current week's cycle
       const weekStart = new Date();
       weekStart.setHours(0, 0, 0, 0);
       weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 
-      const { data, error } = await supabase
+      const { data: currentWeekCycle, error: weekError } = await supabase
         .from('weekly_cycles')
         .select('*')
         .eq('couple_id', coupleId)
         .eq('week_start_date', weekStart.toISOString().split('T')[0])
         .maybeSingle();
 
-      if (error) throw error;
-      setCurrentCycle(data);
-      return data;
+      if (weekError) throw weekError;
+      setCurrentCycle(currentWeekCycle);
+      return currentWeekCycle;
     } catch (error) {
       console.error('Error fetching cycle:', error);
       return null;
