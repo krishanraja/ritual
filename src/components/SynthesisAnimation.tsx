@@ -1,66 +1,252 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StrictMobileViewport } from '@/components/StrictMobileViewport';
-import { motion } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Heart, Clock } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useCouple } from '@/contexts/CoupleContext';
+import { supabase } from '@/integrations/supabase/client';
+import { SAMPLE_RITUALS } from '@/data/sampleRituals';
+import { Card, CardContent } from '@/components/ui/card';
+
+const PHASES = [
+  { message: "Reading your vibes...", duration: 4000 },
+  { message: "Matching your energy...", duration: 5000 },
+  { message: "Crafting perfect rituals...", duration: 6000 },
+  { message: "Almost there! ✨", duration: 10000 },
+  { message: "Taking a bit longer, hang tight!", duration: 30000 },
+];
 
 export const SynthesisAnimation = () => {
   const navigate = useNavigate();
-  const { refreshCycle } = useCouple();
+  const { currentCycle, refreshCycle, couple } = useCouple();
+  const [phase, setPhase] = useState(0);
+  const [currentRitualIndex, setCurrentRitualIndex] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
 
+  // Get city-relevant rituals or mix
+  const city = couple?.preferred_city || 'New York';
+  const relevantRituals = SAMPLE_RITUALS.filter(r => r.city === city);
+  const displayRituals = relevantRituals.length >= 4 ? relevantRituals : SAMPLE_RITUALS;
+
+  // Phase progression
   useEffect(() => {
-    const timer = setTimeout(() => {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-      
-      setTimeout(async () => {
-        // Ensure cycle data is fresh before navigating
-        await refreshCycle();
-        navigate('/rituals');
-      }, 1000);
-    }, 2500);
+    let totalTime = 0;
+    const timers: NodeJS.Timeout[] = [];
+    
+    PHASES.forEach((p, idx) => {
+      totalTime += p.duration;
+      const timer = setTimeout(() => {
+        setPhase(idx);
+      }, totalTime - p.duration);
+      timers.push(timer);
+    });
 
-    return () => clearTimeout(timer);
-  }, [navigate, refreshCycle]);
+    return () => timers.forEach(t => clearTimeout(t));
+  }, []);
+
+  // Rotate through sample rituals
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentRitualIndex(prev => (prev + 1) % displayRituals.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [displayRituals.length]);
+
+  // Realtime subscription for synthesis completion
+  useEffect(() => {
+    if (!currentCycle?.id) return;
+
+    const channel = supabase
+      .channel(`synthesis-${currentCycle.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'weekly_cycles',
+        filter: `id=eq.${currentCycle.id}`
+      }, async (payload: any) => {
+        if (payload.new.synthesized_output) {
+          setIsComplete(true);
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+          
+          // Refresh cycle data then navigate
+          await refreshCycle();
+          setTimeout(() => {
+            navigate('/picker');
+          }, 1200);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentCycle?.id, navigate, refreshCycle]);
+
+  // Also poll as backup (in case realtime misses)
+  useEffect(() => {
+    if (!currentCycle?.id) return;
+
+    const pollInterval = setInterval(async () => {
+      const { data } = await supabase
+        .from('weekly_cycles')
+        .select('synthesized_output')
+        .eq('id', currentCycle.id)
+        .single();
+
+      if (data?.synthesized_output && !isComplete) {
+        setIsComplete(true);
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        await refreshCycle();
+        setTimeout(() => {
+          navigate('/picker');
+        }, 1200);
+      }
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [currentCycle?.id, navigate, refreshCycle, isComplete]);
+
+  const currentRitual = displayRituals[currentRitualIndex];
+  const nextRitual = displayRituals[(currentRitualIndex + 1) % displayRituals.length];
+  const prevRitual = displayRituals[(currentRitualIndex - 1 + displayRituals.length) % displayRituals.length];
 
   return (
     <StrictMobileViewport>
-      <div className="h-full bg-gradient-warm flex flex-col items-center justify-center gap-6 px-6">
-        <motion.div
-          animate={{ 
-            rotate: 360,
-            scale: [1, 1.2, 1]
-          }}
-          transition={{ 
-            rotate: { duration: 2, repeat: Infinity, ease: 'linear' },
-            scale: { duration: 1.5, repeat: Infinity }
-          }}
-        >
-          <Sparkles className="w-16 h-16 text-primary" />
-        </motion.div>
-        
-        <div className="text-center space-y-2">
-          <motion.h2
+      <div className="h-full bg-gradient-warm flex flex-col overflow-hidden">
+        {/* Header with phase message */}
+        <div className="flex-none px-6 pt-8 pb-4 text-center">
+          <motion.div
+            key={phase}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="text-xl font-bold"
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-2"
           >
-            Weaving your desires...
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="text-sm text-muted-foreground"
-          >
-            Creating rituals from your combined vibes
-          </motion.p>
+            <motion.div
+              animate={{ 
+                rotate: isComplete ? 0 : 360,
+                scale: isComplete ? [1, 1.3, 1] : [1, 1.1, 1]
+              }}
+              transition={{ 
+                rotate: { duration: 2, repeat: isComplete ? 0 : Infinity, ease: 'linear' },
+                scale: { duration: 1.5, repeat: Infinity }
+              }}
+              className="w-16 h-16 mx-auto rounded-full bg-gradient-ritual flex items-center justify-center"
+            >
+              {isComplete ? (
+                <Heart className="w-8 h-8 text-white" fill="currentColor" />
+              ) : (
+                <Sparkles className="w-8 h-8 text-white" />
+              )}
+            </motion.div>
+            
+            <h2 className="text-xl font-bold">
+              {isComplete ? "Rituals Ready! 🎉" : PHASES[phase].message}
+            </h2>
+            
+            {!isComplete && (
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Clock className="w-4 h-4" />
+                <span>Usually takes ~15 seconds</span>
+              </div>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Cascading Ritual Cards */}
+        <div className="flex-1 relative overflow-hidden px-4">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <AnimatePresence mode="popLayout">
+              {/* Previous card (fading out top) */}
+              <motion.div
+                key={`prev-${currentRitualIndex}`}
+                initial={{ opacity: 0, y: -100, scale: 0.8 }}
+                animate={{ opacity: 0.3, y: -120, scale: 0.75 }}
+                exit={{ opacity: 0, y: -200, scale: 0.6 }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+                className="absolute w-full max-w-xs"
+              >
+                <Card className="bg-card/60 border-border/30 backdrop-blur-sm">
+                  <CardContent className="p-4">
+                    <p className="font-semibold text-sm opacity-60">{prevRitual.title}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Current card (center, prominent) */}
+              <motion.div
+                key={`current-${currentRitualIndex}`}
+                initial={{ opacity: 0, y: 100, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0.3, y: -120, scale: 0.75 }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+                className="absolute w-full max-w-xs z-10"
+              >
+                <Card className="bg-card shadow-lg border-primary/20">
+                  <CardContent className="p-5 space-y-3">
+                    <h3 className="font-bold text-lg">{currentRitual.title}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {currentRitual.description}
+                    </p>
+                    <div className="flex gap-3 text-xs text-muted-foreground">
+                      <span className="px-2 py-1 bg-muted rounded-full">
+                        {currentRitual.time_estimate}
+                      </span>
+                      <span className="px-2 py-1 bg-muted rounded-full">
+                        {currentRitual.budget_band}
+                      </span>
+                      <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">
+                        {currentRitual.category}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Next card (coming from bottom) */}
+              <motion.div
+                key={`next-${currentRitualIndex}`}
+                initial={{ opacity: 0, y: 200, scale: 0.6 }}
+                animate={{ opacity: 0.4, y: 130, scale: 0.8 }}
+                exit={{ opacity: 0, y: 100, scale: 0.9 }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+                className="absolute w-full max-w-xs"
+              >
+                <Card className="bg-card/60 border-border/30 backdrop-blur-sm">
+                  <CardContent className="p-4">
+                    <p className="font-semibold text-sm opacity-60">{nextRitual.title}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Progress dots */}
+        <div className="flex-none pb-8 px-6">
+          <div className="flex justify-center gap-2">
+            {PHASES.slice(0, 4).map((_, idx) => (
+              <motion.div
+                key={idx}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  idx <= phase ? 'bg-primary' : 'bg-muted'
+                }`}
+                animate={{ width: idx === phase ? 24 : 8 }}
+              />
+            ))}
+          </div>
+          <p className="text-center text-xs text-muted-foreground mt-3">
+            Creating personalized rituals from your combined preferences
+          </p>
         </div>
       </div>
     </StrictMobileViewport>

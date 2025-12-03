@@ -1,26 +1,41 @@
 import { Ritual } from './shareUtils';
 
-export const generateICSFile = (ritual: Ritual, startDate?: Date, startTime?: string) => {
-  const now = new Date();
+const parseDuration = (timeEstimate: string): number => {
+  const match = timeEstimate.match(/(\d+(?:\.\d+)?)\s*(hour|hr|min|minute)/i);
+  if (!match) return 60 * 60 * 1000; // Default 1 hour
   
-  // If no date provided, default to tomorrow
+  const value = parseFloat(match[1]);
+  const unit = match[2].toLowerCase();
+  
+  if (unit.startsWith('hour') || unit === 'hr') {
+    return value * 60 * 60 * 1000;
+  } else {
+    return value * 60 * 1000;
+  }
+};
+
+const getStartDateTime = (startDate?: Date, startTime?: string): Date => {
+  const now = new Date();
   let start: Date;
+  
   if (startDate && startTime) {
-    // Use provided date and time
     const [hours, minutes] = startTime.split(':').map(Number);
     start = new Date(startDate);
     start.setHours(hours, minutes, 0, 0);
   } else if (startDate) {
-    // Use provided date with default time (7pm)
     start = new Date(startDate);
     start.setHours(19, 0, 0, 0);
   } else {
-    // Default to tomorrow at 7pm
     start = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     start.setHours(19, 0, 0, 0);
   }
   
-  // Parse duration
+  return start;
+};
+
+export const generateICSFile = (ritual: Ritual, startDate?: Date, startTime?: string) => {
+  const now = new Date();
+  const start = getStartDateTime(startDate, startTime);
   const duration = parseDuration(ritual.time_estimate);
   const end = new Date(start.getTime() + duration);
 
@@ -37,7 +52,7 @@ export const generateICSFile = (ritual: Ritual, startDate?: Date, startTime?: st
     `DTSTAMP:${formatDate(now)}`,
     `DTSTART:${formatDate(start)}`,
     `DTEND:${formatDate(end)}`,
-    `SUMMARY:${ritual.title}`,
+    `SUMMARY:💕 ${ritual.title}`,
     `DESCRIPTION:${ritual.description}\\n\\nBudget: ${ritual.budget_band}\\nCategory: ${ritual.category || 'Ritual'}`,
     'STATUS:CONFIRMED',
     'END:VEVENT',
@@ -60,16 +75,29 @@ export const downloadICS = (ritual: Ritual, startDate?: Date, startTime?: string
   URL.revokeObjectURL(url);
 };
 
-const parseDuration = (timeEstimate: string): number => {
-  const match = timeEstimate.match(/(\d+(?:\.\d+)?)\s*(hour|hr|min|minute)/i);
-  if (!match) return 60 * 60 * 1000; // Default 1 hour
-  
-  const value = parseFloat(match[1]);
-  const unit = match[2].toLowerCase();
-  
-  if (unit.startsWith('hour') || unit === 'hr') {
-    return value * 60 * 60 * 1000;
-  } else {
-    return value * 60 * 1000;
-  }
+export const generateGoogleCalendarUrl = (ritual: Ritual, startDate?: Date, startTime?: string): string => {
+  const start = getStartDateTime(startDate, startTime);
+  const duration = parseDuration(ritual.time_estimate);
+  const end = new Date(start.getTime() + duration);
+
+  const formatGoogleDate = (date: Date) => {
+    return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  };
+
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `💕 ${ritual.title}`,
+    dates: `${formatGoogleDate(start)}/${formatGoogleDate(end)}`,
+    details: `${ritual.description}\n\nBudget: ${ritual.budget_band}\nCategory: ${ritual.category || 'Ritual'}`,
+  });
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+};
+
+export const generateAppleCalendarUrl = (ritual: Ritual, startDate?: Date, startTime?: string): string => {
+  // Apple Calendar uses webcal:// protocol with ICS content
+  // For simplicity, we'll use a data URL approach that opens in default calendar
+  const icsContent = generateICSFile(ritual, startDate, startTime);
+  const blob = new Blob([icsContent], { type: 'text/calendar' });
+  return URL.createObjectURL(blob);
 };
