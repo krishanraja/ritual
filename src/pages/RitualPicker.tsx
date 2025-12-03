@@ -201,7 +201,7 @@ export default function RitualPicker() {
   };
 
   const renderRankingStep = () => (
-    <div className="h-full flex flex-col p-4">
+    <div className="h-full flex flex-col px-4 py-3">
       {notification && (
         <div className="flex-none mb-3">
           <NotificationContainer
@@ -210,43 +210,54 @@ export default function RitualPicker() {
           />
         </div>
       )}
-      <div className="flex-none text-center mb-4">
-        <h2 className="text-xl font-bold mb-2">Pick Your Top 3</h2>
+      <div className="flex-none text-center mb-3">
+        <h2 className="text-xl font-bold mb-1">Pick Your Top 3</h2>
         <p className="text-sm text-muted-foreground">
           Tap to rank: 1st choice, 2nd choice, 3rd choice
         </p>
       </div>
 
-      {/* Selected Ranks Display */}
-      <div className="flex-none grid grid-cols-3 gap-2 mb-4">
-        {[1, 2, 3].map(rank => (
-          <div key={rank} className="text-center">
-            <div 
-              className={cn(
-                "h-16 rounded-lg border-2 flex items-center justify-center cursor-pointer transition-all",
-                selectedRanks[rank] ? "bg-primary/10 border-primary hover:bg-primary/20" : "bg-muted/50 border-dashed border-muted"
-              )}
-              onClick={() => {
-                if (selectedRanks[rank]) {
-                  setSelectedRanks(prev => ({ ...prev, [rank]: null }));
-                }
-              }}
-            >
-              {selectedRanks[rank] ? (
-                <div className="px-2">
-                  <Star className="w-4 h-4 mx-auto mb-1 text-primary" fill="currentColor" />
-                  <p className="text-xs font-semibold line-clamp-2">{selectedRanks[rank]!.title}</p>
-                </div>
-              ) : (
-                <span className="text-muted-foreground text-sm">#{rank}</span>
-              )}
+      {/* Selected Ranks Display - Fixed layout */}
+      <div className="flex-none mb-4">
+        <div className="grid grid-cols-3 gap-2 max-w-sm mx-auto">
+          {[1, 2, 3].map(rank => (
+            <div key={rank}>
+              <div 
+                className={cn(
+                  "h-20 rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all p-2",
+                  selectedRanks[rank] 
+                    ? "bg-primary/10 border-primary hover:bg-primary/20" 
+                    : "bg-muted/30 border-dashed border-muted-foreground/30"
+                )}
+                onClick={() => {
+                  if (selectedRanks[rank]) {
+                    setSelectedRanks(prev => ({ ...prev, [rank]: null }));
+                  }
+                }}
+              >
+                {selectedRanks[rank] ? (
+                  <>
+                    <Star className="w-4 h-4 text-primary mb-1 flex-shrink-0" fill="currentColor" />
+                    <p className="text-xs font-semibold text-center line-clamp-2 leading-tight">
+                      {selectedRanks[rank]!.title}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-lg font-bold text-muted-foreground/50">#{rank}</span>
+                    <span className="text-xs text-muted-foreground/50">
+                      {rank === 1 ? 'Top pick' : rank === 2 ? '2nd' : '3rd'}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* Ritual Cards */}
-      <div className="flex-1 space-y-3 overflow-y-auto min-h-0 pb-4">
+      <div className="flex-1 space-y-2 overflow-y-auto min-h-0 pb-2">
         {rituals.map((ritual, idx) => {
           const currentRank = Object.entries(selectedRanks).find(([_, r]) => r?.title === ritual.title)?.[0];
           return (
@@ -261,28 +272,32 @@ export default function RitualPicker() {
               }}
             >
               <Card className={cn(
-                "cursor-pointer transition-all",
-                currentRank && "ring-2 ring-primary bg-primary/5"
+                "cursor-pointer transition-all active:scale-[0.98]",
+                currentRank ? "ring-2 ring-primary bg-primary/5" : "hover:bg-muted/30"
               )}>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1">
-                      <h3 className="font-bold mb-1">{ritual.title}</h3>
-                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{ritual.description}</p>
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-sm mb-0.5 truncate">{ritual.title}</h3>
+                      <p className="text-xs text-muted-foreground line-clamp-1 mb-1.5">{ritual.description}</p>
                       <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-muted rounded">
                           <Clock className="w-3 h-3" />
                           {ritual.time_estimate}
                         </span>
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-muted rounded">
                           <DollarSign className="w-3 h-3" />
                           {ritual.budget_band}
                         </span>
                       </div>
                     </div>
-                    {currentRank && (
-                      <div className="flex-none w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+                    {currentRank ? (
+                      <div className="flex-none w-10 h-10 rounded-full bg-gradient-ritual text-white flex items-center justify-center font-bold text-lg shadow-md">
                         {currentRank}
+                      </div>
+                    ) : (
+                      <div className="flex-none w-10 h-10 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">+</span>
                       </div>
                     )}
                   </div>
@@ -358,15 +373,42 @@ export default function RitualPicker() {
 
   const renderWaitingStep = () => (
     <div className="flex items-center justify-center h-full px-4">
-      <div className="text-center space-y-4">
-        <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-          <Star className="w-8 h-8 text-primary" />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="text-center space-y-6 max-w-sm"
+      >
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="w-20 h-20 mx-auto rounded-full bg-gradient-ritual flex items-center justify-center"
+        >
+          <Star className="w-10 h-10 text-white" fill="currentColor" />
+        </motion.div>
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Your picks are in! 🎉</h2>
+          <p className="text-muted-foreground">
+            Waiting for your partner to choose their favorites...
+          </p>
         </div>
-        <h2 className="text-xl font-bold">Preferences Submitted! ⭐</h2>
-        <p className="text-sm text-muted-foreground">
-          Waiting for your partner to pick their favorites...
+        
+        {/* Show what user picked */}
+        <div className="space-y-2 text-left">
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Your Selections</p>
+          {[1, 2, 3].map(rank => selectedRanks[rank] && (
+            <div key={rank} className="flex items-center gap-3 p-3 bg-card rounded-lg border">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                {rank}
+              </div>
+              <span className="text-sm font-medium">{selectedRanks[rank]!.title}</span>
+            </div>
+          ))}
+        </div>
+        
+        <p className="text-xs text-muted-foreground">
+          You'll be notified when they're done
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 
