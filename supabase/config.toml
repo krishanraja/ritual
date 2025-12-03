@@ -5,3 +5,9 @@ verify_jwt = true
 
 [functions.nudge-partner]
 verify_jwt = true
+
+[functions.parse-bucket-list]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true

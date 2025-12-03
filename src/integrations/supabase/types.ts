@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      bucket_list_items: {
+        Row: {
+          completed: boolean | null
+          completed_ritual_id: string | null
+          couple_id: string
+          created_at: string
+          description: string | null
+          id: string
+          original_image_url: string | null
+          source: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_ritual_id?: string | null
+          couple_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          original_image_url?: string | null
+          source?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_ritual_id?: string | null
+          couple_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          original_image_url?: string | null
+          source?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bucket_list_items_completed_ritual_id_fkey"
+            columns: ["completed_ritual_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bucket_list_items_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       completions: {
         Row: {
           completed_at: string
@@ -133,6 +190,7 @@ export type Database = {
           id: string
           notes: string | null
           updated_at: string
+          user_id: string | null
           weekly_cycle_id: string
           would_repeat: string | null
         }
@@ -144,6 +202,7 @@ export type Database = {
           id?: string
           notes?: string | null
           updated_at?: string
+          user_id?: string | null
           weekly_cycle_id: string
           would_repeat?: string | null
         }
@@ -155,6 +214,7 @@ export type Database = {
           id?: string
           notes?: string | null
           updated_at?: string
+          user_id?: string | null
           weekly_cycle_id?: string
           would_repeat?: string | null
         }
@@ -214,11 +274,13 @@ export type Database = {
           couple_id: string
           created_at: string
           id: string
+          is_tradition: boolean | null
           notes: string | null
           photo_url: string | null
           rating: number | null
           ritual_description: string | null
           ritual_title: string
+          tradition_count: number | null
           updated_at: string
         }
         Insert: {
@@ -226,11 +288,13 @@ export type Database = {
           couple_id: string
           created_at?: string
           id?: string
+          is_tradition?: boolean | null
           notes?: string | null
           photo_url?: string | null
           rating?: number | null
           ritual_description?: string | null
           ritual_title: string
+          tradition_count?: number | null
           updated_at?: string
         }
         Update: {
@@ -238,11 +302,13 @@ export type Database = {
           couple_id?: string
           created_at?: string
           id?: string
+          is_tradition?: boolean | null
           notes?: string | null
           photo_url?: string | null
           rating?: number | null
           ritual_description?: string | null
           ritual_title?: string
+          tradition_count?: number | null
           updated_at?: string
         }
         Relationships: [

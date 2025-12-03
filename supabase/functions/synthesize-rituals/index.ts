@@ -147,6 +147,16 @@ serve(async (req) => {
       const highlyRated = memories?.filter(m => m.rating && m.rating >= 4) || [];
       const notesWithContent = memories?.filter(m => m.notes && m.notes.trim()) || [];
 
+      // Get bucket list items
+      const { data: bucketList } = await supabaseClient
+        .from('bucket_list_items')
+        .select('title')
+        .eq('couple_id', coupleId)
+        .eq('completed', false)
+        .limit(20);
+
+      const bucketListItems = bucketList?.map(b => b.title) || [];
+
       historicalContext = `
 HISTORICAL CONTEXT - What They've Experienced:
 ${uniqueCompleted.length > 0 ? `
@@ -163,6 +173,11 @@ ${highlyRated.map(m => `- "${m.ritual_title}" (${m.rating}★)`).join('\n')}
 ${notesWithContent.length > 0 ? `
 💭 Their Reflections - USE THESE INSIGHTS:
 ${notesWithContent.slice(0, 5).map(m => `- "${m.ritual_title}": ${m.notes}`).join('\n')}
+` : ''}
+
+${bucketListItems.length > 0 ? `
+🎯 THEIR BUCKET LIST - Consider incorporating these dreams:
+${bucketListItems.slice(0, 10).map(item => `- "${item}"`).join('\n')}
 ` : ''}
 `;
     }

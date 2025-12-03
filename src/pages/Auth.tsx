@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { StrictMobileViewport } from "@/components/StrictMobileViewport";
 import { useSEO } from '@/hooks/useSEO';
+import { Check, X } from 'lucide-react';
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -15,8 +16,12 @@ const Auth = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
+  const passwordStrong = password.length >= 8;
 
   // SEO for auth page
   useSEO({
@@ -56,6 +61,19 @@ const Auth = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate password confirmation on signup
+    if (!isLogin) {
+      if (!passwordStrong) {
+        toast.error("Password must be at least 8 characters");
+        return;
+      }
+      if (!passwordsMatch) {
+        toast.error("Passwords don't match");
+        return;
+      }
+    }
+    
     setLoading(true);
 
     try {
@@ -143,7 +161,46 @@ const Auth = () => {
                   required
                   className="rounded-xl h-12"
                 />
+                {!isLogin && password.length > 0 && (
+                  <div className="flex items-center gap-2 text-xs">
+                    {passwordStrong ? (
+                      <Check className="w-3 h-3 text-green-500" />
+                    ) : (
+                      <X className="w-3 h-3 text-destructive" />
+                    )}
+                    <span className={passwordStrong ? 'text-green-600' : 'text-muted-foreground'}>
+                      At least 8 characters
+                    </span>
+                  </div>
+                )}
               </div>
+
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    className="rounded-xl h-12"
+                  />
+                  {confirmPassword.length > 0 && (
+                    <div className="flex items-center gap-2 text-xs">
+                      {passwordsMatch ? (
+                        <Check className="w-3 h-3 text-green-500" />
+                      ) : (
+                        <X className="w-3 h-3 text-destructive" />
+                      )}
+                      <span className={passwordsMatch ? 'text-green-600' : 'text-destructive'}>
+                        {passwordsMatch ? 'Passwords match' : 'Passwords don\'t match'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Button
                 type="submit"
