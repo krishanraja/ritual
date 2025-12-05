@@ -12,6 +12,9 @@ export default {
       xl: '1280px',
     },
     extend: {
+      fontFamily: {
+        sans: ['DM Sans', 'system-ui', 'sans-serif'],
+      },
       height: {
         'screen': ['100vh', '100dvh'],
       },
@@ -49,6 +52,20 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Brand colors
+        teal: {
+          DEFAULT: "hsl(var(--teal))",
+          light: "hsl(var(--teal-light))",
+        },
+        purple: {
+          DEFAULT: "hsl(var(--purple))",
+          light: "hsl(var(--purple-light))",
+        },
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          light: "hsl(var(--gold-light))",
+        },
+        // Legacy colors for compatibility
         lavender: {
           DEFAULT: "hsl(var(--lavender))",
           light: "hsl(var(--lavender-light))",
