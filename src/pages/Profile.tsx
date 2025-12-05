@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { LogOut, UserPlus, UserMinus, MapPin, Copy, Check, Calendar, Heart, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 import { LocationToggle, City } from '@/components/LocationToggle';
@@ -14,11 +14,14 @@ import { JoinDrawer } from '@/components/JoinDrawer';
 import { BucketListManager } from '@/components/BucketListManager';
 import { LeaveConfirmDialog } from '@/components/LeaveConfirmDialog';
 import { DeleteAccountDialog } from '@/components/DeleteAccountDialog';
+import { PremiumSection } from '@/components/PremiumSection';
+import { usePremium } from '@/hooks/usePremium';
 import { format } from 'date-fns';
 
 export default function Profile() {
   const { user, couple, partnerProfile, leaveCouple, currentCycle } = useCouple();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedCity, setSelectedCity] = useState<City>('New York');
   const [loading, setLoading] = useState(true);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -26,6 +29,21 @@ export default function Profile() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const { refresh: refreshPremium } = usePremium();
+
+  // Handle checkout return
+  useEffect(() => {
+    const checkoutStatus = searchParams.get('checkout');
+    if (checkoutStatus === 'success') {
+      setNotification({ type: 'success', message: 'Welcome to Premium! Your subscription is now active.' });
+      refreshPremium();
+      // Clean URL
+      window.history.replaceState({}, '', '/profile');
+    } else if (checkoutStatus === 'cancelled') {
+      setNotification({ type: 'info', message: 'Checkout cancelled. You can upgrade anytime.' });
+      window.history.replaceState({}, '', '/profile');
+    }
+  }, [searchParams, refreshPremium]);
 
   // SEO for profile page
   useSEO({
@@ -185,6 +203,9 @@ export default function Profile() {
                 )}
               </div>
             </Card>
+
+            {/* Premium Section */}
+            {couple && <PremiumSection />}
 
             {/* Bucket List Section */}
             {couple && <BucketListManager />}

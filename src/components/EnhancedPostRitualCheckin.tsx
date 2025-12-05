@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Star, Sparkles, Camera, X, Check, RotateCcw, Calendar } from 'lucide-react';
+import { Heart, Star, Sparkles, Camera, X, Check, RotateCcw, Calendar, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { usePremium } from '@/hooks/usePremium';
+import { UpgradeModal } from './UpgradeModal';
 
 interface Props {
   coupleId: string;
@@ -35,6 +37,8 @@ export function EnhancedPostRitualCheckin({
   const [wouldRepeat, setWouldRepeat] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const { isPremium, maxNotesLength, canUploadPhotos } = usePremium();
 
   const handleCompletionChoice = (status: CompletionStatus) => {
     setDidComplete(status);
@@ -273,15 +277,50 @@ export function EnhancedPostRitualCheckin({
               </p>
             </div>
 
-            <Textarea
-              placeholder={didComplete === 'skipped' 
-                ? "What got in the way?"
-                : "What made this special..."
-              }
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="min-h-[100px]"
-            />
+            <div className="space-y-2">
+              <Textarea
+                placeholder={didComplete === 'skipped' 
+                  ? "What got in the way?"
+                  : "What made this special..."
+                }
+                value={notes}
+                onChange={(e) => {
+                  if (!isPremium && e.target.value.length > maxNotesLength) {
+                    return;
+                  }
+                  setNotes(e.target.value);
+                }}
+                className="min-h-[100px]"
+              />
+              {!isPremium && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {notes.length}/{maxNotesLength} characters
+                  </span>
+                  <button 
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="flex items-center gap-1 text-primary hover:underline"
+                  >
+                    <Lock className="w-3 h-3" />
+                    Unlock unlimited notes
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Photo upload - Premium only */}
+            {!isPremium && didComplete === 'yes' && (
+              <button 
+                onClick={() => setShowUpgradeModal(true)}
+                className="w-full p-3 rounded-xl bg-primary/5 border border-primary/20 border-dashed hover:bg-primary/10 transition-colors"
+              >
+                <div className="flex items-center justify-center gap-2 text-primary">
+                  <Camera className="w-5 h-5" />
+                  <span className="text-sm font-medium">Add photo (Premium)</span>
+                  <Lock className="w-3 h-3" />
+                </div>
+              </button>
+            )}
 
             <div className="flex gap-3">
               <Button
@@ -358,6 +397,13 @@ export function EnhancedPostRitualCheckin({
           {renderStep()}
         </AnimatePresence>
       </motion.div>
+      
+      {/* Upgrade Modal */}
+      <UpgradeModal 
+        open={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)}
+        highlightFeature="photos"
+      />
     </motion.div>
   );
 }

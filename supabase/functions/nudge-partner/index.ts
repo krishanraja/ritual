@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const FREE_NUDGES_PER_WEEK = 1;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -39,10 +41,10 @@ serve(async (req) => {
       );
     }
 
-    // Check rate limit: max once per hour
+    // Get cycle with nudge count
     const { data: cycle } = await supabaseClient
       .from('weekly_cycles')
-      .select('nudged_at, couple_id')
+      .select('nudged_at, couple_id, nudge_count')
       .eq('id', cycleId)
       .single();
 
@@ -53,10 +55,10 @@ serve(async (req) => {
       );
     }
 
-    // Verify user is part of this couple
+    // Verify user is part of this couple and check premium status
     const { data: couple } = await supabaseClient
       .from('couples')
-      .select('partner_one, partner_two')
+      .select('partner_one, partner_two, premium_expires_at')
       .eq('id', cycle.couple_id)
       .single();
 
@@ -67,7 +69,11 @@ serve(async (req) => {
       );
     }
 
-    // Check rate limit
+    // Check if premium
+    const isPremium = couple.premium_expires_at && 
+      new Date(couple.premium_expires_at) > new Date();
+
+    // Check hourly rate limit (applies to everyone)
     if (cycle.nudged_at) {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
       if (new Date(cycle.nudged_at) > oneHourAgo) {
@@ -78,15 +84,31 @@ serve(async (req) => {
       }
     }
 
-    // Update nudge timestamp
+    // Check weekly limit for free users
+    const nudgeCount = cycle.nudge_count || 0;
+    if (!isPremium && nudgeCount >= FREE_NUDGES_PER_WEEK) {
+      console.log(`[NUDGE] Free user ${user.id} hit weekly limit`);
+      return new Response(
+        JSON.stringify({ 
+          error: 'You\'ve used your weekly nudge. Upgrade to Premium for unlimited nudges.',
+          code: 'weekly_limit_reached'
+        }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Update nudge timestamp and increment count
     const { error } = await supabaseClient
       .from('weekly_cycles')
-      .update({ nudged_at: new Date().toISOString() })
+      .update({ 
+        nudged_at: new Date().toISOString(),
+        nudge_count: nudgeCount + 1
+      })
       .eq('id', cycleId);
 
     if (error) throw error;
 
-    console.log(`Nudge sent for cycle ${cycleId} by user ${user.id}`);
+    console.log(`[NUDGE] Sent for cycle ${cycleId} by user ${user.id} (premium: ${isPremium}, count: ${nudgeCount + 1})`);
 
     return new Response(
       JSON.stringify({ success: true, message: 'Nudge sent successfully' }),
@@ -94,7 +116,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in nudge-partner:', error);
+    console.error('[NUDGE] Error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -13,6 +13,9 @@ import { AgreementGame } from '@/components/AgreementGame';
 import { cn } from '@/lib/utils';
 import { useSEO } from '@/hooks/useSEO';
 import { NotificationContainer } from '@/components/InlineNotification';
+import { usePremium } from '@/hooks/usePremium';
+import { BlurredRitualCard, LockedRitualsPrompt } from '@/components/BlurredRitualCard';
+import { UpgradeModal } from '@/components/UpgradeModal';
 
 interface Ritual {
   id: string | number;
@@ -35,6 +38,8 @@ export default function RitualPicker() {
   const [partnerPreferences, setPartnerPreferences] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const { isPremium, ritualsToShow } = usePremium();
 
   // SEO for ritual picker page
   useSEO({
@@ -276,7 +281,7 @@ export default function RitualPicker() {
 
       {/* Ritual Cards */}
       <div className="flex-1 space-y-2 overflow-y-auto min-h-0 pb-2">
-        {rituals.map((ritual, idx) => {
+        {rituals.slice(0, isPremium ? rituals.length : ritualsToShow).map((ritual, idx) => {
           const currentRank = Object.entries(selectedRanks).find(([_, r]) => r?.title === ritual.title)?.[0];
           return (
             <motion.div
@@ -324,7 +329,22 @@ export default function RitualPicker() {
             </motion.div>
           );
         })}
+        
+        {/* Locked rituals prompt for free users */}
+        {!isPremium && rituals.length > ritualsToShow && (
+          <LockedRitualsPrompt 
+            count={rituals.length - ritualsToShow} 
+            onClick={() => setShowUpgradeModal(true)} 
+          />
+        )}
       </div>
+      
+      {/* Upgrade Modal */}
+      <UpgradeModal 
+        open={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)}
+        highlightFeature="rituals"
+      />
 
       <div className="flex-none pt-2">
         <Button

@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { motion } from 'framer-motion';
-import { Clock, Heart, Sparkles, RotateCcw, Lightbulb } from 'lucide-react';
+import { Clock, Heart, Sparkles, RotateCcw, Lightbulb, Lock } from 'lucide-react';
 import { RitualCarousel } from './RitualCarousel';
 import { useSampleRituals } from '@/hooks/useSampleRituals';
 import { supabase } from '@/integrations/supabase/client';
 import { useCouple } from '@/contexts/CoupleContext';
 import { CelebrationScreen } from './CelebrationScreen';
 import { NotificationContainer } from './InlineNotification';
+import { usePremium } from '@/hooks/usePremium';
+import { UpgradeModal } from './UpgradeModal';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,7 +44,9 @@ export const WaitingForPartner = ({
   const [isClearing, setIsClearing] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { rituals } = useSampleRituals();
+  const { isPremium, canNudge, nudgesUsedThisWeek } = usePremium();
 
   // Listen for partner completion in realtime
   useEffect(() => {
@@ -72,6 +76,12 @@ export const WaitingForPartner = ({
   }, [currentCycleId, couple, user]);
 
   const handleNudge = async () => {
+    // Check premium nudge limit first
+    if (!canNudge && !isPremium) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     setIsNudging(true);
     try {
       const { error } = await supabase.functions.invoke('nudge-partner', {
@@ -81,15 +91,19 @@ export const WaitingForPartner = ({
       if (error) throw error;
 
       setNotification({ type: 'success', message: `Nudge sent! ${partnerName} will see a reminder when they open the app` });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending nudge:', error);
-      setNotification({ type: 'error', message: 'Failed to send reminder' });
+      if (error?.message?.includes('weekly limit')) {
+        setShowUpgradeModal(true);
+      } else {
+        setNotification({ type: 'error', message: 'Failed to send reminder' });
+      }
     } finally {
       setIsNudging(false);
     }
   };
 
-  const canNudge = () => {
+  const canNudgeNow = () => {
     if (!lastNudgedAt) return true;
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     return new Date(lastNudgedAt) < oneHourAgo;
@@ -245,14 +259,29 @@ export const WaitingForPartner = ({
       <div className="w-full max-w-sm space-y-3">
         <Button
           onClick={handleNudge}
-          disabled={!canNudge() || isNudging}
+          disabled={!canNudgeNow() || isNudging}
           className="w-full h-12 rounded-xl bg-gradient-ritual text-white hover:opacity-90 transition-opacity flex items-center gap-2"
         >
           <Heart className="w-4 h-4" />
           {isNudging ? 'Sending...' : `Give ${partnerName} a cheeky nudge 💕`}
         </Button>
         
-        {!canNudge() && (
+        {!isPremium && !canNudge && (
+          <button 
+            onClick={() => setShowUpgradeModal(true)}
+            className="w-full text-left p-3 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-primary" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Weekly nudge used</p>
+                <p className="text-xs text-muted-foreground">Unlimited nudges with Premium</p>
+              </div>
+            </div>
+          </button>
+        )}
+        
+        {!canNudgeNow() && canNudge && (
           <p className="text-xs text-center text-muted-foreground">
             You can send another reminder in an hour
           </p>
@@ -305,6 +334,13 @@ export const WaitingForPartner = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Upgrade Modal */}
+      <UpgradeModal 
+        open={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)}
+        highlightFeature="nudges"
+      />
     </motion.div>
   );
 };
