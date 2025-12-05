@@ -119,7 +119,7 @@ const Auth = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md"
+          className="w-full max-w-md relative z-10"
         >
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-card">
             <h1 className="text-3xl font-bold text-center mb-2 text-foreground">
@@ -235,6 +235,12 @@ const Auth = () => {
             >
               {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
             </button>
+
+            <p className="text-xs text-center text-muted-foreground mt-4">
+              By {isLogin ? 'signing in' : 'signing up'}, you agree to our{' '}
+              <a href="/terms" className="underline hover:text-foreground">Terms</a> and{' '}
+              <a href="/privacy" className="underline hover:text-foreground">Privacy Policy</a>
+            </p>
           </div>
         </motion.div>
       </div>

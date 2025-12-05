@@ -41,7 +41,7 @@ export default function Landing() {
       <AnimatedGradientBackground variant="warm" />
       
       {/* Authenticated User Banner */}
-      {user && showAuthBanner && <div className="flex-none px-4 py-2 bg-primary/10 backdrop-blur-sm border-b border-primary/20">
+      {user && showAuthBanner && <div className="flex-none px-4 py-2 bg-primary/10 backdrop-blur-sm border-b border-primary/20 relative z-10">
           <div className="flex items-center justify-between">
             <p className="text-xs text-foreground">
               You're signed in! <button onClick={() => navigate('/home')} className="underline font-semibold">Go to Dashboard →</button>
@@ -53,7 +53,7 @@ export default function Landing() {
         </div>}
 
       {/* Main content - vertically centered */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 space-y-8">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 space-y-8 relative z-10">
         {/* Logo */}
         <RitualLogo size="xl" className="max-w-[280px]" />
         
@@ -101,5 +101,16 @@ export default function Landing() {
           Already have an account? <button onClick={() => navigate('/auth')} className="underline">Sign In</button>
         </p>
       </div>
+
+      {/* Footer */}
+      <footer className="flex-none py-4 px-6 text-center text-xs text-muted-foreground relative z-10">
+        <div className="flex items-center justify-center gap-2">
+          <button onClick={() => navigate('/terms')} className="hover:text-foreground transition-colors">Terms</button>
+          <span>·</span>
+          <button onClick={() => navigate('/privacy')} className="hover:text-foreground transition-colors">Privacy</button>
+          <span>·</span>
+          <span>© {new Date().getFullYear()} Mindmaker LLC</span>
+        </div>
+      </footer>
     </div>;
 }
