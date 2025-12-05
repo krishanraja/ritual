@@ -5,24 +5,41 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const log = (level: string, message: string, data?: Record<string, unknown>) => {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level,
+    function: 'parse-bucket-list',
+    message,
+    ...data,
+  }));
+};
+
 serve(async (req) => {
+  const startTime = Date.now();
+  const requestId = crypto.randomUUID();
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    log('info', 'Function invoked', { requestId });
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
+      log('error', 'LOVABLE_API_KEY not configured', { requestId });
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
     const { imageData } = await req.json();
     
     if (!imageData) {
+      log('warn', 'No image data provided', { requestId });
       throw new Error('No image data provided');
     }
 
-    console.log('Processing bucket list image...');
+    log('info', 'Processing bucket list image', { requestId, imageDataLength: imageData.length });
 
     // Use Gemini's vision capability to extract text
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -69,19 +86,21 @@ If you cannot find any list items, return an empty array: []`
 
     if (!response.ok) {
       if (response.status === 429) {
+        log('warn', 'Rate limit exceeded', { requestId });
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       if (response.status === 402) {
+        log('warn', 'AI credits depleted', { requestId });
         return new Response(
           JSON.stringify({ error: 'AI credits depleted.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       const errorText = await response.text();
-      console.error('AI API Error:', response.status, errorText);
+      log('error', 'AI API error', { requestId, status: response.status, error: errorText });
       throw new Error(`AI API error: ${response.status}`);
     }
 
@@ -100,11 +119,12 @@ If you cannot find any list items, return an empty array: []`
       }
       items = items.filter(item => typeof item === 'string' && item.length > 2);
     } catch (e) {
-      console.error('Failed to parse AI response:', content);
+      log('warn', 'Failed to parse AI response', { requestId, content: content.substring(0, 200) });
       items = [];
     }
 
-    console.log(`Extracted ${items.length} bucket list items`);
+    const executionTime = Date.now() - startTime;
+    log('info', 'Extraction completed', { requestId, itemsCount: items.length, executionTimeMs: executionTime });
 
     return new Response(
       JSON.stringify({ items }),
@@ -112,9 +132,11 @@ If you cannot find any list items, return an empty array: []`
     );
 
   } catch (error) {
-    console.error('Error in parse-bucket-list:', error);
+    const executionTime = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    log('error', 'Function failed', { requestId, error: errorMessage, executionTimeMs: executionTime });
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error', items: [] }),
+      JSON.stringify({ error: errorMessage, items: [] }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

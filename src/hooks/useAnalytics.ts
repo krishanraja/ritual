@@ -45,7 +45,7 @@ export const useAnalytics = () => {
         couple_id: coupleId,
         session_id: sessionId.current,
         event_type: eventType,
-        event_data: eventData as unknown as Record<string, never>,
+        event_data: eventData as unknown as null,
         page: page || location.pathname,
       }]);
     } catch (error) {

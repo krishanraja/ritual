@@ -719,7 +719,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_partner: { Args: { profile_id: string }; Returns: boolean }
+      validate_couple_code: {
+        Args: { input_code: string }
+        Returns: {
+          couple_id: string
+          is_valid: boolean
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

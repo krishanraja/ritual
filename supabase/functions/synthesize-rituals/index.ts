@@ -84,14 +84,30 @@ const getLocationContext = (city: City) => {
   };
 };
 
+const log = (level: string, message: string, data?: Record<string, unknown>) => {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level,
+    function: 'synthesize-rituals',
+    message,
+    ...data,
+  }));
+};
+
 serve(async (req) => {
+  const startTime = Date.now();
+  const requestId = crypto.randomUUID();
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    log('info', 'Function invoked', { requestId, method: req.method });
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
+      log('error', 'LOVABLE_API_KEY not configured', { requestId });
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
@@ -112,7 +128,7 @@ serve(async (req) => {
     const preferredCity = (userCity || 'New York') as City;
     const locationContext = getLocationContext(preferredCity);
     
-    console.log('Location context:', locationContext);
+    log('info', 'Location context resolved', { requestId, city: locationContext.city, season: locationContext.season });
 
     // Fetch historical data for context
     let historicalContext = '';
@@ -247,7 +263,7 @@ Return ONE ritual as JSON:
           );
         }
         const errorText = await response.text();
-        console.error('AI API Error:', response.status, errorText);
+        log('error', 'AI API error on swap', { requestId, status: response.status, error: errorText });
         throw new Error(`AI API error: ${response.status}`);
       }
 
@@ -342,26 +358,30 @@ Return JSON array:
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      const errorText = await response.text();
-      console.error('AI API Error:', response.status, errorText);
-      throw new Error(`AI API error: ${response.status}`);
+        const errorText = await response.text();
+        log('error', 'AI API error on synthesis', { requestId, status: response.status, error: errorText });
+        throw new Error(`AI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      let content = data.choices[0].message.content;
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const rituals = JSON.parse(content);
+
+      const executionTime = Date.now() - startTime;
+      log('info', 'Synthesis completed', { requestId, ritualsCount: rituals.length, executionTimeMs: executionTime });
+
+      return new Response(JSON.stringify({ rituals }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+      log('error', 'Function failed', { requestId, error: errorMessage, executionTimeMs: executionTime });
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
-    const data = await response.json();
-    let content = data.choices[0].message.content;
-    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const rituals = JSON.parse(content);
-
-    return new Response(JSON.stringify({ rituals }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    console.error('Error in synthesize-rituals:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
 });

@@ -49,26 +49,27 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
       // Format to XXXX-XXXX
       const formattedCode = `${cleanCode.slice(0, 4)}-${cleanCode.slice(4)}`;
 
-      // Single simple query - no .or(), no timeout, no legacy support
-      const { data: couple, error: fetchError } = await supabase
-        .from('couples')
-        .select('id, partner_one, partner_two')
-        .eq('couple_code', formattedCode)
-        .eq('is_active', true)
-        .maybeSingle();
+      // Use secure validation function to prevent code enumeration
+      const { data: validationResult, error: validationError } = await supabase
+        .rpc('validate_couple_code', { input_code: formattedCode });
 
-      if (fetchError) throw fetchError;
+      if (validationError) throw validationError;
 
       // Validation
-      if (!couple) {
-        throw new Error('Code not found. Check with your partner.');
+      if (!validationResult || validationResult.length === 0) {
+        throw new Error('Code not found or expired. Check with your partner.');
       }
 
-      if (couple.partner_two) {
-        throw new Error('This couple is already complete.');
-      }
+      const coupleId = validationResult[0].couple_id;
 
-      if (couple.partner_one === user.id) {
+      // Verify we're not joining our own couple
+      const { data: coupleCheck } = await supabase
+        .from('couples')
+        .select('partner_one')
+        .eq('id', coupleId)
+        .single();
+
+      if (coupleCheck?.partner_one === user.id) {
         throw new Error("You can't join your own code!");
       }
 
@@ -76,7 +77,7 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
       const { error: updateError } = await supabase
         .from('couples')
         .update({ partner_two: user.id })
-        .eq('id', couple.id);
+        .eq('id', coupleId);
 
       if (updateError) throw updateError;
 
