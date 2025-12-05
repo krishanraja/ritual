@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PRICE_ID = "price_1Saq4wHGqJqsGEJLN0D1MACf";
+const PRICE_ID = "price_1SaqzE4w6vAdI2o5c5BQrdNt";
 
 // Coupon mappings for promo codes
 const PROMO_CODES: Record<string, string> = {

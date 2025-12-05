@@ -118,5 +118,5 @@ export function usePremium(): PremiumStatus {
 }
 
 // Constants for use in other components
-export const STRIPE_PRICE_ID = 'price_1Saq4wHGqJqsGEJLN0D1MACf';
+export const STRIPE_PRICE_ID = 'price_1SaqzE4w6vAdI2o5c5BQrdNt';
 export const PREMIUM_PRICE = '$3.99/month';
