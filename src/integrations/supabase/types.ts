@@ -114,6 +114,9 @@ export type Database = {
           partner_one: string
           partner_two: string | null
           preferred_city: string | null
+          premium_expires_at: string | null
+          stripe_customer_id: string | null
+          subscription_id: string | null
           synthesis_ready: boolean | null
         }
         Insert: {
@@ -126,6 +129,9 @@ export type Database = {
           partner_one: string
           partner_two?: string | null
           preferred_city?: string | null
+          premium_expires_at?: string | null
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
           synthesis_ready?: boolean | null
         }
         Update: {
@@ -138,6 +144,9 @@ export type Database = {
           partner_one?: string
           partner_two?: string | null
           preferred_city?: string | null
+          premium_expires_at?: string | null
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
           synthesis_ready?: boolean | null
         }
         Relationships: [
@@ -456,11 +465,13 @@ export type Database = {
           created_at: string
           generated_at: string | null
           id: string
+          nudge_count: number | null
           nudged_at: string | null
           partner_one_input: Json | null
           partner_one_submitted_at: string | null
           partner_two_input: Json | null
           partner_two_submitted_at: string | null
+          swaps_used: number | null
           sync_completed_at: string | null
           synthesized_output: Json | null
           week_start_date: string
@@ -476,11 +487,13 @@ export type Database = {
           created_at?: string
           generated_at?: string | null
           id?: string
+          nudge_count?: number | null
           nudged_at?: string | null
           partner_one_input?: Json | null
           partner_one_submitted_at?: string | null
           partner_two_input?: Json | null
           partner_two_submitted_at?: string | null
+          swaps_used?: number | null
           sync_completed_at?: string | null
           synthesized_output?: Json | null
           week_start_date: string
@@ -496,11 +509,13 @@ export type Database = {
           created_at?: string
           generated_at?: string | null
           id?: string
+          nudge_count?: number | null
           nudged_at?: string | null
           partner_one_input?: Json | null
           partner_one_submitted_at?: string | null
           partner_two_input?: Json | null
           partner_two_submitted_at?: string | null
+          swaps_used?: number | null
           sync_completed_at?: string | null
           synthesized_output?: Json | null
           week_start_date?: string
