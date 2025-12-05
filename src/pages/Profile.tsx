@@ -298,9 +298,13 @@ export default function Profile() {
             </Card>
           </motion.div>
 
-          <div className="text-center text-sm text-muted-foreground pt-4">
-            <p>Ritual v1.5</p>
-            <p>Made with 💕 for shared moments</p>
+          <div className="text-center text-xs text-muted-foreground pt-4 space-y-1">
+            <div className="flex items-center justify-center gap-2">
+              <button onClick={() => navigate('/terms')} className="hover:text-foreground transition-colors">Terms</button>
+              <span>·</span>
+              <button onClick={() => navigate('/privacy')} className="hover:text-foreground transition-colors">Privacy</button>
+            </div>
+            <p>© {new Date().getFullYear()} Mindmaker LLC · v1.5</p>
           </div>
         </div>
         <JoinDrawer open={joinOpen} onOpenChange={setJoinOpen} />
