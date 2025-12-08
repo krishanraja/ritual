@@ -3,7 +3,7 @@ import ritualIcon from '@/assets/ritual-icon.png';
 import { cn } from '@/lib/utils';
 
 interface RitualLogoProps {
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   variant?: 'full' | 'icon';
   className?: string;
 }
@@ -14,6 +14,7 @@ const sizeClasses = {
   md: 'max-h-16',   // 64px height
   lg: 'max-h-20',   // 80px height
   xl: 'max-h-24',   // 96px height
+  '2xl': 'max-h-48', // 192px height
 };
 
 export function RitualLogo({ size = 'md', variant = 'full', className }: RitualLogoProps) {

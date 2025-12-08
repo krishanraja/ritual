@@ -55,7 +55,7 @@ export default function Landing() {
       {/* Main content - vertically centered */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 space-y-8 relative z-10">
         {/* Logo */}
-        <RitualLogo size="xl" variant="full" className="max-w-[280px]" />
+        <RitualLogo size="2xl" variant="full" className="max-w-[560px]" />
         
         {/* Heading */}
         <div className="text-center space-y-4">
