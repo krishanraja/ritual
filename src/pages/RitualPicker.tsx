@@ -464,7 +464,7 @@ export default function RitualPicker() {
     <StrictMobileViewport>
       <div className="h-full bg-gradient-warm flex flex-col">
         <div className="flex-none px-4 pt-3 pb-2">
-          <img src="/favicon.png" alt="Ritual" className="w-6 h-6" />
+          <img src="/favicon.png" alt="Ritual" className="h-6 w-auto" />
         </div>
 
         <div className="flex-1 min-h-0">

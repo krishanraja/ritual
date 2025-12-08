@@ -169,7 +169,7 @@ export default function RitualCards() {
     return (
       <StrictMobileViewport>
         <div className="h-full bg-gradient-warm flex flex-col items-center justify-center px-4 gap-4">
-          <img src="/favicon.png" alt="Ritual" className="w-12 h-12" />
+          <img src="/favicon.png" alt="Ritual" className="h-12 w-auto" />
           <div className="text-center space-y-2">
             <h2 className="text-lg font-bold">No Rituals Yet</h2>
             <p className="text-sm text-muted-foreground">Complete weekly input to generate</p>
@@ -198,7 +198,7 @@ export default function RitualCards() {
         {/* Header - Compact */}
         <div className="flex-none px-4 pt-3 pb-2">
           <div className="flex items-center justify-between mb-2">
-            <img src="/favicon.png" alt="Ritual" className="w-6 h-6" />
+            <img src="/favicon.png" alt="Ritual" className="h-6 w-auto" />
             {isPartnerOnline && (
               <div className="flex items-center gap-1.5 text-xs text-green-600">
                 <UserCircle className="w-3 h-3" />

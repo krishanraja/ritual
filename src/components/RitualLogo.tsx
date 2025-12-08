@@ -1,8 +1,10 @@
-import ritualLogo from '@/assets/ritual-logo.png';
+import ritualLogoFull from '@/assets/ritual-logo-full.png';
+import ritualIcon from '@/assets/ritual-icon.png';
 import { cn } from '@/lib/utils';
 
 interface RitualLogoProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  variant?: 'full' | 'icon';
   className?: string;
 }
 
@@ -14,10 +16,22 @@ const sizeClasses = {
   xl: 'max-h-24',   // 96px height
 };
 
-export function RitualLogo({ size = 'md', className }: RitualLogoProps) {
+export function RitualLogo({ size = 'md', variant = 'full', className }: RitualLogoProps) {
+  const src = variant === 'full' ? ritualLogoFull : ritualIcon;
+  
   return (
     <img
-      src={ritualLogo}
+      src={src}
+      alt="Ritual"
+      className={cn('w-auto h-auto object-contain', sizeClasses[size], className)}
+    />
+  );
+}
+
+export function RitualIcon({ size = 'sm', className }: Omit<RitualLogoProps, 'variant'>) {
+  return (
+    <img
+      src={ritualIcon}
       alt="Ritual"
       className={cn('w-auto h-auto object-contain', sizeClasses[size], className)}
     />
