@@ -66,17 +66,8 @@ export default function Home() {
     }
   }, [user, loading]);
 
-  // Smart redirect: Auto-navigate to rituals or picker when ready
-  useEffect(() => {
-    if (currentCycle?.synthesized_output && couple?.partner_two) {
-      // If agreement reached, go to rituals, otherwise go to picker
-      if (currentCycle.agreement_reached) {
-        navigate('/rituals');
-      } else {
-        navigate('/picker');
-      }
-    }
-  }, [currentCycle?.synthesized_output, currentCycle?.agreement_reached, couple?.partner_two, navigate]);
+  // Removed auto-redirect - let users access Home page freely
+  // Navigation to rituals/picker is available via the "This Week" nav button
 
   // Auto-redirect to input when couple is complete
   useEffect(() => {

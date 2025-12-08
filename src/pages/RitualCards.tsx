@@ -197,15 +197,12 @@ export default function RitualCards() {
 
         {/* Header - Compact */}
         <div className="flex-none px-4 pt-3 pb-2">
-          <div className="flex items-center justify-between mb-2">
-            <img src="/favicon.png" alt="Ritual" className="h-6 w-auto" />
-            {isPartnerOnline && (
-              <div className="flex items-center gap-1.5 text-xs text-green-600">
-                <UserCircle className="w-3 h-3" />
-                <span>Partner online</span>
-              </div>
-            )}
-          </div>
+          {isPartnerOnline && (
+            <div className="flex items-center justify-end gap-1.5 text-xs text-green-600 mb-2">
+              <UserCircle className="w-3 h-3" />
+              <span>Partner online</span>
+            </div>
+          )}
           <div className="text-center">
             <h1 className="text-lg font-bold mb-0.5">This Week's Rituals</h1>
             <p className="text-xs text-muted-foreground">
