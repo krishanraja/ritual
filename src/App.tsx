@@ -14,7 +14,7 @@ import { PageTransition } from "@/components/PageTransition";
 import Landing from "./pages/Landing";
 
 // Code-split non-critical routes for smaller initial bundle
-const Home = lazy(() => import("./pages/Home"));
+
 const Auth = lazy(() => import("./pages/Auth"));
 const QuickInput = lazy(() => import("./pages/QuickInput"));
 const RitualCards = lazy(() => import("./pages/RitualCards"));
@@ -43,7 +43,7 @@ const AnimatedRoutes = () => {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
         <Route path="/auth" element={<Suspense fallback={<LazyFallback />}><PageTransition><Auth /></PageTransition></Suspense>} />
-        <Route path="/home" element={<Suspense fallback={<LazyFallback />}><PageTransition><Home /></PageTransition></Suspense>} />
+        
         <Route path="/input" element={<Suspense fallback={<LazyFallback />}><PageTransition><QuickInput /></PageTransition></Suspense>} />
         <Route path="/picker" element={<Suspense fallback={<LazyFallback />}><PageTransition><RitualPicker /></PageTransition></Suspense>} />
         <Route path="/rituals" element={<Suspense fallback={<LazyFallback />}><PageTransition><RitualCards /></PageTransition></Suspense>} />

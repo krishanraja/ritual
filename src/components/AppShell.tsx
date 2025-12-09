@@ -23,7 +23,7 @@ export const AppShell = ({ children }: AppShellProps) => {
   const showNav = user && !isAuthPage;
 
   const getThisWeekRoute = () => {
-    if (!couple || !couple.partner_two) return '/home';
+    if (!couple || !couple.partner_two) return '/';
     
     if (!currentCycle) return '/input';
     
@@ -47,7 +47,7 @@ export const AppShell = ({ children }: AppShellProps) => {
     
     // User submitted, waiting for partner
     if (userSubmitted) {
-      return '/home';
+      return '/';
     }
     
     // Neither submitted yet
@@ -55,7 +55,7 @@ export const AppShell = ({ children }: AppShellProps) => {
   };
 
   const navItems = [
-    { path: '/home', icon: Home, label: 'Home' },
+    { path: '/', icon: Home, label: 'Home' },
     { path: getThisWeekRoute(), icon: Calendar, label: 'This Week' },
     { path: '/history', icon: Clock, label: 'History' },
     { path: '/profile', icon: User, label: 'Profile' }
@@ -70,7 +70,7 @@ export const AppShell = ({ children }: AppShellProps) => {
           animate={{ y: 0, opacity: 1 }}
           className="flex-none flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50 z-50"
         >
-          <button onClick={() => navigate('/home')} className="focus:outline-none">
+          <button onClick={() => navigate('/')} className="focus:outline-none">
             <img 
               src="/favicon.png" 
               alt="Ritual" 

@@ -1,25 +1,99 @@
 import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { Button } from '@/components/ui/button';
-import { MapPin, Heart, Sparkles, TrendingUp } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { MapPin, Heart, Sparkles, TrendingUp, Share2, X, Calendar, Clock } from 'lucide-react';
 import { RitualLogo } from '@/components/RitualLogo';
 import { useState, useEffect } from 'react';
 import { useSEO, addStructuredData } from '@/hooks/useSEO';
 import { AnimatedGradientBackground } from '@/components/AnimatedGradientBackground';
 import { motion } from 'framer-motion';
+import { StrictMobileViewport } from '@/components/StrictMobileViewport';
+import { CreateCoupleDialog } from '@/components/CreateCoupleDialog';
+import { JoinDrawer } from '@/components/JoinDrawer';
+import { WaitingForPartner } from '@/components/WaitingForPartner';
+import { SynthesisAnimation } from '@/components/SynthesisAnimation';
+import { EnhancedPostRitualCheckin } from '@/components/EnhancedPostRitualCheckin';
+import { SurpriseRitualCard } from '@/components/SurpriseRitualCard';
+import { StreakBadge } from '@/components/StreakBadge';
+import { useSurpriseRitual } from '@/hooks/useSurpriseRitual';
+import { format, isPast, parseISO } from 'date-fns';
+
 export default function Landing() {
   const navigate = useNavigate();
-  const {
-    user,
-    loading
-  } = useCouple();
+  const { user, couple, partnerProfile, currentCycle, loading, refreshCycle } = useCouple();
+  const { surprise, refresh: refreshSurprise } = useSurpriseRitual();
+  
+  const [createOpen, setCreateOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [nudgeBannerDismissed, setNudgeBannerDismissed] = useState(false);
+  const [slowLoading, setSlowLoading] = useState(false);
+  const [showPostRitualCheckin, setShowPostRitualCheckin] = useState(false);
 
-  // Auto-redirect authenticated users to home
+  // Force refresh cycle data when page mounts
   useEffect(() => {
-    if (!loading && user) {
-      navigate('/home', { replace: true });
+    if (couple?.id && !loading) {
+      refreshCycle();
     }
-  }, [user, loading, navigate]);
+  }, []);
+
+  // Show slow loading indicator after 3 seconds
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => setSlowLoading(true), 3000);
+      return () => clearTimeout(timer);
+    }
+    setSlowLoading(false);
+  }, [loading]);
+
+  // Handle pending join action after auth
+  useEffect(() => {
+    if (user && !loading) {
+      const pendingAction = sessionStorage.getItem('pendingAction');
+      if (pendingAction === 'join') {
+        sessionStorage.removeItem('pendingAction');
+        setTimeout(() => setJoinOpen(true), 300);
+      }
+    }
+  }, [user, loading]);
+
+  // Auto-redirect to input when couple is complete
+  useEffect(() => {
+    if (!couple || !currentCycle || loading) return;
+    
+    const hasPartnerOne = !!currentCycle?.partner_one_input;
+    const hasPartnerTwo = !!currentCycle?.partner_two_input;
+    const userIsPartnerOne = couple.partner_one === user?.id;
+    const userSubmitted = userIsPartnerOne ? hasPartnerOne : hasPartnerTwo;
+    
+    if (couple.partner_two && !userSubmitted) {
+      navigate('/input');
+    }
+  }, [couple, currentCycle, user, loading, navigate]);
+
+  // Check if should show post-ritual checkin
+  useEffect(() => {
+    if (!currentCycle?.agreed_date || !currentCycle?.agreed_time || !couple?.id) return;
+
+    const ritualDateTime = parseISO(`${currentCycle.agreed_date}T${currentCycle.agreed_time}`);
+    const hasRitualPassed = isPast(ritualDateTime);
+
+    if (hasRitualPassed && !showPostRitualCheckin) {
+      const checkFeedback = async () => {
+        const { data } = await (await import('@/integrations/supabase/client')).supabase
+          .from('ritual_feedback')
+          .select('id')
+          .eq('weekly_cycle_id', currentCycle.id)
+          .eq('couple_id', couple.id)
+          .single();
+        
+        if (!data) {
+          setShowPostRitualCheckin(true);
+        }
+      };
+      checkFeedback();
+    }
+  }, [currentCycle, couple, showPostRitualCheckin]);
 
   // SEO optimization
   useSEO({
@@ -27,8 +101,8 @@ export default function Landing() {
     description: 'Build meaningful weekly rituals with your partner. AI-powered ritual suggestions tailored to your location in London, Sydney, Melbourne, or New York. Track completions, build streaks, and strengthen your relationship.',
     keywords: 'relationship rituals, couple activities, weekly rituals, relationship building, shared moments, couple goals, date ideas, relationship app, partner activities'
   });
+
   useEffect(() => {
-    // Add structured data for landing page
     addStructuredData({
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
@@ -45,85 +119,398 @@ export default function Landing() {
       featureList: ['AI-powered ritual suggestions', 'Location-based activities in London, Sydney, Melbourne, and New York', 'Partner synchronization and ranking', 'Streak tracking and gamification', 'Calendar integration']
     });
   }, []);
-  // Show loading state while checking auth to prevent flash
+
+  // Loading state
   if (loading) {
+    return (
+      <StrictMobileViewport>
+        <div className="h-full flex flex-col items-center justify-center gap-4 relative">
+          <AnimatedGradientBackground variant="calm" />
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin relative z-10" />
+          {slowLoading && (
+            <p className="text-sm text-muted-foreground animate-pulse relative z-10">
+              Reconnecting...
+            </p>
+          )}
+        </div>
+      </StrictMobileViewport>
+    );
+  }
+
+  // Not logged in: Show marketing landing page
+  if (!user) {
     return (
       <div className="h-screen overflow-hidden flex flex-col relative">
         <AnimatedGradientBackground variant="warm" />
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 space-y-4 sm:space-y-6 relative z-10 overflow-y-auto pb-24">
+          <motion.div
+            initial={{ opacity: 1, scale: 1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <RitualLogo size="2xl" variant="full" className="max-w-[560px] sm:max-w-[800px] md:max-w-[1120px] flex-shrink-0" />
+          </motion.div>
+          
+          <div className="text-center space-y-3 sm:space-y-4">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">
+              Create Meaningful Weekly Rituals with Your Partner
+            </h1>
+            <p className="text-sm text-foreground/70 max-w-sm mx-auto leading-relaxed">
+              Spend 2 minutes a week syncing, explore & schedule fresh, local ideas that will strengthen your bond with one another.
+            </p>
+            
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-3 pt-2">
+              <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AI-Powered</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <MapPin className="w-3.5 h-3.5" />
+                <span>Location-Aware</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Streak Tracking</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <Heart className="w-3.5 h-3.5" />
+                <span>Build Together</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="w-full max-w-sm space-y-3 flex-shrink-0">
+            <Button onClick={() => navigate('/auth')} size="lg" className="w-full h-12 sm:h-14 text-base bg-gradient-ritual text-white">
+              Start New Ritual
+            </Button>
+            
+            <Button onClick={() => navigate('/auth?join=true')} variant="outline" size="lg" className="w-full h-12 sm:h-14 text-base">
+              Join Your Partner
+            </Button>
+          </div>
+          
+          <p className="text-xs text-muted-foreground flex-shrink-0">
+            Already have an account? <button onClick={() => navigate('/auth')} className="underline">Sign In</button>
+          </p>
+        </div>
+
+        <footer className="flex-none py-4 px-6 text-center text-xs text-muted-foreground relative z-10">
+          <div className="flex items-center justify-center gap-2">
+            <button onClick={() => navigate('/terms')} className="hover:text-foreground transition-colors">Terms</button>
+            <span>·</span>
+            <button onClick={() => navigate('/privacy')} className="hover:text-foreground transition-colors">Privacy</button>
+            <span>·</span>
+            <button onClick={() => navigate('/contact')} className="hover:text-foreground transition-colors">Contact</button>
+            <span>·</span>
+            <span>© {new Date().getFullYear()} Mindmaker LLC</span>
+          </div>
+        </footer>
       </div>
     );
   }
 
-  return <div className="h-screen overflow-hidden flex flex-col relative">
-      <AnimatedGradientBackground variant="warm" />
-
-      {/* Main content - vertically centered */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 space-y-4 sm:space-y-6 relative z-10 overflow-y-auto">
-        {/* Logo - responsive sizing */}
-        <motion.div
-          initial={{ opacity: 1, scale: 1 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <RitualLogo size="2xl" variant="full" className="max-w-[560px] sm:max-w-[800px] md:max-w-[1120px] flex-shrink-0" />
-        </motion.div>
-        
-        {/* Heading */}
-        <div className="text-center space-y-3 sm:space-y-4">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">
-            Create Meaningful Weekly Rituals with Your Partner
-          </h1>
-          <p className="text-sm text-foreground/70 max-w-sm mx-auto leading-relaxed">Spend 2 minutes a week syncing, explore & schedule fresh, local ideas that will strengthen your bond with one another.</p>
-          
-          {/* Feature highlights */}
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 pt-2">
-            <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>AI-Powered</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
-              <MapPin className="w-3.5 h-3.5" />
-              <span>Location-Aware</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>Streak Tracking</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
-              <Heart className="w-3.5 h-3.5" />
-              <span>Build Together</span>
-            </div>
+  // Logged in but no couple: Show welcome screen
+  if (!couple) {
+    return (
+      <StrictMobileViewport>
+        <div className="h-full flex flex-col relative">
+          <AnimatedGradientBackground variant="warm" />
+          <div className="flex-1 flex flex-col items-center justify-center px-6 relative z-10">
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center space-y-6 max-w-sm">
+              <RitualLogo size="xl" variant="full" className="mx-auto" />
+              <div>
+                <h1 className="text-xl font-bold mb-2">Welcome to Ritual</h1>
+                <p className="text-sm text-muted-foreground">Create weekly rituals together</p>
+              </div>
+              <div className="space-y-2">
+                <Button onClick={() => setCreateOpen(true)} className="w-full bg-gradient-ritual text-white h-12 rounded-xl">
+                  <Heart className="w-4 h-4 mr-2" />Start a Ritual Space
+                </Button>
+                <Button onClick={() => setJoinOpen(true)} variant="outline" className="w-full h-12 rounded-xl">
+                  I Have a Code
+                </Button>
+              </div>
+            </motion.div>
           </div>
         </div>
-        
-        {/* CTA Buttons */}
-        <div className="w-full max-w-sm space-y-3 flex-shrink-0">
-          <Button onClick={() => navigate('/auth')} size="lg" className="w-full h-12 sm:h-14 text-base bg-gradient-ritual text-white">
-            Start New Ritual
-          </Button>
-          
-          <Button onClick={() => navigate('/auth?join=true')} variant="outline" size="lg" className="w-full h-12 sm:h-14 text-base">
-            Join Your Partner
-          </Button>
-        </div>
-        
-        {/* Sign in link */}
-        <p className="text-xs text-muted-foreground flex-shrink-0">
-          Already have an account? <button onClick={() => navigate('/auth')} className="underline">Sign In</button>
-        </p>
-      </div>
+        <CreateCoupleDialog open={createOpen} onOpenChange={setCreateOpen} />
+        <JoinDrawer open={joinOpen} onOpenChange={setJoinOpen} />
+      </StrictMobileViewport>
+    );
+  }
 
-      {/* Footer */}
-      <footer className="flex-none py-4 px-6 text-center text-xs text-muted-foreground relative z-10">
-        <div className="flex items-center justify-center gap-2">
-          <button onClick={() => navigate('/terms')} className="hover:text-foreground transition-colors">Terms</button>
-          <span>·</span>
-          <button onClick={() => navigate('/privacy')} className="hover:text-foreground transition-colors">Privacy</button>
-          <span>·</span>
-          <button onClick={() => navigate('/contact')} className="hover:text-foreground transition-colors">Contact</button>
-          <span>·</span>
-          <span>© {new Date().getFullYear()} Mindmaker LLC</span>
+  // Waiting for partner to join
+  if (!couple.partner_two) {
+    return (
+      <StrictMobileViewport>
+        <div className="h-full flex flex-col relative">
+          <AnimatedGradientBackground variant="warm" />
+          <div className="flex-1 flex flex-col justify-center px-4 relative z-10">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="space-y-6 max-w-sm mx-auto"
+            >
+              <div className="text-center space-y-3">
+                <RitualLogo size="lg" variant="full" className="mx-auto mb-4" />
+                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-ritual flex items-center justify-center animate-pulse">
+                  <Heart className="w-8 h-8 text-white" />
+                </div>
+                <h1 className="text-2xl font-bold">Waiting for Partner...</h1>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Share your code to invite someone special
+                </p>
+              </div>
+
+              <Card className="p-6 bg-white/90 backdrop-blur-sm">
+                <p className="text-sm text-muted-foreground mb-2 text-center">Your Couple Code</p>
+                <p className="text-5xl font-bold text-primary tracking-wider mb-6 text-center">
+                  {couple.couple_code}
+                </p>
+                
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => {
+                      const text = `Try this 2-min ritual generator with me! 💕\n\nUse code: ${couple.couple_code}\n\nGet personalized date ideas based on our combined vibes. Takes 2 minutes total.`;
+                      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+                      window.open(url, '_blank');
+                    }}
+                    className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white h-12 rounded-xl"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share via WhatsApp
+                  </Button>
+                  
+                  <Button
+                    onClick={() => {
+                      const text = `Join our ritual space! Use code: ${couple.couple_code}`;
+                      window.location.href = `sms:&body=${encodeURIComponent(text)}`;
+                    }}
+                    variant="outline"
+                    className="w-full border-2 border-primary/30 rounded-xl h-12"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share via SMS
+                  </Button>
+                  
+                  <Button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(couple.couple_code);
+                      } catch (error) {
+                        console.error('Copy failed:', error);
+                      }
+                    }}
+                    variant="outline"
+                    className="w-full border-2 border-primary/30 rounded-xl h-12"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Copy Code
+                  </Button>
+                </div>
+              </Card>
+
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-2">Or</p>
+                <Button 
+                  onClick={() => setJoinOpen(true)}
+                  variant="outline"
+                  className="w-full h-12 rounded-xl"
+                >
+                  Join Someone Else's Code
+                </Button>
+              </div>
+            </motion.div>
+          </div>
         </div>
-      </footer>
-    </div>;
+        <JoinDrawer open={joinOpen} onOpenChange={setJoinOpen} />
+      </StrictMobileViewport>
+    );
+  }
+
+  // Couple exists - check ritual state
+  const hasSynthesized = currentCycle?.synthesized_output;
+  const hasPartnerOne = !!currentCycle?.partner_one_input;
+  const hasPartnerTwo = !!currentCycle?.partner_two_input;
+  const userIsPartnerOne = couple.partner_one === user.id;
+  const userSubmitted = userIsPartnerOne ? hasPartnerOne : hasPartnerTwo;
+  const partnerSubmitted = userIsPartnerOne ? hasPartnerTwo : hasPartnerOne;
+
+  const hasRecentNudge = currentCycle?.nudged_at && 
+    (Date.now() - new Date(currentCycle.nudged_at).getTime()) < 24 * 60 * 60 * 1000;
+  const shouldShowNudgeBanner = hasRecentNudge && !userSubmitted && partnerProfile && !nudgeBannerDismissed;
+
+  // Synthesis in progress
+  if (userSubmitted && partnerSubmitted && !hasSynthesized) {
+    return (
+      <StrictMobileViewport>
+        <SynthesisAnimation />
+      </StrictMobileViewport>
+    );
+  }
+
+  // User submitted, waiting for partner
+  if (userSubmitted && !partnerSubmitted && currentCycle) {
+    const partnerName = partnerProfile?.name || 'your partner';
+    return (
+      <StrictMobileViewport>
+        <div className="h-full relative">
+          <AnimatedGradientBackground variant="calm" />
+          <WaitingForPartner
+            partnerName={partnerName}
+            currentCycleId={currentCycle.id}
+            lastNudgedAt={currentCycle.nudged_at}
+          />
+          {showPostRitualCheckin && currentCycle?.agreed_ritual && user && (
+            <EnhancedPostRitualCheckin
+              coupleId={couple.id}
+              cycleId={currentCycle.id}
+              userId={user.id}
+              ritualTitle={(currentCycle.agreed_ritual as any)?.title || 'Ritual'}
+              ritualDescription={(currentCycle.agreed_ritual as any)?.description}
+              agreedDate={currentCycle.agreed_date || ''}
+              onComplete={() => setShowPostRitualCheckin(false)}
+              onDismiss={() => setShowPostRitualCheckin(false)}
+            />
+          )}
+        </div>
+      </StrictMobileViewport>
+    );
+  }
+
+  // Check if ritual time has passed
+  const hasAgreedRitual = currentCycle?.agreement_reached && currentCycle?.agreed_ritual;
+  const ritualHasPassed = hasAgreedRitual && 
+    currentCycle?.agreed_date && 
+    currentCycle?.agreed_time &&
+    isPast(parseISO(`${currentCycle.agreed_date}T${currentCycle.agreed_time}`));
+
+  // Main dashboard view
+  return (
+    <StrictMobileViewport>
+      <div className="h-full flex flex-col relative">
+        <AnimatedGradientBackground variant="warm" />
+        
+        {/* Compact Header with Logo */}
+        <div className="flex-none px-4 pt-4 pb-2 relative z-10">
+          <div className="flex items-center justify-between mb-2">
+            <RitualLogo size="md" variant="full" />
+            <StreakBadge />
+          </div>
+        </div>
+
+        {/* Nudge Banner */}
+        {shouldShowNudgeBanner && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex-none mx-4 mb-2 relative z-10"
+          >
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+              <p className="text-sm flex-1">
+                <span className="font-semibold">{partnerProfile?.name}</span> is excited to start! Complete your input to create this week's rituals.
+              </p>
+              <button
+                onClick={() => setNudgeBannerDismissed(true)}
+                className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Main Content */}
+        <div className="flex-1 px-4 pb-24 flex flex-col justify-center gap-4 relative z-10">
+          {/* Surprise Ritual Card */}
+          {surprise && !surprise.completed_at && (
+            <SurpriseRitualCard
+              surprise={surprise}
+              onOpen={refreshSurprise}
+              onComplete={refreshSurprise}
+            />
+          )}
+
+          {ritualHasPassed && hasAgreedRitual ? (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+              <Card className="p-6 bg-primary/5 border-primary/20 text-center space-y-4">
+                <Heart className="w-12 h-12 mx-auto text-primary" fill="currentColor" />
+                <div>
+                  <h2 className="text-xl font-bold mb-2">How was your ritual?</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {(currentCycle?.agreed_ritual as any)?.title || 'Your ritual'}
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => setShowPostRitualCheckin(true)}
+                  className="w-full bg-gradient-ritual text-white h-12 rounded-xl"
+                >
+                  Share Your Experience
+                </Button>
+              </Card>
+            </motion.div>
+          ) : hasAgreedRitual ? (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+              <Card
+                onClick={() => navigate('/rituals')}
+                className="p-6 cursor-pointer hover:shadow-lg transition-all bg-gradient-ritual text-white border-0 active:scale-95"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold">This Week's Ritual</h2>
+                    <Heart className="w-10 h-10" fill="currentColor" />
+                  </div>
+                  <p className="text-lg font-semibold">{(currentCycle?.agreed_ritual as any)?.title || 'This Week\'s Ritual'}</p>
+                  <div className="flex items-center gap-3 text-sm opacity-90">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      <span>{currentCycle?.agreed_date && format(new Date(currentCycle.agreed_date), 'MMM d')}</span>
+                    </div>
+                    {currentCycle?.agreed_time && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        <span>{currentCycle.agreed_time}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ) : (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+              <Card className="p-6 bg-card/90 backdrop-blur-sm text-center space-y-4">
+                <div className="w-12 h-12 mx-auto rounded-full bg-gradient-ritual flex items-center justify-center">
+                  <Heart className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold mb-1">Ready for This Week?</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Share your preferences to create rituals with {partnerProfile?.name || 'your partner'}
+                  </p>
+                </div>
+                <Button onClick={() => navigate('/input')} className="w-full bg-gradient-ritual text-white h-12 rounded-xl">
+                  Start Input
+                </Button>
+              </Card>
+            </motion.div>
+          )}
+        </div>
+      </div>
+      {showPostRitualCheckin && hasAgreedRitual && user && (
+        <EnhancedPostRitualCheckin
+          coupleId={couple.id}
+          cycleId={currentCycle!.id}
+          userId={user.id}
+          ritualTitle={(currentCycle?.agreed_ritual as any)?.title || 'Ritual'}
+          ritualDescription={(currentCycle?.agreed_ritual as any)?.description}
+          agreedDate={currentCycle?.agreed_date || ''}
+          onComplete={() => setShowPostRitualCheckin(false)}
+          onDismiss={() => setShowPostRitualCheckin(false)}
+        />
+      )}
+    </StrictMobileViewport>
+  );
 }
