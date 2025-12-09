@@ -26,9 +26,6 @@ const FREE_LIMITS = {
   ritualsToShow: 3,
 };
 
-// Developer accounts with permanent premium access
-const DEV_EMAILS = ['hello@crashrodger.com'];
-
 const PREMIUM_LIMITS = {
   swaps: 3,
   nudgesPerWeek: Infinity,
@@ -37,10 +34,9 @@ const PREMIUM_LIMITS = {
 };
 
 export function usePremium(): PremiumStatus {
-  const { couple, currentCycle, user } = useCouple();
+  const { couple, currentCycle } = useCouple();
   const [isLoading, setIsLoading] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
-  const [isDevAccount, setIsDevAccount] = useState(false);
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [nudgesUsedThisWeek, setNudgesUsedThisWeek] = useState(0);
@@ -53,19 +49,7 @@ export function usePremium(): PremiumStatus {
     }
 
     try {
-      // Check if dev account first
-      const isDev = user?.email && DEV_EMAILS.includes(user.email);
-      setIsDevAccount(isDev);
-      
-      if (isDev) {
-        setIsPremium(true);
-        setExpiresAt(new Date('2099-12-31'));
-        setSubscriptionId('dev_account');
-        setIsLoading(false);
-        return;
-      }
-
-      // Fetch couple's premium status
+      // Fetch couple's premium status (dev accounts should use Stripe for permanent premium)
       const { data: coupleData, error } = await supabase
         .from('couples')
         .select('premium_expires_at, subscription_id')
@@ -103,7 +87,7 @@ export function usePremium(): PremiumStatus {
     } finally {
       setIsLoading(false);
     }
-  }, [couple?.id, currentCycle?.id, user?.email]);
+  }, [couple?.id, currentCycle?.id]);
 
   useEffect(() => {
     refresh();

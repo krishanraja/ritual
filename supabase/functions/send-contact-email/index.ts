@@ -29,6 +29,7 @@ const SUBJECT_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+// Logging helper
 const log = (level: string, message: string, data?: Record<string, unknown>) => {
   const timestamp = new Date().toISOString();
   const logEntry = {
@@ -41,6 +42,19 @@ const log = (level: string, message: string, data?: Record<string, unknown>) => 
   console.log(JSON.stringify(logEntry));
 };
 
+// HTML escape helper to prevent injection
+const escapeHtml = (text: string): string => {
+  const htmlEscapes: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return text.replace(/[&<>"']/g, (char) => htmlEscapes[char] || char);
+};
+
+// Mask email for privacy in logs
 const maskEmail = (email: string): string => {
   const [local, domain] = email.split("@");
   if (!domain) return "***";
@@ -158,20 +172,20 @@ const handler = async (req: Request): Promise<Response> => {
     const adminEmailResult = await sendEmail(
       RESEND_API_KEY,
       ["hello@krishraja.com"],
-      `[Ritual Contact] ${subjectLabel} from ${name}`,
+      `[Ritual Contact] ${subjectLabel} from ${escapeHtml(name)}`,
       `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #333; margin-bottom: 20px;">New Contact Form Submission</h2>
           
           <div style="background: #f9f9f9; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-            <p style="margin: 0 0 10px;"><strong>From:</strong> ${name}</p>
-            <p style="margin: 0 0 10px;"><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+            <p style="margin: 0 0 10px;"><strong>From:</strong> ${escapeHtml(name)}</p>
+            <p style="margin: 0 0 10px;"><strong>Email:</strong> <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>
             <p style="margin: 0;"><strong>Subject:</strong> ${subjectLabel}</p>
           </div>
           
           <div style="background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 20px;">
             <h3 style="margin: 0 0 10px; color: #333;">Message:</h3>
-            <p style="margin: 0; color: #555; white-space: pre-wrap;">${message}</p>
+            <p style="margin: 0; color: #555; white-space: pre-wrap;">${escapeHtml(message)}</p>
           </div>
           
           <p style="margin-top: 20px; color: #999; font-size: 12px;">
@@ -207,7 +221,7 @@ const handler = async (req: Request): Promise<Response> => {
       "We received your message!",
       `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #333; margin-bottom: 20px;">Thanks for reaching out, ${name}!</h2>
+          <h2 style="color: #333; margin-bottom: 20px;">Thanks for reaching out, ${escapeHtml(name)}!</h2>
           
           <p style="color: #555; line-height: 1.6;">
             We've received your message and will get back to you as soon as possible, 
@@ -216,7 +230,7 @@ const handler = async (req: Request): Promise<Response> => {
           
           <div style="background: #f9f9f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
             <p style="margin: 0 0 10px;"><strong>Your message:</strong></p>
-            <p style="margin: 0; color: #555; white-space: pre-wrap;">${message}</p>
+            <p style="margin: 0; color: #555; white-space: pre-wrap;">${escapeHtml(message)}</p>
           </div>
           
           <p style="color: #555; line-height: 1.6;">
