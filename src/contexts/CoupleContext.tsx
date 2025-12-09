@@ -2,13 +2,13 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
-import type { Couple, Profile, WeeklyCycle } from '@/types/database';
+import type { Couple, PartnerProfile, WeeklyCycle } from '@/types/database';
 
 interface CoupleContextType {
   user: User | null;
   session: any;
   couple: Couple | null;
-  partnerProfile: Profile | null;
+  partnerProfile: PartnerProfile | null;
   currentCycle: WeeklyCycle | null;
   loading: boolean;
   refreshCouple: () => Promise<void>;
@@ -22,7 +22,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<any>(null);
   const [couple, setCouple] = useState<Couple | null>(null);
-  const [partnerProfile, setPartnerProfile] = useState<Profile | null>(null);
+  const [partnerProfile, setPartnerProfile] = useState<PartnerProfile | null>(null);
   const [currentCycle, setCurrentCycle] = useState<WeeklyCycle | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -58,13 +58,15 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
         : coupleData.partner_one;
       
       if (partnerId) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', partnerId)
-          .maybeSingle();
+        // SECURITY: Use database function to get only partner's name
+        const { data: partnerName } = await supabase
+          .rpc('get_partner_name', { partner_id: partnerId });
         
-        setPartnerProfile(profile);
+        if (partnerName) {
+          setPartnerProfile({ id: partnerId, name: partnerName });
+        } else {
+          setPartnerProfile(null);
+        }
       } else {
         setPartnerProfile(null);
       }

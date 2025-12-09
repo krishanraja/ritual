@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## v1.4.1 (Security Audit)
+**Date**: 2025-12-09
+
+### Security Fixes
+- **Fixed:** Partner profile email exposure - Frontend now only fetches `id` and `name` columns
+- **Fixed:** Surprise rituals INSERT policy - Restricted to `service_role` only
+- **Fixed:** Added UPDATE policy for `push_subscriptions` table
+- **Fixed:** Added DELETE policy for `ritual_streaks` table
+- **Fixed:** Added DELETE policy for `ritual_suggestions` table
+- **Fixed:** Added DELETE policy for `weekly_cycles` (empty cycles only)
+- **Fixed:** Anonymous analytics/feedback now require authentication (user_id NOT NULL)
+
+### Added
+- `docs/MASTER-INSTRUCTIONS.md` - Comprehensive engineering standards
+- `docs/PROJECT_NOTES.md` - Running decisions and technical debt tracker
+- `docs/COMPLIANCE-CHECKLIST.md` - Standards compliance tracking
+- `PartnerProfile` type for secure partner data access
+- `get_partner_name()` database function for secure partner name lookup
+- Page transition loading indicator (subtle top bar animation)
+
+### Changed
+- CoupleContext now uses `PartnerProfile` type to prevent email exposure
+- Updated docs/README.md with links to new documentation
+- Auth settings: auto-confirm email enabled, anonymous users disabled
+
+### Technical
+- All RLS policies audited and updated
+- Edge functions verified for proper authentication
+- Structured logging confirmed in all edge functions
+
+---
+
 ## v1.4 (UX Overhaul)
 **Date**: 2025-12-02
 

@@ -133,6 +133,47 @@ export type Database = {
         }
         Relationships: []
       }
+      couple_billing: {
+        Row: {
+          applied_promo_code: string | null
+          couple_id: string
+          created_at: string
+          id: string
+          premium_expires_at: string | null
+          stripe_customer_id: string | null
+          subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          applied_promo_code?: string | null
+          couple_id: string
+          created_at?: string
+          id?: string
+          premium_expires_at?: string | null
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          applied_promo_code?: string | null
+          couple_id?: string
+          created_at?: string
+          id?: string
+          premium_expires_at?: string | null
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "couple_billing_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: true
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       couples: {
         Row: {
           applied_promo_code: string | null
@@ -555,7 +596,7 @@ export type Database = {
           id: string
           page: string | null
           session_id: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           couple_id?: string | null
@@ -565,7 +606,7 @@ export type Database = {
           id?: string
           page?: string | null
           session_id: string
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           couple_id?: string | null
@@ -575,7 +616,7 @@ export type Database = {
           id?: string
           page?: string | null
           session_id?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -598,7 +639,7 @@ export type Database = {
           page_context: string | null
           rating: number | null
           sentiment: string | null
-          user_id: string | null
+          user_id: string
           user_journey_stage: string | null
         }
         Insert: {
@@ -611,7 +652,7 @@ export type Database = {
           page_context?: string | null
           rating?: number | null
           sentiment?: string | null
-          user_id?: string | null
+          user_id: string
           user_journey_stage?: string | null
         }
         Update: {
@@ -624,7 +665,7 @@ export type Database = {
           page_context?: string | null
           rating?: number | null
           sentiment?: string | null
-          user_id?: string | null
+          user_id?: string
           user_journey_stage?: string | null
         }
         Relationships: [
@@ -719,6 +760,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_partner_name: { Args: { partner_id: string }; Returns: string }
       is_partner: { Args: { profile_id: string }; Returns: boolean }
       validate_couple_code: {
         Args: { input_code: string }
