@@ -160,8 +160,40 @@ App
 
 ### Key Component Patterns
 
-**1. Strict Mobile Viewport**
-All pages wrapped in `<StrictMobileViewport>` for consistent mobile-first design.
+**1. No-Cutoff Layout Principle (CRITICAL)**
+**NEVER** use fixed viewport heights (`h-screen`, `h-[100dvh]`) inside page components. AppShell handles viewport constraints. Pages MUST use proper flex layouts:
+
+```tsx
+// ✅ CORRECT: Page component pattern
+<div className="h-full flex flex-col">
+  {/* Fixed header - flex-none */}
+  <div className="flex-none px-4 py-3">
+    <h1>Title</h1>
+  </div>
+  
+  {/* Scrollable content - flex-1 with overflow */}
+  <div className="flex-1 overflow-y-auto min-h-0">
+    {/* Content that may need scrolling */}
+  </div>
+  
+  {/* Fixed footer/button - flex-none */}
+  <div className="flex-none px-4 py-3">
+    <Button>Action</Button>
+  </div>
+</div>
+
+// ❌ WRONG: Using StrictMobileViewport or fixed heights
+<StrictMobileViewport>  // DELETED - never use
+  <div className="h-[100dvh]">  // NEVER inside pages
+    <div className="pb-24">  // NEVER padding hacks
+```
+
+**Key Rules:**
+- `h-full` on root div (inherits from AppShell)
+- `flex-none` for fixed elements (headers, buttons)
+- `flex-1 overflow-y-auto min-h-0` for scrollable content
+- **NEVER** use `pb-24` or similar padding hacks
+- **NEVER** use `h-screen` or `h-[100dvh]` inside pages
 
 **2. Loading States**
 Every async operation shows loading state with timeout-based "slow loading" indicator.

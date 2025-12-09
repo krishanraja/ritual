@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
-import { StrictMobileViewport } from "@/components/StrictMobileViewport";
 import { useSEO } from '@/hooks/useSEO';
 import { NotificationContainer } from '@/components/InlineNotification';
 import { Check, X } from 'lucide-react';
@@ -113,8 +112,8 @@ const Auth = () => {
   };
 
   return (
-    <StrictMobileViewport>
-      <div className="h-full flex items-center justify-center p-4 relative">
+    <div className="h-full flex flex-col">
+      <div className="flex-1 flex items-center justify-center p-4 relative overflow-y-auto min-h-0">
         <AnimatedGradientBackground variant="warm" />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -244,7 +243,7 @@ const Auth = () => {
           </div>
         </motion.div>
       </div>
-    </StrictMobileViewport>
+    </div>
   );
 };
 

@@ -4,8 +4,6 @@ import { useCouple } from '@/contexts/CoupleContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-
-import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 import { Calendar } from '@/components/ui/calendar';
 import { Clock, DollarSign, Calendar as CalendarIcon, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -224,24 +222,25 @@ export default function RitualPicker() {
   };
 
   const renderRankingStep = () => (
-    <div className="h-full flex flex-col px-4 py-3">
-      {notification && (
-        <div className="flex-none mb-3">
-          <NotificationContainer
-            notification={notification}
-            onDismiss={() => setNotification(null)}
-          />
+    <div className="h-full flex flex-col">
+      {/* Fixed header */}
+      <div className="flex-none px-4 py-3">
+        {notification && (
+          <div className="mb-3">
+            <NotificationContainer
+              notification={notification}
+              onDismiss={() => setNotification(null)}
+            />
+          </div>
+        )}
+        <div className="text-center mb-3">
+          <h2 className="text-xl font-bold mb-1">Pick Your Top 3</h2>
+          <p className="text-sm text-muted-foreground">
+            Tap to rank: 1st choice, 2nd choice, 3rd choice
+          </p>
         </div>
-      )}
-      <div className="flex-none text-center mb-3">
-        <h2 className="text-xl font-bold mb-1">Pick Your Top 3</h2>
-        <p className="text-sm text-muted-foreground">
-          Tap to rank: 1st choice, 2nd choice, 3rd choice
-        </p>
-      </div>
 
-      {/* Selected Ranks Display - Fixed layout */}
-      <div className="flex-none mb-4">
+        {/* Selected Ranks Display */}
         <div className="grid grid-cols-3 gap-2 max-w-sm mx-auto">
           {[1, 2, 3].map(rank => (
             <div key={rank}>
@@ -279,67 +278,68 @@ export default function RitualPicker() {
         </div>
       </div>
 
-      {/* Ritual Cards - Show all but limit selection for free users */}
-      <div className="flex-1 space-y-2 overflow-y-auto min-h-0 pb-24">
-        {rituals.map((ritual, idx) => {
-          const isLocked = !isPremium && idx >= ritualsToShow;
-          const currentRank = Object.entries(selectedRanks).find(([_, r]) => r?.title === ritual.title)?.[0];
-          return (
-            <motion.div
-              key={idx}
-              whileTap={!isLocked ? { scale: 0.98 } : undefined}
-              onClick={() => {
-                if (isLocked) {
-                  setShowUpgradeModal(true);
-                  return;
-                }
-                const nextRank = !currentRank ? 
-                  (selectedRanks[1] ? (selectedRanks[2] ? 3 : 2) : 1) : 
-                  parseInt(currentRank);
-                handleSelectRitual(ritual, nextRank);
-              }}
-            >
-              <Card className={cn(
-                "transition-all",
-                isLocked ? "opacity-60 cursor-pointer" : "cursor-pointer active:scale-[0.98]",
-                currentRank ? "ring-2 ring-primary bg-primary/5" : "hover:bg-muted/30"
-              )}>
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-sm mb-0.5 truncate">{ritual.title}</h3>
-                      <p className="text-xs text-muted-foreground line-clamp-1 mb-1.5">{ritual.description}</p>
-                      <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-muted rounded">
-                          <Clock className="w-3 h-3" />
-                          {ritual.time_estimate}
-                        </span>
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-muted rounded">
-                          <DollarSign className="w-3 h-3" />
-                          {ritual.budget_band}
-                        </span>
+      {/* Scrollable cards */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-4">
+        <div className="space-y-2 pb-4">
+          {rituals.map((ritual, idx) => {
+            const isLocked = !isPremium && idx >= ritualsToShow;
+            const currentRank = Object.entries(selectedRanks).find(([_, r]) => r?.title === ritual.title)?.[0];
+            return (
+              <motion.div
+                key={idx}
+                whileTap={!isLocked ? { scale: 0.98 } : undefined}
+                onClick={() => {
+                  if (isLocked) {
+                    setShowUpgradeModal(true);
+                    return;
+                  }
+                  const nextRank = !currentRank ? 
+                    (selectedRanks[1] ? (selectedRanks[2] ? 3 : 2) : 1) : 
+                    parseInt(currentRank);
+                  handleSelectRitual(ritual, nextRank);
+                }}
+              >
+                <Card className={cn(
+                  "transition-all",
+                  isLocked ? "opacity-60 cursor-pointer" : "cursor-pointer active:scale-[0.98]",
+                  currentRank ? "ring-2 ring-primary bg-primary/5" : "hover:bg-muted/30"
+                )}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-sm mb-0.5 truncate">{ritual.title}</h3>
+                        <p className="text-xs text-muted-foreground line-clamp-1 mb-1.5">{ritual.description}</p>
+                        <div className="flex gap-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 bg-muted rounded">
+                            <Clock className="w-3 h-3" />
+                            {ritual.time_estimate}
+                          </span>
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 bg-muted rounded">
+                            <DollarSign className="w-3 h-3" />
+                            {ritual.budget_band}
+                          </span>
+                        </div>
                       </div>
+                      {isLocked ? (
+                        <div className="flex-none w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground font-medium">PRO</span>
+                        </div>
+                      ) : currentRank ? (
+                        <div className="flex-none w-10 h-10 rounded-full bg-gradient-ritual text-white flex items-center justify-center font-bold text-lg shadow-md">
+                          {currentRank}
+                        </div>
+                      ) : (
+                        <div className="flex-none w-10 h-10 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">+</span>
+                        </div>
+                      )}
                     </div>
-                    {isLocked ? (
-                      <div className="flex-none w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground font-medium">PRO</span>
-                      </div>
-                    ) : currentRank ? (
-                      <div className="flex-none w-10 h-10 rounded-full bg-gradient-ritual text-white flex items-center justify-center font-bold text-lg shadow-md">
-                        {currentRank}
-                      </div>
-                    ) : (
-                      <div className="flex-none w-10 h-10 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">+</span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
-        
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
       
       {/* Upgrade Modal */}
@@ -349,7 +349,8 @@ export default function RitualPicker() {
         highlightFeature="rituals"
       />
 
-      <div className="flex-none pt-2 pb-24">
+      {/* Fixed button */}
+      <div className="flex-none px-4 py-3 bg-background/80 backdrop-blur-sm border-t border-border/50">
         <Button
           onClick={handleSubmitRankings}
           disabled={!selectedRanks[1] || !selectedRanks[2] || !selectedRanks[3]}
@@ -362,58 +363,65 @@ export default function RitualPicker() {
   );
 
   const renderScheduleStep = () => (
-    <div className="h-full flex flex-col p-4 overflow-y-auto min-h-0">
-      <div className="flex-none text-center mb-4">
+    <div className="h-full flex flex-col">
+      {/* Fixed header */}
+      <div className="flex-none px-4 py-3 text-center">
         <h2 className="text-xl font-bold mb-2">When works for you?</h2>
         <p className="text-sm text-muted-foreground">
           For your top pick: {selectedRanks[1]?.title}
         </p>
       </div>
 
-      <div className="flex-1 space-y-4 min-h-0">
-        <div>
-          <label className="text-sm font-semibold mb-2 block">Pick a Date</label>
-          <Calendar
-            mode="single"
-            selected={proposedDate}
-            onSelect={setProposedDate}
-            disabled={(date) => date < new Date()}
-            className="rounded-md border w-full"
-          />
-        </div>
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-4">
+        <div className="space-y-4 pb-4">
+          <div>
+            <label className="text-sm font-semibold mb-2 block">Pick a Date</label>
+            <Calendar
+              mode="single"
+              selected={proposedDate}
+              onSelect={setProposedDate}
+              disabled={(date) => date < new Date()}
+              className="rounded-md border w-full"
+            />
+          </div>
 
-        <div>
-          <label className="text-sm font-semibold mb-2 block">Preferred Time</label>
-          <input
-            type="time"
-            value={proposedTime}
-            onChange={(e) => setProposedTime(e.target.value)}
-            className="w-full h-12 px-4 rounded-lg border bg-background text-[16px]"
-          />
+          <div>
+            <label className="text-sm font-semibold mb-2 block">Preferred Time</label>
+            <input
+              type="time"
+              value={proposedTime}
+              onChange={(e) => setProposedTime(e.target.value)}
+              className="w-full h-12 px-4 rounded-lg border bg-background text-[16px]"
+            />
+          </div>
         </div>
       </div>
 
-      <div className="flex-none flex gap-2 pt-4 pb-24">
-        <Button
-          onClick={() => setStep('rank')}
-          variant="outline"
-          className="flex-1"
-        >
-          Back
-        </Button>
-        <Button
-          onClick={handleSubmitSchedule}
-          disabled={!proposedDate}
-          className="flex-1 bg-gradient-ritual text-white"
-        >
-          Submit Preferences
-        </Button>
+      {/* Fixed buttons */}
+      <div className="flex-none px-4 py-3 bg-background/80 backdrop-blur-sm border-t border-border/50">
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setStep('rank')}
+            variant="outline"
+            className="flex-1"
+          >
+            Back
+          </Button>
+          <Button
+            onClick={handleSubmitSchedule}
+            disabled={!proposedDate}
+            className="flex-1 bg-gradient-ritual text-white"
+          >
+            Submit Preferences
+          </Button>
+        </div>
       </div>
     </div>
   );
 
   const renderWaitingStep = () => (
-    <div className="flex items-center justify-center h-full px-4">
+    <div className="h-full flex flex-col items-center justify-center px-4">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -455,77 +463,77 @@ export default function RitualPicker() {
 
   if (loading) {
     return (
-      <StrictMobileViewport>
-        <div className="h-full bg-gradient-warm flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      </StrictMobileViewport>
+      <div className="h-full bg-gradient-warm flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
     );
   }
 
   return (
-    <StrictMobileViewport>
-      <div className="h-full bg-gradient-warm flex flex-col">
-
-        <div className="flex-1 min-h-0">
-          <AnimatePresence mode="wait">
-            {step === 'rank' && (
-              <motion.div
-                key="rank"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="h-full"
-              >
-                {renderRankingStep()}
-              </motion.div>
-            )}
-            {step === 'schedule' && (
-              <motion.div
-                key="schedule"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="h-full"
-              >
-                {renderScheduleStep()}
-              </motion.div>
-            )}
-            {step === 'waiting' && (
-              <motion.div
-                key="waiting"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="h-full"
-              >
-                {renderWaitingStep()}
-              </motion.div>
-            )}
-            {step === 'agreement' && currentCycle && (
-              <motion.div
-                key="agreement"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="h-full"
-              >
-                <AgreementGame
-                  myPreferences={Object.entries(selectedRanks).map(([rank, ritual]) => ({
-                    rank: parseInt(rank),
-                    ritual: ritual!,
-                    proposedDate,
-                    proposedTime
-                  }))}
-                  partnerPreferences={partnerPreferences}
-                  onAgreementReached={(agreedRitual, agreedDate, agreedTime) => {
-                    navigate('/rituals');
-                  }}
-                  cycleId={currentCycle.id}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-    </StrictMobileViewport>
+    <div className="h-full bg-gradient-warm flex flex-col">
+      <AnimatePresence mode="wait">
+        {step === 'rank' && (
+          <motion.div
+            key="rank"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="h-full"
+          >
+            {renderRankingStep()}
+          </motion.div>
+        )}
+        {step === 'schedule' && (
+          <motion.div
+            key="schedule"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="h-full"
+          >
+            {renderScheduleStep()}
+          </motion.div>
+        )}
+        {step === 'waiting' && (
+          <motion.div
+            key="waiting"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="h-full"
+          >
+            {renderWaitingStep()}
+          </motion.div>
+        )}
+        {step === 'agreement' && partnerPreferences && (
+          <motion.div
+            key="agreement"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="h-full"
+          >
+            <AgreementGame
+              myPreferences={[1, 2, 3].map(rank => ({
+                ...selectedRanks[rank]!,
+                rank,
+                proposed_date: proposedDate?.toISOString().split('T')[0] || '',
+                proposed_time: rank === 1 ? proposedTime : null
+              }))}
+              partnerPreferences={partnerPreferences.map((p: any) => ({
+                ...p.ritual_data,
+                rank: p.rank,
+                proposed_date: p.proposed_date,
+                proposed_time: p.proposed_time
+              }))}
+              onAgreementReached={(ritual, date, time) => {
+                refreshCycle();
+                navigate('/rituals');
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

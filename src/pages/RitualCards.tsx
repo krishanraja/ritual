@@ -4,8 +4,6 @@ import { useCouple } from '@/contexts/CoupleContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { RitualCarousel } from '@/components/RitualCarousel';
-
-import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 import { useSampleRituals } from '@/hooks/useSampleRituals';
 import confetti from 'canvas-confetti';
 import { usePresence } from '@/hooks/usePresence';
@@ -157,74 +155,67 @@ export default function RitualCards() {
 
   if (loading) {
     return (
-      <StrictMobileViewport>
-        <div className="h-full bg-gradient-warm flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      </StrictMobileViewport>
+      <div className="h-full bg-gradient-warm flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
     );
   }
 
   if (rituals.length === 0) {
     return (
-      <StrictMobileViewport>
-        <div className="h-full bg-gradient-warm flex flex-col items-center justify-center px-4 gap-4">
-          <img src="/favicon.png" alt="Ritual" className="h-12 w-auto" />
-          <div className="text-center space-y-2">
-            <h2 className="text-lg font-bold">No Rituals Yet</h2>
-            <p className="text-sm text-muted-foreground">Complete weekly input to generate</p>
-          </div>
-          <Button onClick={() => navigate('/input')} className="bg-gradient-ritual text-white h-12 rounded-xl px-6">
-            Start Input
-          </Button>
+      <div className="h-full bg-gradient-warm flex flex-col items-center justify-center px-4 gap-4">
+        <img src="/favicon.png" alt="Ritual" className="h-12 w-auto" />
+        <div className="text-center space-y-2">
+          <h2 className="text-lg font-bold">No Rituals Yet</h2>
+          <p className="text-sm text-muted-foreground">Complete weekly input to generate</p>
         </div>
-      </StrictMobileViewport>
+        <Button onClick={() => navigate('/input')} className="bg-gradient-ritual text-white h-12 rounded-xl px-6">
+          Start Input
+        </Button>
+      </div>
     );
   }
 
   return (
-    <StrictMobileViewport>
-      <div className="h-full bg-gradient-warm flex flex-col">
-        {/* Notification */}
-        {notification && (
-          <div className="flex-none px-4 pt-3">
-            <NotificationContainer
-              notification={notification}
-              onDismiss={() => setNotification(null)}
-            />
-          </div>
-        )}
-
-        {/* Header - Compact */}
-        <div className="flex-none px-4 pt-3 pb-2">
-          {isPartnerOnline && (
-            <div className="flex items-center justify-end gap-1.5 text-xs text-green-600 mb-2">
-              <UserCircle className="w-3 h-3" />
-              <span>Partner online</span>
-            </div>
-          )}
-          <div className="text-center">
-            <h1 className="text-lg font-bold mb-0.5">This Week's Rituals</h1>
-            <p className="text-xs text-muted-foreground">
-              {isShowingSamples ? 'Sample rituals' : 'Swipe to explore'}
-            </p>
-          </div>
-        </div>
-
-        {/* Carousel - Fills remaining space */}
-        <div className="flex-1 overflow-hidden">
-          <RitualCarousel
-            rituals={rituals}
-            completions={completions}
-            onComplete={handleComplete}
-            variant="full"
-            isShowingSamples={isShowingSamples}
-            agreedDate={(currentCycle as any)?.agreed_date}
-            agreedTime={(currentCycle as any)?.agreed_time}
+    <div className="h-full bg-gradient-warm flex flex-col">
+      {/* Notification - Fixed */}
+      {notification && (
+        <div className="flex-none px-4 pt-3">
+          <NotificationContainer
+            notification={notification}
+            onDismiss={() => setNotification(null)}
           />
         </div>
+      )}
 
+      {/* Header - Fixed */}
+      <div className="flex-none px-4 pt-3 pb-2">
+        {isPartnerOnline && (
+          <div className="flex items-center justify-end gap-1.5 text-xs text-green-600 mb-2">
+            <UserCircle className="w-3 h-3" />
+            <span>Partner online</span>
+          </div>
+        )}
+        <div className="text-center">
+          <h1 className="text-lg font-bold mb-0.5">This Week's Rituals</h1>
+          <p className="text-xs text-muted-foreground">
+            {isShowingSamples ? 'Sample rituals' : 'Swipe to explore'}
+          </p>
+        </div>
       </div>
-    </StrictMobileViewport>
+
+      {/* Carousel - Fills remaining space */}
+      <div className="flex-1 overflow-hidden min-h-0">
+        <RitualCarousel
+          rituals={rituals}
+          completions={completions}
+          onComplete={handleComplete}
+          variant="full"
+          isShowingSamples={isShowingSamples}
+          agreedDate={(currentCycle as any)?.agreed_date}
+          agreedTime={(currentCycle as any)?.agreed_time}
+        />
+      </div>
+    </div>
   );
 }
