@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Clock, DollarSign, ChevronDown, ChevronUp, Heart } from 'lucide-react';
 import { format } from 'date-fns';
-import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 import { useSEO } from '@/hooks/useSEO';
 
 export default function History() {
@@ -46,36 +45,36 @@ export default function History() {
 
   if (loading) {
     return (
-      <StrictMobileViewport>
-        <div className="h-full bg-gradient-warm flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      </StrictMobileViewport>
+      <div className="h-full bg-gradient-warm flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
     );
   }
 
   if (pastCycles.length === 0) {
     return (
-      <StrictMobileViewport>
-        <div className="h-full bg-gradient-warm flex items-center justify-center p-4">
-          <div className="text-center">
-            <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-            <h2 className="text-lg font-bold mb-2">No History Yet</h2>
-            <p className="text-sm text-muted-foreground">
-              Complete your first week together to see your ritual history
-            </p>
-          </div>
+      <div className="h-full bg-gradient-warm flex items-center justify-center p-4">
+        <div className="text-center">
+          <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+          <h2 className="text-lg font-bold mb-2">No History Yet</h2>
+          <p className="text-sm text-muted-foreground">
+            Complete your first week together to see your ritual history
+          </p>
         </div>
-      </StrictMobileViewport>
+      </div>
     );
   }
 
   return (
-    <StrictMobileViewport>
-      <div className="h-full bg-gradient-warm overflow-y-auto">
-        <div className="p-4 space-y-3">
-          <h1 className="text-xl font-bold text-center mb-3">Your Ritual History</h1>
-          
+    <div className="h-full bg-gradient-warm flex flex-col">
+      {/* Header - Fixed */}
+      <div className="flex-none px-4 pt-4 pb-2">
+        <h1 className="text-xl font-bold text-center">Your Ritual History</h1>
+      </div>
+
+      {/* Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-4">
+        <div className="space-y-3">
           {pastCycles.map((cycle, idx) => {
             const isExpanded = expandedCycle === cycle.id;
             const hasAgreedRitual = cycle.agreement_reached && cycle.agreed_ritual;
@@ -160,6 +159,6 @@ export default function History() {
           })}
         </div>
       </div>
-    </StrictMobileViewport>
+    </div>
   );
 }

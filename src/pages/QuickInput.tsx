@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { supabase } from '@/integrations/supabase/client';
-import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -259,12 +258,10 @@ export default function QuickInput() {
 
   if (loading || !weeklyCycleId) {
     return (
-      <StrictMobileViewport>
-        <div className="h-full bg-gradient-warm flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Setting up...</p>
-        </div>
-      </StrictMobileViewport>
+      <div className="h-full bg-gradient-warm flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Setting up...</p>
+      </div>
     );
   }
 
@@ -279,122 +276,120 @@ export default function QuickInput() {
     : answers.desire.trim().length > 0;
 
   return (
-    <StrictMobileViewport>
-      <div className="h-full bg-gradient-warm flex flex-col">
-        {/* Progress Bar */}
-        <div className="flex-none px-4 pt-4 pb-2">
-          <div className="flex gap-1">
-            {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className={`h-1 flex-1 rounded-full transition-all ${
-                  i <= currentStep ? 'bg-primary' : 'bg-primary/20'
-                }`}
-              />
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Question {currentStep + 1} of 5
-          </p>
-        </div>
-
-        {/* Notification */}
-        {notification && (
-          <div className="flex-none px-4 pt-2">
-            <NotificationContainer
-              notification={notification}
-              onDismiss={() => setNotification(null)}
+    <div className="h-full bg-gradient-warm flex flex-col">
+      {/* Progress Bar - Fixed */}
+      <div className="flex-none px-4 pt-4 pb-2">
+        <div className="flex gap-1">
+          {[...Array(5)].map((_, i) => (
+            <div
+              key={i}
+              className={`h-1 flex-1 rounded-full transition-all ${
+                i <= currentStep ? 'bg-primary' : 'bg-primary/20'
+              }`}
             />
-          </div>
-        )}
-
-        {/* Question Content */}
-        <div className="flex-1 px-4 py-4 overflow-y-auto min-h-0">
-          <AnimatePresence mode="wait">
-            {currentStep < QUESTIONS.length ? (
-              <motion.div
-                key={currentStep}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-8"
-              >
-                <h2 className="text-xl md:text-2xl font-bold">{currentQuestion.question}</h2>
-                
-                <RadioGroup
-                  value={answers[currentQuestion.id as keyof typeof answers]}
-                  onValueChange={handleAnswer}
-                  className="space-y-2"
-                >
-                  {currentQuestion.options.map((option) => (
-                    <div
-                      key={option}
-                      className="flex items-center space-x-3 bg-white/80 p-3 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all"
-                    >
-                      <RadioGroupItem value={option} id={option} />
-                      <Label htmlFor={option} className="flex-1 cursor-pointer text-base">
-                        {option}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="desire"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-4 pb-2"
-              >
-                <div className="space-y-2">
-                  <h2 className="text-xl md:text-2xl font-bold">What are you hoping for this week?</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Be specific or dreamy - whatever feels right
-                  </p>
-                </div>
-                <Textarea
-                  value={answers.desire}
-                  onChange={(e) => setAnswers(prev => ({ ...prev, desire: e.target.value }))}
-                  placeholder="e.g., Try a new neighborhood we've never been to..."
-                  className="min-h-[120px] max-h-[160px] bg-white/80 border-2 resize-none"
-                  rows={4}
-                />
-                <Button
-                  onClick={handleSubmit}
-                  disabled={!canProceed || isSubmitting}
-                  size="lg"
-                  className="w-full"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Complete'
-                  )}
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          ))}
         </div>
-
-        {/* Navigation */}
-        {currentStep > 0 && currentStep < QUESTIONS.length && (
-          <div className="flex-none p-4">
-            <Button
-              onClick={handleBack}
-              variant="outline"
-              size="lg"
-              className="w-full"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </div>
-        )}
+        <p className="text-xs text-muted-foreground mt-2">
+          Question {currentStep + 1} of 5
+        </p>
       </div>
-    </StrictMobileViewport>
+
+      {/* Notification - Fixed */}
+      {notification && (
+        <div className="flex-none px-4 pt-2">
+          <NotificationContainer
+            notification={notification}
+            onDismiss={() => setNotification(null)}
+          />
+        </div>
+      )}
+
+      {/* Question Content - Scrollable */}
+      <div className="flex-1 px-4 py-4 overflow-y-auto min-h-0">
+        <AnimatePresence mode="wait">
+          {currentStep < QUESTIONS.length ? (
+            <motion.div
+              key={currentStep}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-8"
+            >
+              <h2 className="text-xl md:text-2xl font-bold">{currentQuestion.question}</h2>
+              
+              <RadioGroup
+                value={answers[currentQuestion.id as keyof typeof answers]}
+                onValueChange={handleAnswer}
+                className="space-y-2"
+              >
+                {currentQuestion.options.map((option) => (
+                  <div
+                    key={option}
+                    className="flex items-center space-x-3 bg-white/80 p-3 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all"
+                  >
+                    <RadioGroupItem value={option} id={option} />
+                    <Label htmlFor={option} className="flex-1 cursor-pointer text-base">
+                      {option}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="desire"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-4 pb-2"
+            >
+              <div className="space-y-2">
+                <h2 className="text-xl md:text-2xl font-bold">What are you hoping for this week?</h2>
+                <p className="text-sm text-muted-foreground">
+                  Be specific or dreamy - whatever feels right
+                </p>
+              </div>
+              <Textarea
+                value={answers.desire}
+                onChange={(e) => setAnswers(prev => ({ ...prev, desire: e.target.value }))}
+                placeholder="e.g., Try a new neighborhood we've never been to..."
+                className="min-h-[120px] max-h-[160px] bg-white/80 border-2 resize-none"
+                rows={4}
+              />
+              <Button
+                onClick={handleSubmit}
+                disabled={!canProceed || isSubmitting}
+                size="lg"
+                className="w-full"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Complete'
+                )}
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Navigation - Fixed */}
+      {currentStep > 0 && currentStep < QUESTIONS.length && (
+        <div className="flex-none px-4 py-3 bg-background/80 backdrop-blur-sm border-t border-border/50">
+          <Button
+            onClick={handleBack}
+            variant="outline"
+            size="lg"
+            className="w-full"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
