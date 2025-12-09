@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { supabase } from '@/integrations/supabase/client';
 import { MagneticCanvas } from '@/components/MagneticCanvas';
-import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 import { motion } from 'framer-motion';
 import { Loader2, Sparkles } from 'lucide-react';
 import { NotificationContainer } from '@/components/InlineNotification';
@@ -127,36 +126,32 @@ export default function MagneticInput() {
 
   if (loading || !weeklyCycleId) {
     return (
-      <StrictMobileViewport>
-        <div className="h-full bg-gradient-warm flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Preparing canvas...</p>
-        </div>
-      </StrictMobileViewport>
+      <div className="h-full flex flex-col bg-gradient-warm items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Preparing canvas...</p>
+      </div>
     );
   }
 
   if (isGenerating) {
     return (
-      <StrictMobileViewport>
-        <div className="h-full bg-gradient-warm flex flex-col items-center justify-center gap-4 px-4">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-          >
-            <Sparkles className="w-12 h-12 text-primary" />
-          </motion.div>
-          <div className="text-center space-y-1">
-            <h2 className="text-lg font-bold">Weaving Rituals...</h2>
-            <p className="text-xs text-muted-foreground">Creating moments from your intentions</p>
-          </div>
+      <div className="h-full flex flex-col bg-gradient-warm items-center justify-center gap-4 px-4">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+        >
+          <Sparkles className="w-12 h-12 text-primary" />
+        </motion.div>
+        <div className="text-center space-y-1">
+          <h2 className="text-lg font-bold">Weaving Rituals...</h2>
+          <p className="text-xs text-muted-foreground">Creating moments from your intentions</p>
         </div>
-      </StrictMobileViewport>
+      </div>
     );
   }
 
   return (
-    <StrictMobileViewport>
+    <div className="h-full flex flex-col relative">
       {notification && (
         <div className="absolute top-4 left-4 right-4 z-50">
           <NotificationContainer
@@ -166,6 +161,6 @@ export default function MagneticInput() {
         </div>
       )}
       <MagneticCanvas weeklyCycleId={weeklyCycleId} onComplete={handleComplete} />
-    </StrictMobileViewport>
+    </div>
   );
 }

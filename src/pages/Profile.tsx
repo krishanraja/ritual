@@ -5,7 +5,6 @@ import { LogOut, UserPlus, UserMinus, MapPin, Copy, Check, Calendar, Heart, Tras
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 import { LocationToggle, City } from '@/components/LocationToggle';
 import { useState, useEffect } from 'react';
 import { useSEO, addStructuredData, getLocationStructuredData } from '@/hooks/useSEO';
@@ -128,8 +127,8 @@ export default function Profile() {
   };
 
   return (
-    <StrictMobileViewport>
-      <div className="h-full bg-gradient-warm overflow-y-auto">
+    <div className="h-full flex flex-col bg-gradient-warm">
+      <div className="flex-1 overflow-y-auto min-h-0">
         <div className="p-4 space-y-4 flex flex-col min-h-full">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -320,6 +319,6 @@ export default function Profile() {
           userEmail={user?.email}
         />
       </div>
-    </StrictMobileViewport>
+    </div>
   );
 }

@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { StrictMobileViewport } from '@/components/StrictMobileViewport';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Heart, Clock } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -120,8 +119,7 @@ export const SynthesisAnimation = () => {
   const prevRitual = displayRituals[(currentRitualIndex - 1 + displayRituals.length) % displayRituals.length];
 
   return (
-    <StrictMobileViewport>
-      <div className="h-full bg-gradient-warm flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col bg-gradient-warm overflow-hidden">
         {/* Header with phase message */}
         <div className="flex-none px-6 pt-8 pb-4 text-center">
           <motion.div
@@ -247,8 +245,7 @@ export const SynthesisAnimation = () => {
           <p className="text-center text-xs text-muted-foreground mt-3">
             Creating personalized rituals from your combined preferences
           </p>
-        </div>
       </div>
-    </StrictMobileViewport>
+    </div>
   );
 };

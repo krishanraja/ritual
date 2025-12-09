@@ -515,21 +515,17 @@ export default function RitualPicker() {
           >
             <AgreementGame
               myPreferences={[1, 2, 3].map(rank => ({
-                ...selectedRanks[rank]!,
                 rank,
-                proposed_date: proposedDate?.toISOString().split('T')[0] || '',
-                proposed_time: rank === 1 ? proposedTime : null
+                ritual: selectedRanks[rank]!,
+                proposedDate: proposedDate,
+                proposedTime: rank === 1 ? proposedTime : undefined
               }))}
-              partnerPreferences={partnerPreferences.map((p: any) => ({
-                ...p.ritual_data,
-                rank: p.rank,
-                proposed_date: p.proposed_date,
-                proposed_time: p.proposed_time
-              }))}
+              partnerPreferences={partnerPreferences}
               onAgreementReached={(ritual, date, time) => {
                 refreshCycle();
                 navigate('/rituals');
               }}
+              cycleId={currentCycle?.id || ''}
             />
           </motion.div>
         )}
