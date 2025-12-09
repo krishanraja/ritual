@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Calendar, Clock, User, UserPlus } from 'lucide-react';
+import { Home, Calendar, Clock, User, UserPlus, LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { useCouple } from '@/contexts/CoupleContext';
 import { JoinDrawer } from './JoinDrawer';
@@ -12,6 +12,14 @@ interface AppShellProps {
   children: ReactNode;
 }
 
+interface NavItem {
+  path: string;
+  icon: LucideIcon;
+  label: string;
+  isActive: boolean;
+  stepLabel?: string;
+}
+
 export const AppShell = ({ children }: AppShellProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -21,6 +29,16 @@ export const AppShell = ({ children }: AppShellProps) => {
   
   const isAuthPage = location.pathname === '/auth';
   const showNav = user && !isAuthPage;
+
+  // Get step label for "This Week" based on current route
+  const getThisWeekStepLabel = (): string | undefined => {
+    switch (location.pathname) {
+      case '/input': return 'Input';
+      case '/picker': return 'Pick';
+      case '/rituals': return 'Scheduled';
+      default: return undefined;
+    }
+  };
 
   const getThisWeekRoute = () => {
     if (!couple || !couple.partner_two) return '/';
@@ -60,9 +78,9 @@ export const AppShell = ({ children }: AppShellProps) => {
   
   const isThisWeekActive = thisWeekRoutes.includes(location.pathname);
   
-  const navItems = [
+  const navItems: NavItem[] = [
     { path: '/', icon: Home, label: 'Home', isActive: location.pathname === '/' },
-    { path: thisWeekRoute, icon: Calendar, label: 'This Week', isActive: isThisWeekActive },
+    { path: thisWeekRoute, icon: Calendar, label: 'This Week', isActive: isThisWeekActive, stepLabel: getThisWeekStepLabel() },
     { path: '/history', icon: Clock, label: 'History', isActive: location.pathname === '/history' },
     { path: '/profile', icon: User, label: 'Profile', isActive: location.pathname === '/profile' }
   ];
@@ -118,10 +136,12 @@ export const AppShell = ({ children }: AppShellProps) => {
             const Icon = item.icon;
             
             return (
-              <button
+              <motion.button
                 key={item.label}
                 onClick={() => navigate(item.path)}
-                className={`relative flex flex-col items-center gap-1 px-3 py-1 rounded-lg transition-all duration-200 ${
+                whileTap={{ scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                className={`relative flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors duration-200 ${
                   item.isActive 
                     ? 'text-primary' 
                     : 'text-muted-foreground hover:text-foreground'
@@ -136,11 +156,26 @@ export const AppShell = ({ children }: AppShellProps) => {
                     transition={{ type: "spring", stiffness: 500, damping: 35 }}
                   />
                 )}
-                <Icon className={`relative z-10 w-6 h-6 transition-transform ${item.isActive ? 'scale-110' : ''}`} />
-                <span className={`relative z-10 text-xs font-medium ${item.isActive ? 'font-semibold' : ''}`}>
+                <motion.div
+                  animate={item.isActive ? { scale: 1.1 } : { scale: 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                >
+                  <Icon className="relative z-10 w-6 h-6" />
+                </motion.div>
+                <span className={`relative z-10 text-xs ${item.isActive ? 'font-semibold' : 'font-medium'}`}>
                   {item.label}
                 </span>
-              </button>
+                {/* Step indicator for This Week */}
+                {item.stepLabel && item.isActive && (
+                  <motion.span 
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="absolute -top-1 -right-1 text-[10px] font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full z-20"
+                  >
+                    {item.stepLabel}
+                  </motion.span>
+                )}
+              </motion.button>
             );
           })}
         </motion.nav>
