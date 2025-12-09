@@ -1,5 +1,3 @@
-import { motion } from 'framer-motion';
-
 interface AnimatedGradientBackgroundProps {
   variant?: 'warm' | 'calm' | 'ritual';
   className?: string;
@@ -34,49 +32,19 @@ export function AnimatedGradientBackground({
       {/* Base gradient */}
       <div className="absolute inset-0 bg-gradient-calm" />
       
-      {/* Animated blob 1 - top right */}
-      <motion.div
-        className={`absolute -top-20 -right-20 w-80 h-80 rounded-full ${colors.blob1} opacity-40 blur-3xl`}
-        animate={{
-          x: [0, 30, -20, 0],
-          y: [0, -20, 30, 0],
-          scale: [1, 1.1, 0.95, 1],
-        }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
+      {/* Animated blob 1 - top right - using CSS animation */}
+      <div
+        className={`absolute -top-20 -right-20 w-80 h-80 rounded-full ${colors.blob1} opacity-40 blur-3xl animate-blob-1`}
       />
       
-      {/* Animated blob 2 - bottom left */}
-      <motion.div
-        className={`absolute -bottom-32 -left-32 w-96 h-96 rounded-full ${colors.blob2} opacity-30 blur-3xl`}
-        animate={{
-          x: [0, -40, 20, 0],
-          y: [0, 40, -20, 0],
-          scale: [1, 0.9, 1.1, 1],
-        }}
-        transition={{
-          duration: 25,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
+      {/* Animated blob 2 - bottom left - using CSS animation */}
+      <div
+        className={`absolute -bottom-32 -left-32 w-96 h-96 rounded-full ${colors.blob2} opacity-30 blur-3xl animate-blob-2`}
       />
       
-      {/* Animated blob 3 - center */}
-      <motion.div
-        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full ${colors.blob3} opacity-20 blur-3xl`}
-        animate={{
-          x: [0, 50, -30, 0],
-          y: [0, -30, 50, 0],
-          scale: [1, 1.2, 0.8, 1],
-        }}
-        transition={{
-          duration: 30,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
+      {/* Animated blob 3 - center - using CSS animation */}
+      <div
+        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full ${colors.blob3} opacity-20 blur-3xl animate-blob-3`}
       />
     </div>
   );
