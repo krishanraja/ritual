@@ -96,6 +96,12 @@ ritual/
 
 ## Documentation
 
+### Core Standards
+- [Master Instructions](./MASTER-INSTRUCTIONS.md) - Engineering standards and principles
+- [Project Notes](./PROJECT_NOTES.md) - Running decisions and technical debt
+- [Compliance Checklist](./COMPLIANCE-CHECKLIST.md) - Standards compliance tracking
+
+### Technical Documentation
 - [Architecture](./ARCHITECTURE.md) - Technical architecture and stack
 - [User Flows](./USER-FLOWS.md) - User journey documentation
 - [Design System](./DESIGN-SYSTEM.md) - Design guidelines
