@@ -31,6 +31,16 @@ export default function Landing() {
   const [nudgeBannerDismissed, setNudgeBannerDismissed] = useState(false);
   const [slowLoading, setSlowLoading] = useState(false);
   const [showPostRitualCheckin, setShowPostRitualCheckin] = useState(false);
+  const [gifLoaded, setGifLoaded] = useState(false);
+
+  // Lazy load the GIF for better performance
+  useEffect(() => {
+    if (isMobile) {
+      const img = new Image();
+      img.src = ritualBackgroundGif;
+      img.onload = () => setGifLoaded(true);
+    }
+  }, [isMobile]);
 
   // Force refresh cycle data when page mounts
   useEffect(() => {
@@ -392,10 +402,10 @@ export default function Landing() {
     <div className="h-full flex flex-col relative">
       <AnimatedGradientBackground variant="warm" />
       
-      {/* Mobile-only GIF background */}
-      {isMobile && (
+      {/* Mobile-only GIF background - lazy loaded with fade-in */}
+      {isMobile && gifLoaded && (
         <div 
-          className="fixed inset-0 z-0 opacity-20 pointer-events-none"
+          className="fixed inset-0 z-[1] opacity-20 pointer-events-none animate-fade-in"
           style={{
             backgroundImage: `url(${ritualBackgroundGif})`,
             backgroundSize: 'cover',
