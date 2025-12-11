@@ -28,7 +28,7 @@ export function AnimatedGradientBackground({
   const colors = gradients[variant];
 
   return (
-    <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
+    <div className={`absolute inset-0 z-0 overflow-hidden pointer-events-none ${className}`}>
       {/* Base gradient */}
       <div className="absolute inset-0 bg-gradient-calm" />
       
