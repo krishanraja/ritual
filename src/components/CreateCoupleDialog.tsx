@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Copy, Check, MessageCircle, Mail, AlertCircle } from "lucide-react";
+import { RitualLogo } from "@/components/RitualLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { useCouple } from "@/contexts/CoupleContext";
 import { shareCodeToWhatsApp, shareCodeToSMS } from "@/utils/shareUtils";
@@ -133,8 +134,14 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md bg-gradient-warm border-none shadow-card rounded-3xl">
         {loading ? (
-          <div className="py-12 text-center">
-            <p className="text-lg text-muted-foreground">Creating your ritual space...</p>
+          <div className="py-16 flex flex-col items-center justify-center gap-6">
+            <RitualLogo size="md" variant="full" className="opacity-80" />
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-lg text-muted-foreground animate-pulse">
+                Creating your ritual space...
+              </p>
+            </div>
           </div>
         ) : error ? (
           <div className="py-8 text-center space-y-4">
