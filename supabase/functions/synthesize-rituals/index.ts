@@ -277,49 +277,56 @@ Return ONE ritual as JSON:
       });
     }
 
+    // Helper to format card-based or legacy input
+    const formatInput = (input: Record<string, unknown>) => {
+      if (input?.inputType === 'cards' && Array.isArray(input.cards)) {
+        const cardLabels = (input.cards as string[]).map(id => {
+          const cardMap: Record<string, string> = {
+            'adventure': 'Craving adventure',
+            'cozy': 'Need cozy time',
+            'deep-talk': 'Want deep conversations',
+            'playful': 'Feeling playful',
+            'romantic': 'Craving romance',
+            'tired': 'Exhausted',
+            'spontaneous': 'Ready for anything',
+            'outdoors': 'Want fresh air',
+            'creative': 'Feeling creative',
+            'foodie': 'Food-focused',
+            'budget': 'Keeping it free',
+            'splurge': 'Ready to splurge',
+          };
+          return cardMap[id] || id;
+        });
+        return `Selected moods: ${cardLabels.join(', ')}${input.desire ? `\nHeart's Desire: ${input.desire}` : ''}`;
+      }
+      // Legacy format
+      return `Energy: ${input?.energy}, Time: ${input?.availability}, Budget: ${input?.budget}, Craving: ${input?.craving}${input?.desire ? `, Desire: ${input.desire}` : ''}`;
+    };
+
     // Main synthesis with enhanced historical context
     const fullPrompt = `You are an expert relationship ritual designer creating a WEEK of personalized rituals for a couple.
 
 ${historicalContext}
 
 THEIR THIS WEEK'S INPUTS:
-Partner 1: 
-- Energy: ${partnerOneInput?.energy}
-- Time Available: ${partnerOneInput?.availability}
-- Budget: ${partnerOneInput?.budget}
-- Craving: ${partnerOneInput?.craving}
-- Heart's Desire: ${partnerOneInput?.desire || 'Not specified'}
-
-Partner 2:
-- Energy: ${partnerTwoInput?.energy}
-- Time Available: ${partnerTwoInput?.availability}
-- Budget: ${partnerTwoInput?.budget}
-- Craving: ${partnerTwoInput?.craving}
-- Heart's Desire: ${partnerTwoInput?.desire || 'Not specified'}
+Partner 1: ${formatInput(partnerOneInput)}
+Partner 2: ${formatInput(partnerTwoInput)}
 
 LOCATION CONTEXT (CRITICAL - All rituals must fit this):
 - City: ${locationContext.city}, ${locationContext.country}
 - Local time: ${locationContext.localTime}
 - Season: ${locationContext.season}
-- Time of day: ${locationContext.timeOfDay}
 - Seasonal guidance: ${getSeasonalGuidance(locationContext.season, preferredCity)}
 
 CRITICAL CREATIVE CONSTRAINTS:
-1. Generate 4-5 rituals that span different categories (connection, adventure, relaxation, creativity, spontaneity)
-2. DO NOT repeat any ritual they've already completed (check historical context above)
-3. If they have highly rated rituals, incorporate similar THEMES but with fresh twists
-4. SURPRISE FACTOR: Each ritual must score 7+ on surprise (1-10 scale). They should think "I never would have thought of this!"
+1. Generate 4-5 rituals spanning different categories (connection, adventure, relaxation, creativity, spontaneity)
+2. DO NOT repeat any ritual they've already completed
+3. If they have highly rated rituals, incorporate similar THEMES with fresh twists
+4. SURPRISE FACTOR: Each ritual must score 7+ on surprise (1-10 scale)
 5. Include at least ONE micro-ritual (15-30 min) for busy moments
-6. Include at least ONE ritual that gently challenges their comfort zone
-7. Honor their heart's desires and cravings with creative interpretation
-8. Match their energy and budget constraints realistically
-9. LOCATION-AWARE: All rituals must be perfect for ${locationContext.city} in ${locationContext.season}
-   - Consider local weather, season, and cultural context
-   - ${getSeasonalGuidance(locationContext.season, preferredCity)}
-   - Make rituals feel AUTHENTIC to ${locationContext.city}, not generic ideas
-
-SURPRISE FACTOR TEST:
-After creating each ritual, ask yourself: "Would they come up with this on their own?" If yes, make it bolder.
+6. Honor their selected moods and desires creatively
+7. Match their budget preferences realistically
+8. LOCATION-AWARE: All rituals must feel AUTHENTIC to ${locationContext.city} in ${locationContext.season}
 
 Return JSON array:
 [
@@ -329,7 +336,7 @@ Return JSON array:
     "time_estimate": "...",
     "budget_band": "...",
     "category": "...",
-    "why": "One sentence explaining why this is perfect for them this week"
+    "why": "One sentence explaining why this is perfect for them"
   }
 ]`;
 

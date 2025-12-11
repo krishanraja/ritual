@@ -1,6 +1,14 @@
+/**
+ * AppShell Component
+ * 
+ * Main application layout with header and bottom navigation.
+ * 
+ * @updated 2025-12-11 - Changed History to Memories, updated icon
+ */
+
 import { ReactNode, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Calendar, Clock, User, UserPlus, LucideIcon } from 'lucide-react';
+import { Home, Calendar, Images, User, UserPlus, LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { useCouple } from '@/contexts/CoupleContext';
 import { JoinDrawer } from './JoinDrawer';
@@ -93,7 +101,7 @@ export const AppShell = ({ children }: AppShellProps) => {
   const navItems: NavItem[] = [
     { path: '/', icon: Home, label: getHomeLabel(), isActive: location.pathname === '/' },
     { path: thisWeekRoute, icon: Calendar, label: 'This Week', isActive: isThisWeekActive, stepLabel: getThisWeekStepLabel(), disabled: !hasRitualSpace },
-    { path: '/history', icon: Clock, label: 'History', isActive: location.pathname === '/history', disabled: !hasRitualSpace },
+    { path: '/memories', icon: Images, label: 'Memories', isActive: location.pathname === '/memories', disabled: !hasRitualSpace },
     { path: '/profile', icon: User, label: 'Profile', isActive: location.pathname === '/profile' }
   ];
 

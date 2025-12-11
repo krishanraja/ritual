@@ -240,6 +240,38 @@ export type Database = {
           },
         ]
       }
+      memory_reactions: {
+        Row: {
+          created_at: string | null
+          id: string
+          memory_id: string
+          reaction: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          memory_id: string
+          reaction: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          memory_id?: string
+          reaction?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memory_reactions_memory_id_fkey"
+            columns: ["memory_id"]
+            isOneToOne: false
+            referencedRelation: "ritual_memories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

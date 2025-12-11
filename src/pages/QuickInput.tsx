@@ -1,57 +1,38 @@
+/**
+ * QuickInput Page
+ * 
+ * Weekly ritual input flow using card-based mood selection.
+ * Partners select mood cards, then add optional desire text.
+ * 
+ * @updated 2025-12-11 - Replaced radio questions with CardDrawInput
+ */
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import { SynthesisAnimation } from '@/components/SynthesisAnimation';
+import { CardDrawInput } from '@/components/CardDrawInput';
 import { useSEO } from '@/hooks/useSEO';
 import { NotificationContainer } from '@/components/InlineNotification';
 
-const QUESTIONS = [
-  {
-    id: 'energy',
-    question: 'How\'s your energy this week?',
-    options: ['Exhausted', 'Steady', 'Energized', 'Restless']
-  },
-  {
-    id: 'availability',
-    question: 'How much time do you have?',
-    options: ['30 min', '1 hour', '1-2 hours', '2+ hours']
-  },
-  {
-    id: 'budget',
-    question: 'What\'s your budget comfort?',
-    options: ['Free', '$', '$$', '$$$']
-  },
-  {
-    id: 'craving',
-    question: 'What are you craving?',
-    options: ['Connection', 'Adventure', 'Rest', 'Play']
-  }
-];
+type Step = 'cards' | 'desire';
 
 export default function QuickInput() {
   const { user, couple, currentCycle, loading, refreshCycle } = useCouple();
   const navigate = useNavigate();
   const [weeklyCycleId, setWeeklyCycleId] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [answers, setAnswers] = useState({
-    energy: '',
-    availability: '',
-    budget: '',
-    craving: '',
-    desire: ''
-  });
+  const [step, setStep] = useState<Step>('cards');
+  const [selectedCards, setSelectedCards] = useState<string[]>([]);
+  const [desire, setDesire] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
-  // SEO for input page
   useSEO({
     title: 'Weekly Ritual Input',
     description: 'Share your preferences for this week\'s rituals. Your input will be combined with your partner\'s to create personalized experiences.',
@@ -73,7 +54,6 @@ export default function QuickInput() {
       const isPartnerOne = couple.partner_one === user?.id;
 
       if (currentCycle?.id) {
-        // Guard: Check if user already submitted
         const userSubmitted = isPartnerOne 
           ? currentCycle.partner_one_input 
           : currentCycle.partner_two_input;
@@ -84,9 +64,9 @@ export default function QuickInput() {
 
         if (userSubmitted) {
           if (partnerSubmitted && currentCycle.synthesized_output) {
-            navigate('/rituals');
+            navigate('/picker');
           } else {
-          navigate('/');
+            navigate('/');
           }
           return;
         }
@@ -108,7 +88,6 @@ export default function QuickInput() {
         .maybeSingle();
 
       if (existingCycle) {
-        // Guard: Check if user already submitted
         const userSubmitted = isPartnerOne 
           ? existingCycle.partner_one_input 
           : existingCycle.partner_two_input;
@@ -119,7 +98,7 @@ export default function QuickInput() {
 
         if (userSubmitted) {
           if (partnerSubmitted && existingCycle.synthesized_output) {
-            navigate('/rituals');
+            navigate('/picker');
           } else {
             navigate('/');
           }
@@ -138,9 +117,7 @@ export default function QuickInput() {
           .single();
 
         if (error) {
-          // Check for unique constraint violation
           if (error.code === '23505') {
-            // Race condition: cycle was just created by partner, retry fetch
             const { data: retryCycle } = await supabase
               .from('weekly_cycles')
               .select('*')
@@ -165,28 +142,13 @@ export default function QuickInput() {
     initializeCycle();
   }, [user, couple, currentCycle, loading, navigate]);
 
-  const handleAnswer = (value: string) => {
-    const key = QUESTIONS[currentStep].id;
-    setAnswers(prev => ({ ...prev, [key]: value }));
-    
-    // Auto-advance for radio questions (0-3)
-    if (currentStep < 4) {
-      setTimeout(() => {
-        setCurrentStep(prev => prev + 1);
-      }, 300);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentStep < QUESTIONS.length) {
-      setCurrentStep(prev => prev + 1);
-    }
+  const handleCardsComplete = (cards: string[]) => {
+    setSelectedCards(cards);
+    setStep('desire');
   };
 
   const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(prev => prev - 1);
-    }
+    setStep('cards');
   };
 
   const handleSubmit = async () => {
@@ -199,10 +161,17 @@ export default function QuickInput() {
       const updateField = isPartnerOne ? 'partner_one_input' : 'partner_two_input';
       const submittedField = isPartnerOne ? 'partner_one_submitted_at' : 'partner_two_submitted_at';
 
+      // Transform card selection to input format
+      const inputData = {
+        cards: selectedCards,
+        desire: desire.trim() || null,
+        inputType: 'cards', // Flag for synthesize-rituals to know the format
+      };
+
       await supabase
         .from('weekly_cycles')
         .update({
-          [updateField]: answers,
+          [updateField]: inputData,
           [submittedField]: new Date().toISOString()
         })
         .eq('id', weeklyCycleId);
@@ -222,8 +191,8 @@ export default function QuickInput() {
 
         const { data, error } = await supabase.functions.invoke('synthesize-rituals', {
           body: {
-            partnerOneInput: isPartnerOne ? answers : partnerInput,
-            partnerTwoInput: isPartnerOne ? partnerInput : answers,
+            partnerOneInput: isPartnerOne ? inputData : partnerInput,
+            partnerTwoInput: isPartnerOne ? partnerInput : inputData,
             coupleId: couple.id,
             userCity: couple.preferred_city || 'New York'
           }
@@ -240,7 +209,6 @@ export default function QuickInput() {
           })
           .eq('id', weeklyCycleId);
 
-        // Refresh cycle data before showing animation
         await refreshCycle();
         navigate('/picker');
       } else {
@@ -249,8 +217,8 @@ export default function QuickInput() {
         setTimeout(() => navigate('/'), 2000);
       }
     } catch (error) {
-      console.error('Error submitting answers:', error);
-      setNotification({ type: 'error', message: 'Failed to save answers' });
+      console.error('[QuickInput] Error submitting:', error);
+      setNotification({ type: 'error', message: 'Failed to save. Please try again.' });
       setIsSubmitting(false);
       setIsSynthesizing(false);
     }
@@ -269,32 +237,20 @@ export default function QuickInput() {
     return <SynthesisAnimation />;
   }
 
-  const currentQuestion = QUESTIONS[currentStep];
-  const isLastQuestion = currentStep === QUESTIONS.length;
-  const canProceed = currentStep < QUESTIONS.length 
-    ? answers[currentQuestion.id as keyof typeof answers] 
-    : answers.desire.trim().length > 0;
-
   return (
     <div className="h-full bg-gradient-warm flex flex-col">
-      {/* Progress Bar - Fixed */}
+      {/* Progress Bar */}
       <div className="flex-none px-4 pt-4 pb-2">
         <div className="flex gap-1">
-          {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className={`h-1 flex-1 rounded-full transition-all ${
-                i <= currentStep ? 'bg-primary' : 'bg-primary/20'
-              }`}
-            />
-          ))}
+          <div className={`h-1 flex-1 rounded-full transition-all ${step === 'cards' || step === 'desire' ? 'bg-primary' : 'bg-primary/20'}`} />
+          <div className={`h-1 flex-1 rounded-full transition-all ${step === 'desire' ? 'bg-primary' : 'bg-primary/20'}`} />
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          Question {currentStep + 1} of 5
+          Step {step === 'cards' ? '1' : '2'} of 2
         </p>
       </div>
 
-      {/* Notification - Fixed */}
+      {/* Notification */}
       {notification && (
         <div className="flex-none px-4 pt-2">
           <NotificationContainer
@@ -304,36 +260,20 @@ export default function QuickInput() {
         </div>
       )}
 
-      {/* Question Content - Scrollable */}
+      {/* Content */}
       <div className="flex-1 px-4 py-4 overflow-y-auto min-h-0">
         <AnimatePresence mode="wait">
-          {currentStep < QUESTIONS.length ? (
+          {step === 'cards' ? (
             <motion.div
-              key={currentStep}
+              key="cards"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-8"
             >
-              <h2 className="text-xl md:text-2xl font-bold">{currentQuestion.question}</h2>
-              
-              <RadioGroup
-                value={answers[currentQuestion.id as keyof typeof answers]}
-                onValueChange={handleAnswer}
-                className="space-y-2"
-              >
-                {currentQuestion.options.map((option) => (
-                  <div
-                    key={option}
-                    className="flex items-center space-x-3 bg-white/80 p-3 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all"
-                  >
-                    <RadioGroupItem value={option} id={option} />
-                    <Label htmlFor={option} className="flex-1 cursor-pointer text-base">
-                      {option}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
+              <CardDrawInput
+                onComplete={handleCardsComplete}
+                cycleId={weeklyCycleId}
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -341,55 +281,71 @@ export default function QuickInput() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-4 pb-2"
+              className="space-y-6"
             >
-              <div className="space-y-2">
-                <h2 className="text-xl md:text-2xl font-bold">What are you hoping for this week?</h2>
-                <p className="text-sm text-muted-foreground">
-                  Be specific or dreamy - whatever feels right
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-bold">One more thing...</h2>
+                <p className="text-muted-foreground">
+                  What are you hoping for this week? (Optional)
                 </p>
               </div>
+
+              {/* Selected cards summary */}
+              <div className="flex flex-wrap justify-center gap-2">
+                {selectedCards.map((cardId) => {
+                  const card = require('@/data/moodCards').MOOD_CARDS.find((c: { id: string }) => c.id === cardId);
+                  if (!card) return null;
+                  return (
+                    <span
+                      key={cardId}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm"
+                    >
+                      <span>{card.emoji}</span>
+                      <span>{card.label}</span>
+                    </span>
+                  );
+                })}
+              </div>
+
               <Textarea
-                value={answers.desire}
-                onChange={(e) => setAnswers(prev => ({ ...prev, desire: e.target.value }))}
-                placeholder="e.g., Try a new neighborhood we've never been to..."
+                value={desire}
+                onChange={(e) => setDesire(e.target.value)}
+                placeholder="e.g., I'd love to try something new this weekend..."
                 className="min-h-[120px] max-h-[160px] bg-white/80 border-2 resize-none"
                 rows={4}
               />
-              <Button
-                onClick={handleSubmit}
-                disabled={!canProceed || isSubmitting}
-                size="lg"
-                className="w-full"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Complete'
-                )}
-              </Button>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  className="flex-1"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="flex-1 bg-gradient-ritual"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Complete
+                    </>
+                  )}
+                </Button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-
-      {/* Navigation - Fixed */}
-      {currentStep > 0 && currentStep < QUESTIONS.length && (
-        <div className="flex-none px-4 py-3 bg-background/80 backdrop-blur-sm border-t border-border/50">
-          <Button
-            onClick={handleBack}
-            variant="outline"
-            size="lg"
-            className="w-full"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
