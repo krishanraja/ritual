@@ -337,6 +337,10 @@ Currently no automated tests. Testing done manually in preview environment.
 ### Deployment
 Automatic on push to main. Edge functions deploy automatically.
 
+## Routing Notes
+
+**IMPORTANT:** The home route is `/`, NOT `/home`. Always use `navigate('/')` when redirecting to the home/landing page. The `/home` route does not exist and will result in a 404 error.
+
 ## Future Architecture Improvements
 
 1. **Error Boundaries:** Add React error boundaries to all pages

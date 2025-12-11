@@ -22,7 +22,7 @@ export default function MagneticInput() {
 
     if (!couple) {
       setNotification({ type: 'error', message: 'Please create or join a couple first' });
-      setTimeout(() => navigate('/home'), 2000);
+      setTimeout(() => navigate('/'), 2000);
       return;
     }
 
@@ -59,7 +59,7 @@ export default function MagneticInput() {
 
         if (error) {
           setNotification({ type: 'error', message: 'Failed to create weekly cycle' });
-          setTimeout(() => navigate('/home'), 2000);
+          setTimeout(() => navigate('/'), 2000);
           return;
         }
 
@@ -114,7 +114,7 @@ export default function MagneticInput() {
       } else {
         // Waiting for partner
         setNotification({ type: 'success', message: 'Canvas saved! Waiting for your partner...' });
-        setTimeout(() => navigate('/home'), 1500);
+        setTimeout(() => navigate('/'), 1500);
       }
     } catch (error) {
       console.error('Error generating rituals:', error);

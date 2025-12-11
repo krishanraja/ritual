@@ -120,7 +120,7 @@ export default function Profile() {
     const result = await leaveCouple();
     if (result.success) {
       setNotification({ type: 'success', message: 'You have left the couple' });
-      setTimeout(() => navigate('/home'), 1500);
+      setTimeout(() => navigate('/'), 1500);
     } else {
       setNotification({ type: 'error', message: result.error || 'Failed to leave couple' });
     }

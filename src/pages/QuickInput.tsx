@@ -65,7 +65,7 @@ export default function QuickInput() {
 
     if (!couple) {
       setNotification({ type: 'error', message: 'Please create or join a couple first' });
-      setTimeout(() => navigate('/home'), 2000);
+      setTimeout(() => navigate('/'), 2000);
       return;
     }
 
@@ -86,7 +86,7 @@ export default function QuickInput() {
           if (partnerSubmitted && currentCycle.synthesized_output) {
             navigate('/rituals');
           } else {
-            navigate('/home');
+          navigate('/');
           }
           return;
         }
@@ -121,7 +121,7 @@ export default function QuickInput() {
           if (partnerSubmitted && existingCycle.synthesized_output) {
             navigate('/rituals');
           } else {
-            navigate('/home');
+            navigate('/');
           }
           return;
         }
@@ -154,7 +154,7 @@ export default function QuickInput() {
             }
           }
           setNotification({ type: 'error', message: 'Failed to create weekly cycle' });
-          setTimeout(() => navigate('/home'), 2000);
+          setTimeout(() => navigate('/'), 2000);
           return;
         }
 
@@ -246,7 +246,7 @@ export default function QuickInput() {
       } else {
         setNotification({ type: 'success', message: 'All set! We\'ll notify you when your partner is ready' });
         await refreshCycle();
-        setTimeout(() => navigate('/home'), 2000);
+        setTimeout(() => navigate('/'), 2000);
       }
     } catch (error) {
       console.error('Error submitting answers:', error);

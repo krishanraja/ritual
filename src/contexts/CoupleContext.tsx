@@ -264,7 +264,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       setCouple(null);
       setPartnerProfile(null);
       setCurrentCycle(null);
-      navigate('/home');
+      navigate('/');
       return { success: true };
     } catch (error: any) {
       console.error('Error leaving couple:', error);
