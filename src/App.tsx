@@ -1,8 +1,16 @@
+/**
+ * App.tsx
+ * 
+ * Main application component with routing and providers.
+ * 
+ * @updated 2025-12-11 - Added Memories route, removed History
+ */
+
 import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { CoupleProvider } from "@/contexts/CoupleContext";
 import { AnalyticsProvider } from "@/contexts/AnalyticsContext";
@@ -14,12 +22,11 @@ import { PageTransition } from "@/components/PageTransition";
 import Landing from "./pages/Landing";
 
 // Code-split non-critical routes for smaller initial bundle
-
 const Auth = lazy(() => import("./pages/Auth"));
 const QuickInput = lazy(() => import("./pages/QuickInput"));
 const RitualCards = lazy(() => import("./pages/RitualCards"));
 const RitualPicker = lazy(() => import("./pages/RitualPicker"));
-const History = lazy(() => import("./pages/History"));
+const Memories = lazy(() => import("./pages/Memories"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Contact = lazy(() => import("./pages/Contact"));
 const Terms = lazy(() => import("./pages/Terms"));
@@ -47,7 +54,9 @@ const AnimatedRoutes = () => {
         <Route path="/input" element={<Suspense fallback={<LazyFallback />}><PageTransition><QuickInput /></PageTransition></Suspense>} />
         <Route path="/picker" element={<Suspense fallback={<LazyFallback />}><PageTransition><RitualPicker /></PageTransition></Suspense>} />
         <Route path="/rituals" element={<Suspense fallback={<LazyFallback />}><PageTransition><RitualCards /></PageTransition></Suspense>} />
-        <Route path="/history" element={<Suspense fallback={<LazyFallback />}><PageTransition><History /></PageTransition></Suspense>} />
+        <Route path="/memories" element={<Suspense fallback={<LazyFallback />}><PageTransition><Memories /></PageTransition></Suspense>} />
+        {/* Redirect old history route to memories */}
+        <Route path="/history" element={<Navigate to="/memories" replace />} />
         <Route path="/profile" element={<Suspense fallback={<LazyFallback />}><PageTransition><Profile /></PageTransition></Suspense>} />
         <Route path="/contact" element={<Suspense fallback={<LazyFallback />}><PageTransition><Contact /></PageTransition></Suspense>} />
         <Route path="/terms" element={<Suspense fallback={<LazyFallback />}><PageTransition><Terms /></PageTransition></Suspense>} />

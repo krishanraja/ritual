@@ -1,11 +1,20 @@
+/**
+ * EnhancedPostRitualCheckin Component
+ * 
+ * Post-ritual check-in flow with photo capture and partner notification.
+ * Flow: complete → rating → repeat → notes → photo → done
+ * 
+ * @updated 2025-12-11 - Added working photo upload and partner notification
+ */
+
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Star, Sparkles, Camera, X, Check, RotateCcw, Calendar, Lock } from 'lucide-react';
+import { Heart, Star, Sparkles, X, Check, RotateCcw, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { usePremium } from '@/hooks/usePremium';
-import { UpgradeModal } from './UpgradeModal';
+import { PhotoCapture } from './PhotoCapture';
 
 interface Props {
   coupleId: string;
@@ -36,17 +45,16 @@ export function EnhancedPostRitualCheckin({
   const [rating, setRating] = useState<number | null>(null);
   const [wouldRepeat, setWouldRepeat] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const { isPremium, maxNotesLength, canUploadPhotos } = usePremium();
+  const [memoryId, setMemoryId] = useState<string | null>(null);
+  const { isPremium, maxNotesLength } = usePremium();
 
   const handleCompletionChoice = (status: CompletionStatus) => {
     setDidComplete(status);
     if (status === 'skipped') {
-      // Skip to notes for explanation
       setStep('notes');
     } else if (status === 'not_yet') {
-      // Close and remind later
       onDismiss();
     } else {
       setStep('rating');
@@ -64,6 +72,25 @@ export function EnhancedPostRitualCheckin({
   };
 
   const handleNotesSubmit = () => {
+    // Go to photo step for completed rituals
+    if (didComplete === 'yes') {
+      setStep('photo');
+    } else {
+      setStep('done');
+      submitFeedback();
+    }
+  };
+
+  const handlePhotoComplete = (url: string) => {
+    setPhotoUrl(url);
+  };
+
+  const handlePhotoSkip = () => {
+    setStep('done');
+    submitFeedback();
+  };
+
+  const handlePhotoSave = () => {
     setStep('done');
     submitFeedback();
   };
@@ -82,8 +109,8 @@ export function EnhancedPostRitualCheckin({
         notes: notes || null,
       });
 
-      // If completed with high rating, save to memories
-      if (didComplete === 'yes' && rating && rating >= 3) {
+      // If completed with good rating, save to memories
+      if (didComplete === 'yes' && rating && rating >= 2) {
         // Check if this ritual is already in memories
         const { data: existingMemory } = await supabase
           .from('ritual_memories')
@@ -91,6 +118,8 @@ export function EnhancedPostRitualCheckin({
           .eq('couple_id', coupleId)
           .eq('ritual_title', ritualTitle)
           .single();
+
+        let savedMemoryId: string | null = null;
 
         if (existingMemory) {
           // Update existing memory
@@ -100,28 +129,53 @@ export function EnhancedPostRitualCheckin({
             .update({ 
               rating,
               notes: notes || null,
+              photo_url: photoUrl || undefined,
               tradition_count: newCount,
               is_tradition: newCount >= 3 && rating >= 4,
               updated_at: new Date().toISOString(),
             })
             .eq('id', existingMemory.id);
+          savedMemoryId = existingMemory.id;
         } else {
           // Create new memory
-          await supabase.from('ritual_memories').insert({
-            couple_id: coupleId,
-            ritual_title: ritualTitle,
-            ritual_description: ritualDescription,
-            completion_date: agreedDate,
-            rating,
-            notes: notes || null,
-            tradition_count: 1,
+          const { data: newMemory } = await supabase
+            .from('ritual_memories')
+            .insert({
+              couple_id: coupleId,
+              ritual_title: ritualTitle,
+              ritual_description: ritualDescription,
+              completion_date: agreedDate,
+              rating,
+              notes: notes || null,
+              photo_url: photoUrl || null,
+              tradition_count: 1,
+            })
+            .select('id')
+            .single();
+          savedMemoryId = newMemory?.id || null;
+        }
+
+        setMemoryId(savedMemoryId);
+
+        // Notify partner
+        try {
+          await supabase.functions.invoke('notify-partner-completion', {
+            body: {
+              coupleId,
+              ritualTitle,
+              memoryId: savedMemoryId,
+            },
           });
+          console.log('[PostRitualCheckin] Partner notified');
+        } catch (notifyError) {
+          console.warn('[PostRitualCheckin] Partner notification failed:', notifyError);
+          // Don't fail the whole flow if notification fails
         }
       }
 
-      setTimeout(() => onComplete(), 2000);
+      setTimeout(() => onComplete(), 2500);
     } catch (error) {
-      console.error('Error saving feedback:', error);
+      console.error('[PostRitualCheckin] Error saving feedback:', error);
       onComplete();
     } finally {
       setSubmitting(false);
@@ -272,7 +326,7 @@ export function EnhancedPostRitualCheckin({
               <p className="text-muted-foreground text-sm">
                 {didComplete === 'skipped' 
                   ? 'Help us understand so we can suggest better next time'
-                  : 'Capture a thought or moment from this ritual (optional)'
+                  : 'Capture a thought or moment (optional)'
                 }
               </p>
             </div>
@@ -293,34 +347,11 @@ export function EnhancedPostRitualCheckin({
                 className="min-h-[100px]"
               />
               {!isPremium && (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    {notes.length}/{maxNotesLength} characters
-                  </span>
-                  <button 
-                    onClick={() => setShowUpgradeModal(true)}
-                    className="flex items-center gap-1 text-primary hover:underline"
-                  >
-                    <Lock className="w-3 h-3" />
-                    Unlock unlimited notes
-                  </button>
+                <div className="text-xs text-muted-foreground text-right">
+                  {notes.length}/{maxNotesLength}
                 </div>
               )}
             </div>
-
-            {/* Photo upload - Premium only */}
-            {!isPremium && didComplete === 'yes' && (
-              <button 
-                onClick={() => setShowUpgradeModal(true)}
-                className="w-full p-3 rounded-xl bg-primary/5 border border-primary/20 border-dashed hover:bg-primary/10 transition-colors"
-              >
-                <div className="flex items-center justify-center gap-2 text-primary">
-                  <Camera className="w-5 h-5" />
-                  <span className="text-sm font-medium">Add photo (Premium)</span>
-                  <Lock className="w-3 h-3" />
-                </div>
-              </button>
-            )}
 
             <div className="flex gap-3">
               <Button
@@ -328,13 +359,53 @@ export function EnhancedPostRitualCheckin({
                 onClick={handleNotesSubmit}
                 className="flex-1"
               >
-                Skip
+                {didComplete === 'yes' ? 'Next' : 'Skip'}
               </Button>
               <Button
                 onClick={handleNotesSubmit}
                 className="flex-1 bg-gradient-ritual"
               >
-                Save
+                Continue
+              </Button>
+            </div>
+          </motion.div>
+        );
+
+      case 'photo':
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <div className="space-y-2 text-center">
+              <h3 className="text-xl font-bold">Capture this memory</h3>
+              <p className="text-muted-foreground text-sm">
+                Add a photo to remember this moment
+              </p>
+            </div>
+
+            <PhotoCapture
+              coupleId={coupleId}
+              onUploadComplete={handlePhotoComplete}
+              onError={(error) => console.error('[PostRitualCheckin] Photo error:', error)}
+            />
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handlePhotoSkip}
+                className="flex-1"
+              >
+                Skip
+              </Button>
+              <Button
+                onClick={handlePhotoSave}
+                disabled={submitting}
+                className="flex-1 bg-gradient-ritual"
+              >
+                {photoUrl ? 'Save Memory' : 'Continue'}
               </Button>
             </div>
           </motion.div>
@@ -355,16 +426,18 @@ export function EnhancedPostRitualCheckin({
             >
               <Star className="w-10 h-10 text-white" fill="currentColor" />
             </motion.div>
-            <h3 className="text-xl font-bold">Thanks for sharing!</h3>
+            <h3 className="text-xl font-bold">Memory saved! 💕</h3>
             <p className="text-muted-foreground text-sm">
-              {rating && rating >= 4 
-                ? "We'll remember this for future suggestions ✨"
-                : "Your feedback helps us improve"
+              {photoUrl 
+                ? "Your photo has been added to your memories"
+                : rating && rating >= 4 
+                  ? "We'll remember this for future suggestions ✨"
+                  : "Your feedback helps us improve"
               }
             </p>
             {wouldRepeat === 'definitely' && (
               <p className="text-xs text-primary">
-                This might become a tradition! 💕
+                This might become a tradition! 
               </p>
             )}
           </motion.div>
@@ -382,7 +455,7 @@ export function EnhancedPostRitualCheckin({
       <motion.div
         initial={{ scale: 0.95, y: 20 }}
         animate={{ scale: 1, y: 0 }}
-        className="w-full max-w-md bg-card rounded-2xl p-6 shadow-xl border"
+        className="w-full max-w-md bg-card rounded-2xl p-6 shadow-xl border relative"
       >
         {step !== 'done' && (
           <button
@@ -397,13 +470,6 @@ export function EnhancedPostRitualCheckin({
           {renderStep()}
         </AnimatePresence>
       </motion.div>
-      
-      {/* Upgrade Modal */}
-      <UpgradeModal 
-        open={showUpgradeModal} 
-        onClose={() => setShowUpgradeModal(false)}
-        highlightFeature="photos"
-      />
     </motion.div>
   );
 }
