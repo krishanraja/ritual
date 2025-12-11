@@ -39,6 +39,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
   const [partnerProfile, setPartnerProfile] = useState<PartnerProfile | null>(null);
   const [currentCycle, setCurrentCycle] = useState<WeeklyCycle | null>(null);
   const [loading, setLoading] = useState(true);
+  const [coupleLoading, setCoupleLoading] = useState(false);
   const navigate = useNavigate();
 
   const fetchCouple = async (userId: string) => {
@@ -172,11 +173,13 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (user) {
+      setCoupleLoading(true);
       fetchCouple(user.id).then((coupleData) => {
         if (coupleData) {
           fetchCycle(coupleData.id);
         }
-      });
+        setCoupleLoading(false);
+      }).catch(() => setCoupleLoading(false));
 
       // Realtime subscriptions
       const couplesChannel = supabase
@@ -272,6 +275,9 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Combined loading state - wait for both auth AND couple data
+  const isFullyLoaded = !loading && !coupleLoading;
+
   return (
     <CoupleContext.Provider value={{
       user,
@@ -279,7 +285,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       couple,
       partnerProfile,
       currentCycle,
-      loading,
+      loading: !isFullyLoaded,
       hasKnownSession,
       refreshCouple,
       refreshCycle,

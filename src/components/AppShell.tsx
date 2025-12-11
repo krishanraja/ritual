@@ -106,7 +106,7 @@ export const AppShell = ({ children }: AppShellProps) => {
           <div className="flex items-center gap-3">
             <StatusIndicator />
             
-            {(!couple || (couple && !couple.partner_two)) && (
+            {!couple && (
               <Button 
                 variant="ghost" 
                 size="sm"

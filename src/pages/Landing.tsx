@@ -340,19 +340,11 @@ export default function Landing() {
               </div>
             </Card>
 
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-2">Or</p>
-              <Button 
-                onClick={() => setJoinOpen(true)}
-                variant="outline"
-                className="w-full h-12 rounded-xl"
-              >
-                Join Someone Else's Code
-              </Button>
-            </div>
+            <p className="text-center text-xs text-muted-foreground">
+              Your partner hasn't joined yet. Share the code above to get started together!
+            </p>
           </motion.div>
         </div>
-        <JoinDrawer open={joinOpen} onOpenChange={setJoinOpen} />
       </div>
     );
   }
