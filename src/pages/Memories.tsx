@@ -15,6 +15,7 @@ import { useCouple } from '@/contexts/CoupleContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useSEO } from '@/hooks/useSEO';
 import { MemoryCard } from '@/components/MemoryCard';
+import { useNavigate } from 'react-router-dom';
 
 interface Memory {
   id: string;
@@ -144,17 +145,26 @@ export default function Memories() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-16 space-y-4"
+            className="text-center py-16 space-y-6"
           >
-            <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-              <Sparkles className="w-10 h-10 text-primary" />
+            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-pink-200/30 flex items-center justify-center">
+              <Sparkles className="w-12 h-12 text-primary" />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <h2 className="text-xl font-semibold">Your memory book awaits</h2>
-              <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-                Complete your first ritual together to start building your story 💕
+              <p className="text-muted-foreground text-sm max-w-xs mx-auto leading-relaxed">
+                Complete your first ritual together to start building your story. Each memory becomes a page in your shared journey.
               </p>
             </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => window.location.href = '/input'}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-primary to-pink-500 text-white font-medium shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-shadow"
+            >
+              <Heart className="w-4 h-4" />
+              Start Your First Ritual
+            </motion.button>
           </motion.div>
         ) : (
           /* Memory grid */

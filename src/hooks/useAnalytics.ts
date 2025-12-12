@@ -28,20 +28,24 @@ export const useAnalytics = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Skip tracking for unauthenticated users to avoid RLS violations
+      if (!user) {
+        console.debug('[Analytics] Skipping event - user not authenticated:', eventType);
+        return;
+      }
+      
       // Get couple_id if user is logged in
       let coupleId: string | null = null;
-      if (user) {
-        const { data: couple } = await supabase
-          .from('couples')
-          .select('id')
-          .or(`partner_one.eq.${user.id},partner_two.eq.${user.id}`)
-          .eq('is_active', true)
-          .maybeSingle();
-        coupleId = couple?.id || null;
-      }
+      const { data: couple } = await supabase
+        .from('couples')
+        .select('id')
+        .or(`partner_one.eq.${user.id},partner_two.eq.${user.id}`)
+        .eq('is_active', true)
+        .maybeSingle();
+      coupleId = couple?.id || null;
 
       await supabase.from('user_analytics_events').insert([{
-        user_id: user?.id || null,
+        user_id: user.id,
         couple_id: coupleId,
         session_id: sessionId.current,
         event_type: eventType,

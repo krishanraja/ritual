@@ -21,7 +21,7 @@ interface StreakBadgeProps {
 
 // Streak tier configuration
 const STREAK_TIERS = [
-  { min: 0, max: 0, icon: Sprout, label: 'Starting', color: 'from-gray-400 to-gray-500', emoji: '🌱' },
+  { min: 0, max: 0, icon: Sprout, label: 'Ready to begin', color: 'from-primary/60 to-pink-400', emoji: '✨' },
   { min: 1, max: 1, icon: Sprout, label: 'Seedling', color: 'from-green-400 to-emerald-500', emoji: '🌱' },
   { min: 2, max: 3, icon: Leaf, label: 'Growing', color: 'from-emerald-400 to-teal-500', emoji: '🌿' },
   { min: 4, max: 7, icon: Flame, label: 'On Fire', color: 'from-orange-500 to-red-500', emoji: '🔥' },
@@ -83,11 +83,15 @@ export const StreakBadge = ({ showInsightsPrompt = false }: StreakBadgeProps) =>
           className={`inline-flex items-center gap-2 bg-gradient-to-r ${tier.color} text-white px-4 py-2 rounded-full shadow-lg cursor-default`}
         >
           <Icon className="w-5 h-5" />
-          <span className="font-bold">{streak} Week{streak !== 1 ? 's' : ''}</span>
-          {streak > 0 && (
-            <span className="text-xs bg-white/20 rounded-full px-2 py-0.5">
-              {tier.label}
-            </span>
+          {streak === 0 ? (
+            <span className="font-bold text-sm">{tier.label}</span>
+          ) : (
+            <>
+              <span className="font-bold">{streak} Week{streak !== 1 ? 's' : ''}</span>
+              <span className="text-xs bg-white/20 rounded-full px-2 py-0.5">
+                {tier.label}
+              </span>
+            </>
           )}
         </motion.div>
         
