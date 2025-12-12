@@ -8,6 +8,9 @@ import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { NotificationContainer } from './InlineNotification';
 
+// Version tracking for deployment verification
+const CODE_VERSION = '2024-12-12-v3';
+
 interface JoinDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,6 +26,7 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
 
   useEffect(() => {
     if (open) {
+      console.log('[JOIN] Drawer opened, code version:', CODE_VERSION);
       setTimeout(() => codeInputRef.current?.focus(), 100);
     } else {
       setCode('');
@@ -31,56 +35,131 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
   }, [open]);
 
   const handleJoin = async () => {
+    console.log('[JOIN] === Starting join flow ===');
+    console.log('[JOIN] Code version:', CODE_VERSION);
+    console.log('[JOIN] User:', user?.id);
+    console.log('[JOIN] User email:', user?.email);
+    console.log('[JOIN] Raw code input:', code);
+
     if (!user) {
+      console.error('[JOIN] ERROR: No user authenticated');
       setNotification({ type: 'error', message: 'Not authenticated' });
       return;
     }
 
     const cleanCode = code.replace(/-/g, '').toUpperCase();
+    console.log('[JOIN] Clean code (no dashes):', cleanCode);
     
     if (cleanCode.length !== 8) {
+      console.error('[JOIN] ERROR: Code length invalid:', cleanCode.length);
       setNotification({ type: 'error', message: 'Code must be 8 characters' });
       return;
     }
 
     setLoading(true);
     const formattedCode = `${cleanCode.slice(0, 4)}-${cleanCode.slice(4)}`;
-    console.log('[JOIN] Calling join_couple_with_code for:', formattedCode);
+    console.log('[JOIN] Formatted code for RPC:', formattedCode);
 
     try {
-      // Use SECURITY DEFINER function - bypasses RLS, guaranteed to work
+      // Step 1: Call the SECURITY DEFINER function
+      console.log('[JOIN] Calling RPC join_couple_with_code...');
       const { data, error } = await supabase
         .rpc('join_couple_with_code', { input_code: formattedCode });
 
+      console.log('[JOIN] RPC raw response - data:', data);
+      console.log('[JOIN] RPC raw response - error:', error);
+
       if (error) {
-        console.error('[JOIN] RPC error:', error);
+        console.error('[JOIN] RPC error object:', JSON.stringify(error, null, 2));
         throw new Error(error.message);
       }
 
       // Parse the JSONB result
-      const result = data as { success: boolean; error?: string; couple_id?: string };
+      const result = data as { 
+        success: boolean; 
+        error?: string; 
+        couple_id?: string;
+        partner_one?: string;
+        partner_two?: string;
+        verified?: boolean;
+        debug?: any;
+      };
+
+      console.log('[JOIN] Parsed RPC result:', JSON.stringify(result, null, 2));
 
       if (!result?.success) {
-        console.error('[JOIN] Join failed:', result?.error);
+        console.error('[JOIN] RPC returned failure:', result?.error);
+        if (result?.debug) {
+          console.error('[JOIN] Debug info:', JSON.stringify(result.debug, null, 2));
+        }
         throw new Error(result?.error || 'Failed to join couple');
       }
 
-      console.log('[JOIN] ✅ Successfully joined couple:', result.couple_id);
+      console.log('[JOIN] ✅ RPC returned success');
+      console.log('[JOIN] couple_id:', result.couple_id);
+      console.log('[JOIN] partner_one:', result.partner_one);
+      console.log('[JOIN] partner_two:', result.partner_two);
+      console.log('[JOIN] verified:', result.verified);
 
-      // Refresh couple data
+      // Step 2: Verify the database state independently
+      console.log('[JOIN] === Starting independent verification ===');
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('couples')
+        .select('id, partner_one, partner_two, is_active')
+        .eq('id', result.couple_id)
+        .single();
+
+      console.log('[JOIN] Verification query result:', JSON.stringify(verifyData, null, 2));
+      console.log('[JOIN] Verification query error:', verifyError);
+
+      if (verifyError) {
+        console.error('[JOIN] ❌ Verification query failed:', verifyError.message);
+        throw new Error('Could not verify join. Please try again.');
+      }
+
+      if (!verifyData?.partner_two) {
+        console.error('[JOIN] ❌ CRITICAL: partner_two is NULL after successful RPC!');
+        console.error('[JOIN] Expected partner_two:', user.id);
+        console.error('[JOIN] Actual partner_two:', verifyData?.partner_two);
+        throw new Error('Join appeared to succeed but was not saved. Please try again.');
+      }
+
+      if (verifyData.partner_two !== user.id) {
+        console.error('[JOIN] ❌ CRITICAL: partner_two mismatch!');
+        console.error('[JOIN] Expected:', user.id);
+        console.error('[JOIN] Actual:', verifyData.partner_two);
+        throw new Error('Join verification failed - user ID mismatch');
+      }
+
+      console.log('[JOIN] ✅ Verification passed - partner_two is correctly set to:', verifyData.partner_two);
+
+      // Step 3: Refresh couple data with multiple attempts
+      console.log('[JOIN] === Refreshing couple data ===');
       await refreshCouple();
+      console.log('[JOIN] First refresh complete');
       
       // Extra refreshes to ensure both partners sync
-      setTimeout(() => refreshCouple(), 500);
-      setTimeout(() => refreshCouple(), 1500);
+      setTimeout(() => {
+        console.log('[JOIN] Second refresh (500ms delay)');
+        refreshCouple();
+      }, 500);
+      setTimeout(() => {
+        console.log('[JOIN] Third refresh (1500ms delay)');
+        refreshCouple();
+      }, 1500);
       
       setNotification({ type: 'success', message: 'Successfully joined! 🎉' });
+      console.log('[JOIN] === Join flow complete, navigating to /input ===');
+      
       setTimeout(() => {
         onOpenChange(false);
         navigate('/input');
       }, 1500);
     } catch (error: any) {
-      console.error('[JOIN] Error:', error);
+      console.error('[JOIN] === Join flow FAILED ===');
+      console.error('[JOIN] Error type:', error?.name);
+      console.error('[JOIN] Error message:', error?.message);
+      console.error('[JOIN] Full error:', error);
       setNotification({ type: 'error', message: error.message || 'Failed to join couple' });
     } finally {
       setLoading(false);

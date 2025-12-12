@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import type { Couple, PartnerProfile, WeeklyCycle } from '@/types/database';
 
+// Version tracking for deployment verification
+const CONTEXT_VERSION = '2024-12-12-v3';
+
 // Check localStorage for existing Supabase session token (instant, synchronous)
 const checkCachedSession = (): boolean => {
   try {
@@ -22,7 +25,7 @@ interface CoupleContextType {
   partnerProfile: PartnerProfile | null;
   currentCycle: WeeklyCycle | null;
   loading: boolean;
-  hasKnownSession: boolean; // True if localStorage has cached session (for instant UI decisions)
+  hasKnownSession: boolean;
   refreshCouple: () => Promise<void>;
   refreshCycle: () => Promise<void>;
   leaveCouple: () => Promise<{ success: boolean; error?: string }>;
@@ -31,7 +34,6 @@ interface CoupleContextType {
 const CoupleContext = createContext<CoupleContextType | null>(null);
 
 export const CoupleProvider = ({ children }: { children: ReactNode }) => {
-  // Check cached session SYNCHRONOUSLY on first render (no flash)
   const [hasKnownSession] = useState(() => checkCachedSession());
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<any>(null);
@@ -43,61 +45,72 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
 
   const fetchCouple = async (userId: string) => {
+    console.log('[COUPLE] fetchCouple called for user:', userId);
     try {
       // Step 1: Fetch couple (check both as partner_one and partner_two)
-      const { data: asPartnerOne } = await supabase
+      const { data: asPartnerOne, error: err1 } = await supabase
         .from('couples')
         .select('*')
         .eq('partner_one', userId)
         .eq('is_active', true)
         .maybeSingle();
 
-      const { data: asPartnerTwo } = await supabase
+      const { data: asPartnerTwo, error: err2 } = await supabase
         .from('couples')
         .select('*')
         .eq('partner_two', userId)
         .eq('is_active', true)
         .maybeSingle();
 
+      console.log('[COUPLE] Query results - asPartnerOne:', asPartnerOne?.id, 'asPartnerTwo:', asPartnerTwo?.id);
+      if (err1) console.error('[COUPLE] Error fetching as partner_one:', err1);
+      if (err2) console.error('[COUPLE] Error fetching as partner_two:', err2);
+
       const coupleData = asPartnerOne || asPartnerTwo;
       
       if (!coupleData) {
+        console.log('[COUPLE] No active couple found for user');
         setCouple(null);
         setPartnerProfile(null);
         return null;
       }
+
+      console.log('[COUPLE] Found couple:', coupleData.id);
+      console.log('[COUPLE] partner_one:', coupleData.partner_one);
+      console.log('[COUPLE] partner_two:', coupleData.partner_two);
 
       // Step 2: Fetch partner's profile separately
       const partnerId = coupleData.partner_one === userId 
         ? coupleData.partner_two 
         : coupleData.partner_one;
       
+      console.log('[COUPLE] Partner ID:', partnerId);
+      
       if (partnerId) {
-        // SECURITY: Use database function to get only partner's name
         const { data: partnerName } = await supabase
           .rpc('get_partner_name', { partner_id: partnerId });
         
+        console.log('[COUPLE] Partner name:', partnerName);
         if (partnerName) {
           setPartnerProfile({ id: partnerId, name: partnerName });
         } else {
           setPartnerProfile(null);
         }
       } else {
+        console.log('[COUPLE] No partner_two yet - waiting for partner to join');
         setPartnerProfile(null);
       }
 
       setCouple(coupleData);
       return coupleData;
     } catch (error) {
-      console.error('Error fetching couple:', error);
+      console.error('[COUPLE] Error fetching couple:', error);
       return null;
     }
   };
 
   const fetchCycle = async (coupleId: string) => {
     try {
-      // First, try to find the most recent incomplete cycle
-      // (where partners haven't finished or no synthesis/agreement yet)
       const { data: incompleteCycle, error: incompleteError } = await supabase
         .from('weekly_cycles')
         .select('*')
@@ -109,13 +122,11 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
 
       if (incompleteError) throw incompleteError;
 
-      // If we found an incomplete cycle, use it
       if (incompleteCycle) {
         setCurrentCycle(incompleteCycle);
         return incompleteCycle;
       }
 
-      // Otherwise, check for current week's cycle
       const weekStart = new Date();
       weekStart.setHours(0, 0, 0, 0);
       weekStart.setDate(weekStart.getDate() - weekStart.getDay());
@@ -131,15 +142,14 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       setCurrentCycle(currentWeekCycle);
       return currentWeekCycle;
     } catch (error) {
-      console.error('Error fetching cycle:', error);
+      console.error('[CYCLE] Error fetching cycle:', error);
       return null;
     }
   };
 
   useEffect(() => {
-    console.log('[AUTH] Initializing auth state...');
+    console.log('[AUTH] Initializing auth state, context version:', CONTEXT_VERSION);
     
-    // SAFETY NET: Force loading=false after 5 seconds no matter what
     const safetyTimeout = setTimeout(() => {
       console.log('[AUTH] ⚠️ Safety timeout triggered - forcing loading=false');
       setLoading(false);
@@ -174,37 +184,80 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (user) {
       setCoupleLoading(true);
-      console.log('[LOADING STATE] Starting couple fetch', { authLoading: loading, coupleLoading: true, hasUser: !!user });
+      console.log('[CONTEXT] Starting couple fetch for user:', user.id);
+      
       fetchCouple(user.id).then((coupleData) => {
-        console.log('[LOADING STATE] Couple fetch complete', { hasCouple: !!coupleData });
+        console.log('[CONTEXT] Couple fetch complete, hasCouple:', !!coupleData);
         if (coupleData) {
           fetchCycle(coupleData.id);
         }
         setCoupleLoading(false);
       }).catch(() => setCoupleLoading(false));
 
-      // Realtime subscriptions with improved sync
-      console.log('[REALTIME] Setting up couples channel for user:', user.id);
+      // Realtime subscriptions with improved sync and detailed logging
+      const channelName = `couples-${user.id}-${Date.now()}`;
+      console.log('[REALTIME] Setting up channel:', channelName);
+      
       const couplesChannel = supabase
-        .channel('couples-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'couples' }, async (payload: any) => {
-          console.log('[REALTIME] Couples change detected:', payload.eventType, payload);
+        .channel(channelName)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'couples' 
+        }, async (payload: any) => {
+          console.log('[REALTIME] === Couples change detected ===');
+          console.log('[REALTIME] Event type:', payload.eventType);
+          console.log('[REALTIME] Old record:', JSON.stringify(payload.old, null, 2));
+          console.log('[REALTIME] New record:', JSON.stringify(payload.new, null, 2));
           
-          // Check if partner just joined
-          if (payload.eventType === 'UPDATE' && payload.new.partner_two && !payload.old?.partner_two) {
-            console.log('[REALTIME] Partner joined! Refreshing couple data...');
-            // Refresh multiple times to ensure data is consistent
+          // Check if this update is relevant to this user
+          const isRelevant = 
+            payload.new?.partner_one === user.id || 
+            payload.new?.partner_two === user.id ||
+            payload.old?.partner_one === user.id ||
+            payload.old?.partner_two === user.id;
+          
+          console.log('[REALTIME] Is relevant to user:', isRelevant);
+          
+          if (!isRelevant) {
+            console.log('[REALTIME] Ignoring - not relevant to this user');
+            return;
+          }
+          
+          // Check if partner just joined (partner_two changed from null to a value)
+          const partnerJoined = 
+            payload.eventType === 'UPDATE' && 
+            payload.new?.partner_two && 
+            !payload.old?.partner_two;
+          
+          console.log('[REALTIME] Partner joined?', partnerJoined);
+          
+          if (partnerJoined) {
+            console.log('[REALTIME] 🎉 Partner joined! New partner_two:', payload.new.partner_two);
+            console.log('[REALTIME] Refreshing couple data multiple times...');
+            
+            // Immediate refresh
             await fetchCouple(user.id);
-            setTimeout(() => fetchCouple(user.id), 300);
-            setTimeout(() => fetchCouple(user.id), 800);
-            // Redirect both users to /input
+            console.log('[REALTIME] First refresh complete');
+            
+            // Delayed refreshes for consistency
+            setTimeout(async () => {
+              console.log('[REALTIME] Second refresh (300ms)');
+              await fetchCouple(user.id);
+            }, 300);
+            
+            setTimeout(async () => {
+              console.log('[REALTIME] Third refresh (800ms)');
+              await fetchCouple(user.id);
+            }, 800);
+            
+            // Navigate both users to /input
+            console.log('[REALTIME] Navigating to /input');
             navigate('/input');
           } else if (payload.eventType === 'UPDATE') {
-            // Partner two left or other update
-            console.log('[REALTIME] Couple updated, refreshing...');
+            console.log('[REALTIME] Couple updated (not partner join), refreshing...');
             await fetchCouple(user.id);
           } else if (payload.eventType === 'DELETE') {
-            // Couple was deleted
             console.log('[REALTIME] Couple deleted, clearing state...');
             setCouple(null);
             setPartnerProfile(null);
@@ -213,16 +266,21 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
           }
         })
         .subscribe((status) => {
-          console.log('[REALTIME] Couples channel status:', status);
+          console.log('[REALTIME] Channel status:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('[REALTIME] ✅ Successfully subscribed to couples changes');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('[REALTIME] ❌ Channel error');
+          }
         });
 
       const cyclesChannel = supabase
-        .channel('cycles-changes')
+        .channel(`cycles-${user.id}-${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_cycles' }, (payload: any) => {
+          console.log('[REALTIME] Cycles change:', payload.eventType);
           const oldData = payload.old;
           const newData = payload.new;
           
-          // Detect when partner submits input
           const partnerOneInputChanged = newData?.partner_one_input && !oldData?.partner_one_input;
           const partnerTwoInputChanged = newData?.partner_two_input && !oldData?.partner_two_input;
           const synthesisReady = newData?.synthesized_output && !oldData?.synthesized_output;
@@ -238,6 +296,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
         .subscribe();
 
       return () => {
+        console.log('[REALTIME] Cleaning up channels');
         supabase.removeChannel(couplesChannel);
         supabase.removeChannel(cyclesChannel);
       };
@@ -245,6 +304,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
   }, [user, couple?.id]);
 
   const refreshCouple = async () => {
+    console.log('[CONTEXT] refreshCouple called');
     if (user) await fetchCouple(user.id);
   };
 
@@ -261,7 +321,6 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       const isPartnerOne = couple.partner_one === user.id;
       
       if (isPartnerOne) {
-        // Partner one deletes the couple entirely
         const { error } = await supabase
           .from('couples')
           .delete()
@@ -272,7 +331,6 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
           throw error;
         }
       } else {
-        // Partner two removes themselves
         const { error } = await supabase
           .from('couples')
           .update({ partner_two: null })
@@ -295,7 +353,6 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Combined loading state - wait for both auth AND couple data
   const isFullyLoaded = !loading && !coupleLoading;
 
   return (
