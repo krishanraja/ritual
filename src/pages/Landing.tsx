@@ -160,7 +160,7 @@ export default function Landing() {
     if (hasKnownSession) {
       return (
         <div className="h-full flex flex-col relative">
-          <AnimatedGradientBackground variant="warm" />
+          <AnimatedGradientBackground variant="warm" showVideoBackdrop />
           <div className="flex-1 flex flex-col items-center justify-center gap-4 relative z-10">
             <RitualLogo size="lg" variant="full" className="opacity-80" />
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -178,7 +178,7 @@ export default function Landing() {
     // No cached session - show marketing-style skeleton
     return (
       <div className="h-full flex flex-col relative">
-        <AnimatedGradientBackground variant="warm" />
+        <AnimatedGradientBackground variant="warm" showVideoBackdrop />
         <div className="flex-1 flex flex-col items-center justify-center gap-4 relative z-10">
           <RitualLogo size="2xl" variant="full" className="opacity-80 max-w-[560px] sm:max-w-[800px]" />
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -210,7 +210,7 @@ export default function Landing() {
   if (!user) {
     return (
       <div className="h-full flex flex-col relative">
-        <AnimatedGradientBackground variant="warm" />
+        <AnimatedGradientBackground variant="warm" showVideoBackdrop />
         <MobileVideoBackground />
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 space-y-4 sm:space-y-6 relative z-10 overflow-y-auto min-h-0">
@@ -288,7 +288,7 @@ export default function Landing() {
     
     return (
       <div className="h-full flex flex-col relative">
-        <AnimatedGradientBackground variant="warm" />
+        <AnimatedGradientBackground variant="warm" showVideoBackdrop />
         <MobileVideoBackground />
         <div className="flex-1 flex flex-col items-center justify-center px-6 relative z-10">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center space-y-6 max-w-sm">
@@ -362,7 +362,7 @@ export default function Landing() {
 
     return (
       <div className="h-full flex flex-col relative">
-        <AnimatedGradientBackground variant="warm" />
+        <AnimatedGradientBackground variant="warm" showVideoBackdrop />
         <MobileVideoBackground />
         <div className="flex-1 flex flex-col justify-center px-4 relative z-10">
           <motion.div
@@ -465,7 +465,7 @@ export default function Landing() {
     const partnerName = partnerProfile?.name || 'your partner';
     return (
       <div className="h-full relative">
-        <AnimatedGradientBackground variant="calm" />
+        <AnimatedGradientBackground variant="calm" showVideoBackdrop />
         <WaitingForPartner
           partnerName={partnerName}
           currentCycleId={currentCycle.id}
@@ -497,7 +497,7 @@ export default function Landing() {
   // Main dashboard view
   return (
     <div className="h-full flex flex-col relative">
-      <AnimatedGradientBackground variant="warm" />
+      <AnimatedGradientBackground variant="warm" showVideoBackdrop />
       
       <MobileVideoBackground />
       

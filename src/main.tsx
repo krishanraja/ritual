@@ -4,10 +4,16 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
-// Remove splash screen after React mounts with fade-out
+// Remove splash screen with smooth handoff
+// Delay ensures React background is painted before splash fades
 const splash = document.getElementById('splash');
 if (splash) {
-  splash.style.transition = 'opacity 0.3s ease-out';
-  splash.style.opacity = '0';
-  setTimeout(() => splash.remove(), 300);
+  // Wait for first paint cycle to ensure React content is visible
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      splash.style.transition = 'opacity 0.4s ease-out';
+      splash.style.opacity = '0';
+      setTimeout(() => splash.remove(), 400);
+    });
+  });
 }

@@ -1,11 +1,13 @@
 interface AnimatedGradientBackgroundProps {
   variant?: 'warm' | 'calm' | 'ritual';
   className?: string;
+  showVideoBackdrop?: boolean;
 }
 
 export function AnimatedGradientBackground({ 
   variant = 'warm',
-  className = ''
+  className = '',
+  showVideoBackdrop = false
 }: AnimatedGradientBackgroundProps) {
   const gradients = {
     warm: {
@@ -29,7 +31,15 @@ export function AnimatedGradientBackground({
 
   return (
     <div className={`absolute inset-0 z-0 overflow-hidden pointer-events-none ${className}`}>
-      {/* Base gradient */}
+      {/* Video poster backdrop for visual continuity with splash screen */}
+      {showVideoBackdrop && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center opacity-[0.08]"
+          style={{ backgroundImage: "url('/ritual-poster.jpg')" }}
+        />
+      )}
+      
+      {/* Base gradient - matches splash overlay transition target */}
       <div className="absolute inset-0 bg-gradient-calm" />
       
       {/* Animated blob 1 - top right - using CSS animation */}
