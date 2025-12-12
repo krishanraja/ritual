@@ -259,11 +259,11 @@ export default function Landing() {
 
         <footer className="flex-none py-4 px-6 text-center text-xs text-muted-foreground relative z-10">
           <div className="flex items-center justify-center gap-2">
-            <button onClick={() => navigate('/terms')} className="hover:text-foreground transition-colors">Terms</button>
+            <a href="/terms" className="hover:text-foreground transition-colors">Terms</a>
             <span>·</span>
-            <button onClick={() => navigate('/privacy')} className="hover:text-foreground transition-colors">Privacy</button>
+            <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>
             <span>·</span>
-            <button onClick={() => navigate('/contact')} className="hover:text-foreground transition-colors">Contact</button>
+            <a href="/contact" className="hover:text-foreground transition-colors">Contact</a>
             <span>·</span>
             <span>© {new Date().getFullYear()} Mindmaker LLC</span>
           </div>

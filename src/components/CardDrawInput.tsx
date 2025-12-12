@@ -27,7 +27,30 @@ export function CardDrawInput({ onComplete, cycleId }: CardDrawInputProps) {
 
   const isPartnerOne = couple?.partner_one === user?.id;
 
-  // Real-time subscription for partner's progress
+  // Fetch initial partner progress
+  useEffect(() => {
+    if (!cycleId || !couple) return;
+
+    const fetchInitialProgress = async () => {
+      const { data } = await supabase
+        .from('weekly_cycles')
+        .select('partner_one_input, partner_two_input')
+        .eq('id', cycleId)
+        .single();
+
+      if (data) {
+        const partnerInput = isPartnerOne ? data.partner_two_input : data.partner_one_input;
+        if (partnerInput && typeof partnerInput === 'object' && 'cards' in (partnerInput as object)) {
+          const cards = (partnerInput as { cards: string[] }).cards;
+          setPartnerCount(cards?.length || 0);
+        }
+      }
+    };
+
+    fetchInitialProgress();
+  }, [cycleId, couple, isPartnerOne]);
+
+  // Real-time subscription for partner's progress updates
   useEffect(() => {
     if (!cycleId || !couple) return;
 

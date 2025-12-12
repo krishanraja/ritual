@@ -19,6 +19,7 @@ import { SynthesisAnimation } from '@/components/SynthesisAnimation';
 import { CardDrawInput } from '@/components/CardDrawInput';
 import { useSEO } from '@/hooks/useSEO';
 import { NotificationContainer } from '@/components/InlineNotification';
+import { MOOD_CARDS } from '@/data/moodCards';
 
 type Step = 'cards' | 'desire';
 
@@ -293,7 +294,7 @@ export default function QuickInput() {
               {/* Selected cards summary */}
               <div className="flex flex-wrap justify-center gap-2">
                 {selectedCards.map((cardId) => {
-                  const card = require('@/data/moodCards').MOOD_CARDS.find((c: { id: string }) => c.id === cardId);
+                  const card = MOOD_CARDS.find((c) => c.id === cardId);
                   if (!card) return null;
                   return (
                     <span

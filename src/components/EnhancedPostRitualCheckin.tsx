@@ -109,8 +109,8 @@ export function EnhancedPostRitualCheckin({
         notes: notes || null,
       });
 
-      // If completed with good rating, save to memories
-      if (didComplete === 'yes' && rating && rating >= 2) {
+      // If completed, save to memories (save all ratings for feedback)
+      if (didComplete === 'yes' && rating) {
         // Check if this ritual is already in memories
         const { data: existingMemory } = await supabase
           .from('ritual_memories')
