@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { MapPin, Heart, Sparkles, TrendingUp, Share2, X, Calendar, Clock, MessageSquare, Copy } from 'lucide-react';
 import { RitualLogo } from '@/components/RitualLogo';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSEO, addStructuredData } from '@/hooks/useSEO';
 import { AnimatedGradientBackground } from '@/components/AnimatedGradientBackground';
 import { motion } from 'framer-motion';
@@ -24,8 +24,8 @@ import { OnboardingModal } from '@/components/OnboardingModal';
 
 export default function Landing() {
   const navigate = useNavigate();
-  const { user, couple, partnerProfile, currentCycle, loading, refreshCycle, hasKnownSession } = useCouple();
-  const { surprise, refresh: refreshSurprise } = useSurpriseRitual();
+  const { user, couple, partnerProfile, userProfile, currentCycle, loading, refreshCycle, hasKnownSession } = useCouple();
+  const { surprise, isLoading: surpriseLoading, refresh: refreshSurprise } = useSurpriseRitual();
   const isMobile = useIsMobile();
   
   const [createOpen, setCreateOpen] = useState(false);
@@ -33,9 +33,8 @@ export default function Landing() {
   const [nudgeBannerDismissed, setNudgeBannerDismissed] = useState(false);
   const [slowLoading, setSlowLoading] = useState(false);
   const [showPostRitualCheckin, setShowPostRitualCheckin] = useState(false);
-  const [videoLoaded, setVideoLoaded] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [userProfile, setUserProfile] = useState<{ name: string } | null>(null);
+  const [postRitualChecked, setPostRitualChecked] = useState(false);
 
   // Force refresh cycle data when page mounts
   useEffect(() => {
@@ -64,21 +63,6 @@ export default function Landing() {
     }
   }, [user, loading]);
 
-  // Fetch user profile for personalization
-  useEffect(() => {
-    if (user && !loading) {
-      const fetchProfile = async () => {
-        const { data } = await supabase
-          .from('profiles')
-          .select('name')
-          .eq('id', user.id)
-          .single();
-        if (data) setUserProfile(data);
-      };
-      fetchProfile();
-    }
-  }, [user, loading]);
-
   // Show onboarding for first-time users
   useEffect(() => {
     if (user && !loading && !couple) {
@@ -89,18 +73,17 @@ export default function Landing() {
     }
   }, [user, loading, couple]);
 
-  // No auto-redirect - let users stay on home and navigate manually
-
-  // Check if should show post-ritual checkin
+  // Check if should show post-ritual checkin (only once per cycle)
   useEffect(() => {
-    if (!currentCycle?.agreed_date || !currentCycle?.agreed_time || !couple?.id) return;
+    if (!currentCycle?.agreed_date || !currentCycle?.agreed_time || !couple?.id || postRitualChecked) return;
 
     const ritualDateTime = parseISO(`${currentCycle.agreed_date}T${currentCycle.agreed_time}`);
     const hasRitualPassed = isPast(ritualDateTime);
 
-    if (hasRitualPassed && !showPostRitualCheckin) {
+    if (hasRitualPassed) {
+      setPostRitualChecked(true);
       const checkFeedback = async () => {
-        const { data } = await (await import('@/integrations/supabase/client')).supabase
+        const { data } = await supabase
           .from('ritual_feedback')
           .select('id')
           .eq('weekly_cycle_id', currentCycle.id)
@@ -113,7 +96,7 @@ export default function Landing() {
       };
       checkFeedback();
     }
-  }, [currentCycle, couple, showPostRitualCheckin]);
+  }, [currentCycle, couple, postRitualChecked]);
 
   // SEO optimization
   useSEO({
@@ -140,57 +123,41 @@ export default function Landing() {
     });
   }, []);
 
-  // Loading state - show skeleton matching expected destination with personalized messages
-  if (loading) {
-    // Personalized contextual loading messages
-    const getLoadingMessage = () => {
-      if (!hasKnownSession) return 'Loading...';
-      if (slowLoading) {
-        return partnerProfile?.name 
-          ? `Reconnecting with ${partnerProfile.name}...` 
-          : 'Reconnecting to your space...';
-      }
-      return partnerProfile?.name 
-        ? `Finding rituals with ${partnerProfile.name}...` 
-        : 'Finding your rituals...';
-    };
-
-    // If we have a cached session, show dashboard-like skeleton (with lg logo)
-    // Otherwise show marketing-like skeleton (with 2xl logo)
-    if (hasKnownSession) {
-      return (
-        <div className="h-full flex flex-col relative">
-          <AnimatedGradientBackground variant="warm" showVideoBackdrop />
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 relative z-10">
-            <RitualLogo size="lg" variant="full" className="opacity-80" />
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-muted-foreground">
-              {getLoadingMessage()}
-            </p>
-            {slowLoading && (
-              <p className="text-xs text-muted-foreground/70 mt-2">Almost there...</p>
-            )}
-          </div>
-        </div>
-      );
-    }
+  // Compute all derived state upfront to avoid recalculating during render
+  const derivedState = useMemo(() => {
+    const hasSynthesized = currentCycle?.synthesized_output;
+    const hasPartnerOne = !!currentCycle?.partner_one_input;
+    const hasPartnerTwo = !!currentCycle?.partner_two_input;
+    const userIsPartnerOne = couple?.partner_one === user?.id;
+    const userSubmitted = userIsPartnerOne ? hasPartnerOne : hasPartnerTwo;
+    const partnerSubmitted = userIsPartnerOne ? hasPartnerTwo : hasPartnerOne;
+    const hasAgreedRitual = currentCycle?.agreement_reached && currentCycle?.agreed_ritual;
+    const hasRecentNudge = currentCycle?.nudged_at && 
+      (Date.now() - new Date(currentCycle.nudged_at).getTime()) < 24 * 60 * 60 * 1000;
     
-    // No cached session - show marketing-style skeleton
-    return (
-      <div className="h-full flex flex-col relative">
-        <AnimatedGradientBackground variant="warm" showVideoBackdrop />
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 relative z-10">
-          <RitualLogo size="2xl" variant="full" className="opacity-80 max-w-[560px] sm:max-w-[800px]" />
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">
-            {getLoadingMessage()}
-          </p>
-        </div>
-      </div>
-    );
-  }
+    return {
+      hasSynthesized,
+      userSubmitted,
+      partnerSubmitted,
+      hasAgreedRitual,
+      hasRecentNudge,
+    };
+  }, [currentCycle, couple, user]);
 
-  // Mobile video background component - optimized for fast loading with poster from public folder
+  // Personalized loading message
+  const getLoadingMessage = () => {
+    if (!hasKnownSession) return 'Loading...';
+    if (slowLoading) {
+      return partnerProfile?.name 
+        ? `Reconnecting with ${partnerProfile.name}...` 
+        : 'Reconnecting to your space...';
+    }
+    return partnerProfile?.name 
+      ? `Finding rituals with ${partnerProfile.name}...` 
+      : 'Finding your rituals...';
+  };
+
+  // Mobile video background component
   const MobileVideoBackground = () => isMobile ? (
     <video
       autoPlay
@@ -199,12 +166,33 @@ export default function Landing() {
       playsInline
       preload="auto"
       poster="/ritual-poster.jpg"
-      onCanPlayThrough={() => setVideoLoaded(true)}
-      className={`fixed inset-0 z-[1] w-full h-full object-cover pointer-events-none opacity-20`}
+      className="fixed inset-0 z-[1] w-full h-full object-cover pointer-events-none opacity-20"
     >
       <source src={ritualBackgroundVideo} type="video/mp4" />
     </video>
   ) : null;
+
+  // Loading skeleton component - consistent across states
+  const LoadingSkeleton = ({ size }: { size: 'lg' | '2xl' }) => (
+    <div className="h-full flex flex-col relative">
+      <AnimatedGradientBackground variant="warm" showVideoBackdrop />
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 relative z-10">
+        <RitualLogo size={size} variant="full" className={`opacity-80 ${size === '2xl' ? 'max-w-[560px] sm:max-w-[800px]' : ''}`} />
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-muted-foreground">
+          {getLoadingMessage()}
+        </p>
+        {slowLoading && (
+          <p className="text-xs text-muted-foreground/70 mt-2">Almost there...</p>
+        )}
+      </div>
+    </div>
+  );
+
+  // Loading state - show skeleton matching expected destination
+  if (loading) {
+    return <LoadingSkeleton size={hasKnownSession ? 'lg' : '2xl'} />;
+  }
 
   // Not logged in: Show marketing landing page
   if (!user) {
@@ -360,15 +348,12 @@ export default function Landing() {
   if (!couple.partner_two) {
     const handleCancelSpace = async () => {
       try {
-        // Delete the couple since partner hasn't joined
         const { error } = await supabase
           .from('couples')
           .delete()
           .eq('id', couple.id);
         
         if (error) throw error;
-        
-        // Refresh context to clear couple
         window.location.reload();
       } catch (error) {
         console.error('Error cancelling space:', error);
@@ -404,7 +389,6 @@ export default function Landing() {
                 {couple.couple_code}
               </p>
               
-              {/* Icon-only share buttons in a row */}
               <div className="flex justify-center gap-3">
                 <Button
                   onClick={() => {
@@ -458,17 +442,12 @@ export default function Landing() {
     );
   }
 
-  // Couple exists - check ritual state
-  const hasSynthesized = currentCycle?.synthesized_output;
-  const hasPartnerOne = !!currentCycle?.partner_one_input;
-  const hasPartnerTwo = !!currentCycle?.partner_two_input;
-  const userIsPartnerOne = couple.partner_one === user.id;
-  const userSubmitted = userIsPartnerOne ? hasPartnerOne : hasPartnerTwo;
-  const partnerSubmitted = userIsPartnerOne ? hasPartnerTwo : hasPartnerOne;
+  // Wait for surprise data to load before rendering dashboard (prevents layout shift)
+  if (surpriseLoading) {
+    return <LoadingSkeleton size="lg" />;
+  }
 
-  const hasRecentNudge = currentCycle?.nudged_at && 
-    (Date.now() - new Date(currentCycle.nudged_at).getTime()) < 24 * 60 * 60 * 1000;
-  const shouldShowNudgeBanner = hasRecentNudge && !userSubmitted && partnerProfile && !nudgeBannerDismissed;
+  const { hasSynthesized, userSubmitted, partnerSubmitted, hasAgreedRitual, hasRecentNudge } = derivedState;
 
   // Synthesis in progress
   if (userSubmitted && partnerSubmitted && !hasSynthesized) {
@@ -502,53 +481,48 @@ export default function Landing() {
     );
   }
 
-  // Check if ritual time has passed
-  const hasAgreedRitual = currentCycle?.agreement_reached && currentCycle?.agreed_ritual;
-  const ritualHasPassed = hasAgreedRitual && 
-    currentCycle?.agreed_date && 
-    currentCycle?.agreed_time &&
-    isPast(parseISO(`${currentCycle.agreed_date}T${currentCycle.agreed_time}`));
+  const shouldShowNudgeBanner = hasRecentNudge && !userSubmitted && partnerProfile && !nudgeBannerDismissed;
 
   // Main dashboard view
   return (
     <div className="h-full flex flex-col relative">
       <AnimatedGradientBackground variant="warm" showVideoBackdrop />
-      
       <MobileVideoBackground />
       
-      {/* Streak Badge Header - Logo handled by AppShell */}
+      {/* Streak Badge Header */}
       <div className="flex-none px-4 pt-2 pb-2 relative z-10">
         <div className="flex items-center justify-end">
           <StreakBadge />
         </div>
       </div>
 
-      {/* Nudge Banner */}
-      {shouldShowNudgeBanner && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          className="flex-none mx-4 mb-2 relative z-10"
-        >
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-start gap-2">
-            <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-            <p className="text-sm flex-1">
-              <span className="font-semibold">{partnerProfile?.name}</span> is excited to start! Complete your input to create this week's rituals.
-            </p>
-            <button
-              onClick={() => setNudgeBannerDismissed(true)}
-              className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </motion.div>
-      )}
+      {/* Nudge Banner - fixed height container to prevent shift */}
+      <div className="flex-none mx-4 mb-2 relative z-10 min-h-0">
+        {shouldShowNudgeBanner && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+          >
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+              <p className="text-sm flex-1">
+                <span className="font-semibold">{partnerProfile?.name}</span> is excited to start! Complete your input to create this week's rituals.
+              </p>
+              <button
+                onClick={() => setNudgeBannerDismissed(true)}
+                className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </div>
 
-      {/* Main Content */}
+      {/* Main Content - stable layout with min-heights for conditional cards */}
       <div className="flex-1 px-4 flex flex-col justify-center gap-4 relative z-10 overflow-y-auto min-h-0">
-        {/* Full Logo - Homepage branding - 50% larger on mobile */}
+        {/* Full Logo */}
         <div className="flex justify-center mb-2">
           <RitualLogo 
             size="lg" 
@@ -556,7 +530,8 @@ export default function Landing() {
             className={isMobile ? 'scale-150 origin-center' : ''} 
           />
         </div>
-        {/* Surprise Ritual Card */}
+
+        {/* Surprise Ritual Card - only show if exists and not completed */}
         {surprise && !surprise.completed_at && (
           <SurpriseRitualCard
             surprise={surprise}
@@ -591,7 +566,7 @@ export default function Landing() {
           </Card>
         )}
 
-        {/* Call to Action */}
+        {/* Call to Action - show when no agreed ritual and user hasn't submitted */}
         {!hasAgreedRitual && !userSubmitted && (
           <Card className="p-5 bg-white/90 backdrop-blur-sm text-center">
             <h2 className="font-bold text-lg mb-2">Ready for this week?</h2>
@@ -636,7 +611,7 @@ export default function Landing() {
         {/* Synthesized but not agreed */}
         {hasSynthesized && !hasAgreedRitual && (
           <Card className="p-5 bg-white/90 backdrop-blur-sm text-center">
-            <h2 className="font-bold text-lg mb-2">Rituals Ready! 🎉</h2>
+            <h2 className="font-bold text-lg mb-2">Rituals Ready!</h2>
             <p className="text-sm text-muted-foreground mb-4">
               Your personalized rituals are ready. Rank your favorites and agree with your partner.
             </p>
