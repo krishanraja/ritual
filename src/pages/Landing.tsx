@@ -223,12 +223,26 @@ export default function Landing() {
           </motion.div>
           
           <div className="text-center space-y-3 sm:space-y-4">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">
-              Create Meaningful Weekly Rituals with Your Partner
-            </h1>
-            <p className="text-sm text-foreground/70 max-w-sm mx-auto leading-relaxed">
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight leading-tight"
+            >
+              <span className="bg-gradient-ritual bg-clip-text text-transparent">
+                Create Meaningful Weekly Rituals
+              </span>
+              <br />
+              <span className="text-foreground">with Your Partner</span>
+            </motion.h1>
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="text-sm sm:text-base text-foreground/70 max-w-md mx-auto leading-relaxed font-medium"
+            >
               Spend 2 minutes a week syncing, explore & schedule fresh, local ideas that will strengthen your bond with one another.
-            </p>
+            </motion.p>
             
             <div className="flex flex-wrap justify-center gap-2 sm:gap-3 pt-2">
               <div className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">

@@ -1,7 +1,7 @@
 import { useCouple } from '@/contexts/CoupleContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { LogOut, UserPlus, UserMinus, MapPin, Copy, Check, Calendar, Heart, Trash2 } from 'lucide-react';
+import { LogOut, UserPlus, UserMinus, MapPin, Copy, Check, Calendar, Heart, Trash2, Smile } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -17,6 +17,7 @@ import { PremiumSection } from '@/components/PremiumSection';
 import { NotificationSettings } from '@/components/NotificationSettings';
 import { usePremium } from '@/hooks/usePremium';
 import { format } from 'date-fns';
+import { AvatarSelector, getAvatarSrc } from '@/components/AvatarSelector';
 
 export default function Profile() {
   const { user, couple, partnerProfile, leaveCouple, currentCycle } = useCouple();
@@ -29,6 +30,8 @@ export default function Profile() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
   const { refresh: refreshPremium } = usePremium();
 
   // Handle checkout return
@@ -52,12 +55,43 @@ export default function Profile() {
   });
 
   useEffect(() => {
-    if (user && couple) {
-      loadPreferredCity();
+    if (user) {
+      loadUserProfile();
     } else {
       setLoading(false);
     }
-  }, [user, couple]);
+  }, [user]);
+
+  const loadUserProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('avatar_id')
+        .eq('id', user!.id)
+        .single();
+
+      if (error) throw error;
+      if (data?.avatar_id) {
+        setSelectedAvatar(data.avatar_id);
+      }
+      
+      // Also load city if couple exists
+      if (couple) {
+        const { data: coupleData } = await supabase
+          .from('couples')
+          .select('preferred_city')
+          .eq('id', couple.id)
+          .single();
+        if (coupleData?.preferred_city) {
+          setSelectedCity(coupleData.preferred_city as City);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Add location-specific structured data
@@ -66,27 +100,26 @@ export default function Profile() {
     }
   }, [selectedCity]);
 
-  const loadPreferredCity = async () => {
+  const handleAvatarChange = async (avatarId: string | null) => {
+    if (!user) return;
+    setAvatarLoading(true);
+    setSelectedAvatar(avatarId);
+    
     try {
-      if (!couple) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('couples')
-        .select('preferred_city')
-        .eq('id', couple.id)
-        .single();
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_id: avatarId })
+        .eq('id', user.id);
 
       if (error) throw error;
-      if (data?.preferred_city) {
-        setSelectedCity(data.preferred_city as City);
-      }
+      setNotification({ type: 'success', message: avatarId ? 'Avatar updated!' : 'Avatar removed' });
+      setTimeout(() => setNotification(null), 2000);
     } catch (error) {
-      console.error('Error loading city preference:', error);
+      console.error('Error updating avatar:', error);
+      setNotification({ type: 'error', message: 'Failed to update avatar' });
+      setTimeout(() => setNotification(null), 3000);
     } finally {
-      setLoading(false);
+      setAvatarLoading(false);
     }
   };
 
@@ -135,8 +168,16 @@ export default function Profile() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center space-y-3"
           >
-            <div className="w-20 h-20 bg-gradient-ritual rounded-full mx-auto flex items-center justify-center text-3xl text-white font-bold">
-              {user?.email?.charAt(0).toUpperCase()}
+            <div className="w-20 h-20 bg-gradient-ritual rounded-full mx-auto flex items-center justify-center text-3xl text-white font-bold overflow-hidden">
+              {selectedAvatar && getAvatarSrc(selectedAvatar) ? (
+                <img 
+                  src={getAvatarSrc(selectedAvatar)!} 
+                  alt="Your avatar" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                user?.email?.charAt(0).toUpperCase()
+              )}
             </div>
             <div>
               <h1 className="text-xl font-bold">{user?.email}</h1>
@@ -161,6 +202,22 @@ export default function Profile() {
               notification={notification} 
               onDismiss={() => setNotification(null)} 
             />
+
+            {/* Avatar Selection */}
+            <Card className="p-4 bg-white/90">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Smile className="w-4 h-4" />
+                  <span>Choose Your Avatar</span>
+                  <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                </div>
+                <AvatarSelector 
+                  selected={selectedAvatar} 
+                  onChange={handleAvatarChange}
+                  disabled={avatarLoading}
+                />
+              </div>
+            </Card>
 
             {/* This Week's Ritual */}
             {currentCycle?.agreement_reached && currentCycle?.agreed_ritual && currentCycle?.agreed_date && (
