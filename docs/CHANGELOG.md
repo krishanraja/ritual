@@ -53,6 +53,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## v1.6.5 (Ritual Generation Reliability Fix)
+**Date**: 2025-12-14
+
+### 🐛 Bug Fixes
+
+#### Fixed: “Reading your vibes…” infinite loading
+- **Root cause**: If both partners hit “Complete” within a short window, each client could save their input, check for the partner’s input *too early*, and skip triggering synthesis—leaving both users stuck on the synthesis loading screen indefinitely.
+- **Fix**: `SynthesisAnimation` now **proactively triggers** `synthesize-rituals` when it detects *both partner inputs exist* but `weekly_cycles.synthesized_output` is still null.
+  - Save is guarded with `synthesized_output IS NULL` to avoid overwriting if two clients trigger simultaneously.
+
+### ✨ UX Improvements
+- **Removed** a redundant loading “progress dots” element on the synthesis screen that looked like a stray navigation/progress bar and provided no user value.
+
+### 🔧 Files Changed
+- `src/components/SynthesisAnimation.tsx`
+
+---
+
 ## v1.6.3 (SEO & Content Marketing)
 **Date**: 2025-12-13
 

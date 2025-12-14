@@ -165,6 +165,13 @@
 - Fixed Memories page viewport issue - empty state now fits without scrolling
 - Updated SplashScreen, SynthesisAnimation, WaitingForPartner with branded icons
 
+### 2025-12-14: v1.6.5 Ritual Generation Reliability Fix
+- Fixed a **dual-submit race condition** where both partners could submit around the same time, resulting in **no synthesis trigger** and an infinite “Reading your vibes…” loading screen.
+- `SynthesisAnimation` now acts as a **reliable backstop**:
+  - If it sees both partner inputs present but `synthesized_output` still null, it triggers `synthesize-rituals` itself.
+  - DB update is guarded to avoid overwriting results if two clients trigger simultaneously.
+- Removed a redundant “progress dots” UI element on the synthesis screen that looked like a stray navigation/progress bar.
+
 ### 2025-12-13: v1.6.1 Production Readiness Audit
 - Full audit of all pages, components, hooks, and edge functions
 - Fixed navigation inconsistencies (using React Router consistently)

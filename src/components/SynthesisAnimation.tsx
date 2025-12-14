@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Clock, AlertCircle, RefreshCw } from 'lucide-react';
@@ -9,6 +9,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { SAMPLE_RITUALS } from '@/data/sampleRituals';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+
+type StoredPartnerInput = Record<string, unknown>;
+
+type WeeklyCycleSynthesisSnapshot = {
+  id: string;
+  partner_one_input: unknown | null;
+  partner_two_input: unknown | null;
+  synthesized_output: unknown | null;
+};
+
+type WeeklyCyclesRealtimePayload = {
+  new: {
+    synthesized_output?: unknown | null;
+  };
+};
 
 const PHASES = [
   { message: "Reading your vibes...", duration: 4000 },
@@ -31,7 +46,9 @@ export const SynthesisAnimation = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [showRefreshButton, setShowRefreshButton] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isAutoTriggering, setIsAutoTriggering] = useState(false);
   const [startTime] = useState(Date.now());
+  const synthesisAttemptedForCycleRef = useRef<string | null>(null);
 
   // Get city-relevant rituals or mix
   const city = couple?.preferred_city || 'New York';
@@ -57,18 +74,18 @@ export const SynthesisAnimation = () => {
   // Show refresh button after 30 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (!isComplete && !hasError) {
+      if (!isComplete && !hasError && !isAutoTriggering) {
         setShowRefreshButton(true);
       }
     }, SHOW_REFRESH_AFTER);
 
     return () => clearTimeout(timer);
-  }, [isComplete, hasError]);
+  }, [isComplete, hasError, isAutoTriggering]);
 
   // Timeout after max wait time
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (!isComplete && !hasError) {
+      if (!isComplete && !hasError && !isAutoTriggering) {
         console.log('[SYNTHESIS] Max wait time exceeded');
         setHasError(true);
         setErrorMessage('Taking longer than expected. Your rituals may still be generating in the background.');
@@ -76,7 +93,7 @@ export const SynthesisAnimation = () => {
     }, MAX_WAIT_TIME);
 
     return () => clearTimeout(timer);
-  }, [isComplete, hasError]);
+  }, [isComplete, hasError, isAutoTriggering]);
 
   // Rotate through sample rituals
   useEffect(() => {
@@ -102,6 +119,104 @@ export const SynthesisAnimation = () => {
       navigate('/picker');
     }, 1200);
   }, [isComplete, navigate, refreshCycle]);
+
+  const normalizePartnerInput = useCallback((input: unknown): StoredPartnerInput | null => {
+    if (!input || typeof input !== 'object') return null;
+    const obj = input as Record<string, unknown>;
+
+    // Support both the current stored shape ({ inputType: 'cards', cards: [...] })
+    // and potential future shape ({ selectedCards: [...] }).
+    if (Array.isArray(obj.selectedCards)) {
+      return { inputType: 'cards', cards: obj.selectedCards, desire: obj.desire ?? null };
+    }
+    if (obj.inputType === 'cards' && Array.isArray(obj.cards)) {
+      return obj;
+    }
+    return obj;
+  }, []);
+
+  // If both partners submitted but synthesis was never triggered (race condition),
+  // proactively trigger it here so users never get stuck on an infinite loading screen.
+  useEffect(() => {
+    if (!currentCycle?.id || !couple?.id) return;
+    if (isComplete || hasError) return;
+    if (synthesisAttemptedForCycleRef.current === currentCycle.id) return;
+    synthesisAttemptedForCycleRef.current = currentCycle.id;
+
+    const maybeTriggerSynthesis = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('weekly_cycles')
+          .select('id, partner_one_input, partner_two_input, synthesized_output')
+          .eq('id', currentCycle.id)
+          .single();
+
+        if (error) throw error;
+        const cycle = data as WeeklyCycleSynthesisSnapshot;
+
+        if (cycle?.synthesized_output) {
+          await handleComplete();
+          return;
+        }
+
+        const partnerOneInput = normalizePartnerInput(cycle?.partner_one_input);
+        const partnerTwoInput = normalizePartnerInput(cycle?.partner_two_input);
+
+        if (!partnerOneInput || !partnerTwoInput) {
+          // Not ready yet - wait for realtime/poll.
+          return;
+        }
+
+        console.log('[SYNTHESIS] Both inputs present but no output; triggering synthesis from loading screen');
+        setIsAutoTriggering(true);
+
+        const { data: invokeData, error: invokeError } = await supabase.functions.invoke('synthesize-rituals', {
+          body: {
+            coupleId: couple.id,
+            partnerOneInput,
+            partnerTwoInput,
+            userCity: couple.preferred_city || 'New York',
+          },
+        });
+
+        console.log('[SYNTHESIS] Edge function response (loading screen):', { data: invokeData, error: invokeError });
+        if (invokeError) throw invokeError;
+        const rituals = (invokeData as { rituals?: unknown })?.rituals;
+        if (!Array.isArray(rituals) || rituals.length === 0) {
+          throw new Error('Synthesis returned no rituals');
+        }
+
+        // Only save if still empty to avoid overwriting in double-trigger scenarios.
+        const { data: saved, error: saveError } = await supabase
+          .from('weekly_cycles')
+          .update({
+            synthesized_output: { rituals },
+            generated_at: new Date().toISOString(),
+            sync_completed_at: new Date().toISOString(),
+          })
+          .eq('id', currentCycle.id)
+          .is('synthesized_output', null)
+          .select('id')
+          .maybeSingle();
+
+        if (saveError) throw saveError;
+
+        // If another client saved first, we’ll rely on polling/realtime to detect it.
+        if (saved?.id) {
+          await handleComplete();
+        }
+      } catch (err: unknown) {
+        console.error('[SYNTHESIS] Auto-trigger error:', err);
+        setHasError(true);
+        const message = err instanceof Error ? err.message : 'Something went wrong generating your rituals. Please try again.';
+        setErrorMessage(message);
+      } finally {
+        setIsAutoTriggering(false);
+      }
+    };
+
+    maybeTriggerSynthesis();
+  }, [currentCycle?.id, couple?.id, couple?.preferred_city, handleComplete, hasError, isComplete, normalizePartnerInput]);
 
   // Manual refresh handler
   const handleManualRefresh = async () => {
@@ -143,7 +258,7 @@ export const SynthesisAnimation = () => {
         schema: 'public',
         table: 'weekly_cycles',
         filter: `id=eq.${currentCycle.id}`
-      }, async (payload: any) => {
+      }, async (payload: WeeklyCyclesRealtimePayload) => {
         console.log('[SYNTHESIS] Realtime update:', payload);
         if (payload.new.synthesized_output) {
           await handleComplete();
@@ -351,25 +466,13 @@ export const SynthesisAnimation = () => {
         </div>
       </div>
 
-      {/* Progress dots and refresh button */}
+      {/* Refresh button and helper text */}
       <div className="flex-none pb-8 px-6">
-        <div className="flex justify-center gap-2">
-          {PHASES.slice(0, 4).map((_, idx) => (
-            <motion.div
-              key={idx}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                idx <= phase ? 'bg-primary' : 'bg-muted'
-              }`}
-              animate={{ width: idx === phase ? 24 : 8 }}
-            />
-          ))}
-        </div>
-        
         {showRefreshButton && !isComplete && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-4"
+            className="mt-2"
           >
             <Button
               variant="outline"

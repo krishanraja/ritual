@@ -366,6 +366,35 @@ const rituals = Array.isArray(cycle.synthesized_output)
 
 ---
 
+## Pattern 10: Dual-Submit Race → No Synthesis Trigger (Infinite “Reading your vibes…”)
+
+**Failure:** Synthesis is only triggered by the client that detects “both inputs exist”. If both partners submit within a short window, each client may check for the other input *before it commits*, causing both to skip synthesis.
+
+**Symptom:**
+- Both partners completed weekly input
+- Dashboard switches to the synthesis loading screen (`Reading your vibes…`)
+- The loading animation continues indefinitely (no navigation to `/picker`)
+
+**Root Cause:**
+- Submission flow is optimistic + time-sensitive:
+  - Save own input
+  - Immediately fetch cycle and check for partner input
+- When both submits happen nearly simultaneously, both checks can see partner input as null and take the “waiting” branch.
+- No server-side trigger exists to synthesize later.
+
+**Resolution:**
+1. Add a **reliable backstop** inside the synthesis loading UI:
+   - If both inputs are present but `synthesized_output` is still null, the loading screen triggers `synthesize-rituals`.
+2. Guard the DB write with `synthesized_output IS NULL` to avoid overwriting if multiple clients trigger.
+
+**Prevention:**
+- Treat synthesis as **idempotent** and ensure there is always *at least one* place that triggers it once the prerequisites are met:
+  - Client backstop (current)
+  - Preferably a server-side job/trigger (future) if reliability requirements increase
+- Avoid single-point “edge-triggered” logic for critical transitions; add an “eventually consistent” path.
+
+---
+
 ## Critical Debugging Checklist
 
 When a bug is reported:
