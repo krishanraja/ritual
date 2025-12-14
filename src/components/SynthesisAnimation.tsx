@@ -1,7 +1,21 @@
+/**
+ * SynthesisAnimation Component
+ * 
+ * Shows a loading animation while rituals are being generated.
+ * 
+ * CRITICAL FIX (2025-12-15):
+ * - Uses idempotent trigger-synthesis endpoint
+ * - Has proper timeout and retry handling
+ * - Never leaves users stuck indefinitely
+ * - Can be safely retried multiple times
+ * 
+ * @updated 2025-12-15 - Fixed reliability issues
+ */
+
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Clock, AlertCircle, RefreshCw } from 'lucide-react';
+import { Heart, Clock, AlertCircle, RefreshCw, Home } from 'lucide-react';
 import ritualIcon from '@/assets/ritual-icon.png';
 import confetti from 'canvas-confetti';
 import { useCouple } from '@/contexts/CoupleContext';
@@ -9,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SAMPLE_RITUALS } from '@/data/sampleRituals';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { deriveCycleState } from '@/types/database';
 
 const PHASES = [
   { message: "Reading your vibes...", duration: 4000 },
@@ -17,12 +32,13 @@ const PHASES = [
   { message: "Almost there! ✨", duration: 15000 },
 ];
 
-const MAX_WAIT_TIME = 60000; // 60 seconds max (reduced from 90)
-const SHOW_REFRESH_AFTER = 20000; // Show refresh button after 20s (reduced from 30)
+const MAX_WAIT_TIME = 45000; // 45 seconds max before showing error
+const SHOW_REFRESH_AFTER = 15000; // Show refresh button after 15s
+const POLL_INTERVAL = 3000; // Poll every 3 seconds
 
 export const SynthesisAnimation = () => {
   const navigate = useNavigate();
-  const { currentCycle, refreshCycle, couple } = useCouple();
+  const { currentCycle, refreshCycle, couple, user } = useCouple();
   const [phase, setPhase] = useState(0);
   const [currentRitualIndex, setCurrentRitualIndex] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
@@ -30,19 +46,23 @@ export const SynthesisAnimation = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [showRefreshButton, setShowRefreshButton] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [startTime] = useState(Date.now());
   const [cycleId, setCycleId] = useState<string | null>(null);
   const hasNavigatedRef = useRef(false);
   const isCompleteRef = useRef(false);
+  const synthesisTriggerRef = useRef(false);
 
   // Get city-relevant rituals or mix
   const city = couple?.preferred_city || 'New York';
   const relevantRituals = SAMPLE_RITUALS.filter(r => r.city === city);
   const displayRituals = relevantRituals.length >= 4 ? relevantRituals : SAMPLE_RITUALS;
 
-  // Determine the cycle ID - either from context or by fetching directly
+  const isPartnerOne = couple?.partner_one === user?.id;
+
+  // Determine the cycle ID and trigger synthesis if needed
   useEffect(() => {
-    const fetchCycleId = async () => {
+    const initializeSynthesis = async () => {
       // If we have it from context, use it
       if (currentCycle?.id) {
         console.log('[SYNTHESIS] Using cycle ID from context:', currentCycle.id);
@@ -52,6 +72,13 @@ export const SynthesisAnimation = () => {
         if (currentCycle.synthesized_output && !isCompleteRef.current) {
           console.log('[SYNTHESIS] Context cycle already has output, completing immediately');
           handleComplete();
+          return;
+        }
+
+        // Trigger synthesis via idempotent endpoint (only once)
+        if (!synthesisTriggerRef.current) {
+          synthesisTriggerRef.current = true;
+          triggerSynthesis(currentCycle.id);
         }
         return;
       }
@@ -59,38 +86,92 @@ export const SynthesisAnimation = () => {
       // Otherwise, try to fetch it directly
       if (!couple?.id) {
         console.log('[SYNTHESIS] No couple ID, cannot fetch cycle');
+        setHasError(true);
+        setErrorMessage('No couple found. Please go back and try again.');
         return;
       }
 
       console.log('[SYNTHESIS] Fetching cycle ID for couple:', couple.id);
       
       // Find the most recent incomplete cycle
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('weekly_cycles')
-        .select('id, synthesized_output')
+        .select('id, synthesized_output, partner_one_input, partner_two_input')
         .eq('couple_id', couple.id)
         .or('synthesized_output.is.null,agreement_reached.eq.false')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (data) {
-        console.log('[SYNTHESIS] Found cycle:', data.id, 'has output:', !!data.synthesized_output);
-        setCycleId(data.id);
-        
-        // If it already has synthesized output, complete immediately
-        if (data.synthesized_output && !isCompleteRef.current) {
-          console.log('[SYNTHESIS] Already has output, completing immediately');
-          handleComplete();
-        }
+      if (error || !data) {
+        console.error('[SYNTHESIS] Error fetching cycle:', error);
+        setHasError(true);
+        setErrorMessage('Could not find your ritual cycle. Please go back and try again.');
+        return;
+      }
+
+      console.log('[SYNTHESIS] Found cycle:', data.id, 'has output:', !!data.synthesized_output);
+      setCycleId(data.id);
+      
+      // If it already has synthesized output, complete immediately
+      if (data.synthesized_output && !isCompleteRef.current) {
+        console.log('[SYNTHESIS] Already has output, completing immediately');
+        handleComplete();
+        return;
+      }
+
+      // Check if both partners have submitted
+      if (!data.partner_one_input || !data.partner_two_input) {
+        console.log('[SYNTHESIS] Not both partners ready, redirecting');
+        setHasError(true);
+        setErrorMessage('Waiting for both partners to submit their inputs.');
+        return;
+      }
+
+      // Trigger synthesis via idempotent endpoint (only once)
+      if (!synthesisTriggerRef.current) {
+        synthesisTriggerRef.current = true;
+        triggerSynthesis(data.id);
       }
     };
 
-    fetchCycleId();
-    // Note: handleComplete is intentionally excluded from deps to prevent infinite loops
-    // The refs (isCompleteRef, hasNavigatedRef) ensure we only complete once
+    initializeSynthesis();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCycle?.id, currentCycle?.synthesized_output, couple?.id]);
+
+  // Function to trigger synthesis via the idempotent endpoint
+  const triggerSynthesis = async (targetCycleId: string) => {
+    console.log('[SYNTHESIS] Triggering synthesis for cycle:', targetCycleId);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('trigger-synthesis', {
+        body: { cycleId: targetCycleId }
+      });
+
+      console.log('[SYNTHESIS] Trigger response:', data);
+
+      if (error) {
+        console.error('[SYNTHESIS] Trigger error:', error);
+        // Don't fail immediately - polling will pick up the result
+        return;
+      }
+
+      if (data?.status === 'ready') {
+        // Synthesis complete!
+        console.log('[SYNTHESIS] Synthesis completed via trigger');
+        handleComplete();
+      } else if (data?.status === 'generating') {
+        // Already in progress - polling will pick it up
+        console.log('[SYNTHESIS] Synthesis already in progress');
+      } else if (data?.status === 'failed') {
+        // Failed - but don't show error yet, polling might still work
+        console.warn('[SYNTHESIS] Trigger reported failure:', data.error);
+      }
+    } catch (err) {
+      console.error('[SYNTHESIS] Trigger exception:', err);
+      // Don't fail - polling is the backup
+    }
+  };
 
   // Phase progression
   useEffect(() => {
@@ -175,10 +256,15 @@ export const SynthesisAnimation = () => {
     }, 800);
   }, [navigate, refreshCycle]);
 
-  // Manual refresh handler
+  /**
+   * Manual refresh handler with retry support
+   * Uses the idempotent trigger-synthesis endpoint to safely retry
+   */
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
-    console.log('[SYNTHESIS] Manual refresh triggered');
+    setHasError(false);
+    setRetryCount(prev => prev + 1);
+    console.log('[SYNTHESIS] Manual refresh triggered, attempt:', retryCount + 1);
     
     try {
       // Try to get cycle ID if we don't have it
@@ -187,7 +273,7 @@ export const SynthesisAnimation = () => {
       if (!targetCycleId && couple?.id) {
         const { data: cycleData } = await supabase
           .from('weekly_cycles')
-          .select('id, synthesized_output')
+          .select('id, synthesized_output, partner_one_input, partner_two_input')
           .eq('couple_id', couple.id)
           .or('synthesized_output.is.null,agreement_reached.eq.false')
           .order('created_at', { ascending: false })
@@ -203,6 +289,13 @@ export const SynthesisAnimation = () => {
             await handleComplete();
             return;
           }
+
+          // Check if both partners have submitted
+          if (!cycleData.partner_one_input || !cycleData.partner_two_input) {
+            setErrorMessage('Waiting for both partners to submit their preferences.');
+            setHasError(true);
+            return;
+          }
         }
       }
       
@@ -212,24 +305,48 @@ export const SynthesisAnimation = () => {
         return;
       }
 
-      const { data, error } = await supabase
+      // First check if output already exists
+      const { data: checkData } = await supabase
         .from('weekly_cycles')
         .select('synthesized_output')
         .eq('id', targetCycleId)
         .single();
 
+      if (checkData?.synthesized_output) {
+        console.log('[SYNTHESIS] Output already exists');
+        await handleComplete();
+        return;
+      }
+
+      // Use the idempotent trigger endpoint to retry synthesis
+      const { data, error } = await supabase.functions.invoke('trigger-synthesis', {
+        body: { 
+          cycleId: targetCycleId,
+          forceRetry: retryCount > 1 // Force retry if we've tried before
+        }
+      });
+
+      console.log('[SYNTHESIS] Retry trigger response:', data);
+
       if (error) {
-        console.error('[SYNTHESIS] Refresh query error:', error);
-        setErrorMessage('Failed to check status. Please try again.');
+        console.error('[SYNTHESIS] Retry trigger error:', error);
+        setErrorMessage('Failed to generate rituals. Please try again.');
         setHasError(true);
         return;
       }
 
-      if (data?.synthesized_output) {
-        console.log('[SYNTHESIS] Output found on refresh');
+      if (data?.status === 'ready') {
+        console.log('[SYNTHESIS] Synthesis completed on retry');
         await handleComplete();
-      } else {
-        setErrorMessage('Rituals not ready yet. Please wait or go back and try again.');
+      } else if (data?.status === 'generating') {
+        // Still generating - reset error state and keep waiting
+        console.log('[SYNTHESIS] Synthesis in progress');
+        setShowRefreshButton(true);
+      } else if (data?.status === 'waiting') {
+        setErrorMessage('Waiting for your partner to complete their input.');
+        setHasError(true);
+      } else if (data?.status === 'failed') {
+        setErrorMessage(data.error || 'Generation failed. Please try again.');
         setHasError(true);
       }
     } catch (error) {
@@ -311,8 +428,10 @@ export const SynthesisAnimation = () => {
   const nextRitual = displayRituals[(currentRitualIndex + 1) % displayRituals.length];
   const prevRitual = displayRituals[(currentRitualIndex - 1 + displayRituals.length) % displayRituals.length];
 
-  // Error state UI
+  // Error state UI - improved with clearer messaging and retry options
   if (hasError) {
+    const isWaitingForPartner = errorMessage.toLowerCase().includes('waiting');
+    
     return (
       <div className="h-full flex flex-col bg-gradient-warm items-center justify-center px-6">
         <motion.div
@@ -320,48 +439,67 @@ export const SynthesisAnimation = () => {
           animate={{ opacity: 1, scale: 1 }}
           className="text-center space-y-6 max-w-sm"
         >
-          <div className="w-16 h-16 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
-            <AlertCircle className="w-8 h-8 text-destructive" />
+          <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${
+            isWaitingForPartner ? 'bg-primary/10' : 'bg-destructive/10'
+          }`}>
+            {isWaitingForPartner ? (
+              <Clock className="w-8 h-8 text-primary" />
+            ) : (
+              <AlertCircle className="w-8 h-8 text-destructive" />
+            )}
           </div>
           
           <div>
-            <h2 className="text-xl font-bold mb-2">Something's taking too long</h2>
+            <h2 className="text-xl font-bold mb-2">
+              {isWaitingForPartner ? "Almost there!" : "Something's taking too long"}
+            </h2>
             <p className="text-muted-foreground text-sm">
               {errorMessage}
             </p>
           </div>
 
           <div className="space-y-3">
-            <Button
-              onClick={handleManualRefresh}
-              disabled={isRefreshing}
-              className="w-full bg-gradient-ritual"
-            >
-              {isRefreshing ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Checking...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Check Again
-                </>
-              )}
-            </Button>
+            {!isWaitingForPartner && (
+              <Button
+                onClick={handleManualRefresh}
+                disabled={isRefreshing}
+                className="w-full bg-gradient-ritual"
+              >
+                {isRefreshing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    {retryCount > 1 ? 'Retrying...' : 'Checking...'}
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    {retryCount > 0 ? 'Try Again' : 'Check Again'}
+                  </>
+                )}
+              </Button>
+            )}
             
             <Button
-              variant="outline"
+              variant={isWaitingForPartner ? "default" : "outline"}
               onClick={() => navigate('/')}
-              className="w-full"
+              className={`w-full ${isWaitingForPartner ? 'bg-gradient-ritual' : ''}`}
             >
+              <Home className="w-4 h-4 mr-2" />
               Go to Dashboard
             </Button>
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Don't worry — your inputs are saved. Rituals may appear on your dashboard soon.
+            {isWaitingForPartner 
+              ? "You'll be notified when your partner is ready."
+              : "Don't worry — your inputs are saved. Rituals may appear on your dashboard soon."}
           </p>
+
+          {retryCount > 2 && !isWaitingForPartner && (
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+              Having trouble? Try refreshing the page or check back in a few minutes.
+            </p>
+          )}
         </motion.div>
       </div>
     );

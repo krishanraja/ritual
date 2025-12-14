@@ -4,7 +4,13 @@
  * Weekly ritual input flow using card-based mood selection.
  * Partners select mood cards, then add optional desire text.
  * 
- * @updated 2025-12-11 - Replaced radio questions with CardDrawInput
+ * CRITICAL FIX (2025-12-15):
+ * - Decoupled submission from synthesis to prevent infinite loading
+ * - Uses idempotent trigger-synthesis endpoint
+ * - Always redirects after saving input (never blocks on synthesis)
+ * - Synthesis runs in background, user sees status on dashboard
+ * 
+ * @updated 2025-12-15 - Fixed two-partner flow reliability
  */
 
 import { useState, useEffect } from 'react';
@@ -14,14 +20,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
-import { SynthesisAnimation } from '@/components/SynthesisAnimation';
+import { ArrowLeft, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { CardDrawInput } from '@/components/CardDrawInput';
 import { useSEO } from '@/hooks/useSEO';
 import { NotificationContainer } from '@/components/InlineNotification';
 import { MOOD_CARDS } from '@/data/moodCards';
 
-type Step = 'cards' | 'desire';
+type Step = 'cards' | 'desire' | 'submitting';
 
 export default function QuickInput() {
   const { user, couple, currentCycle, loading, refreshCycle } = useCouple();
@@ -31,7 +36,7 @@ export default function QuickInput() {
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [desire, setDesire] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSynthesizing, setIsSynthesizing] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   useSEO({
@@ -51,6 +56,13 @@ export default function QuickInput() {
       return;
     }
 
+    // Ensure partner has joined
+    if (!couple.partner_two) {
+      setNotification({ type: 'info', message: 'Waiting for your partner to join first' });
+      setTimeout(() => navigate('/'), 2000);
+      return;
+    }
+
     const initializeCycle = async () => {
       const isPartnerOne = couple.partner_one === user?.id;
 
@@ -63,10 +75,15 @@ export default function QuickInput() {
           ? currentCycle.partner_two_input
           : currentCycle.partner_one_input;
 
+        // If user already submitted, redirect appropriately
         if (userSubmitted) {
           if (partnerSubmitted && currentCycle.synthesized_output) {
             navigate('/picker');
+          } else if (partnerSubmitted) {
+            // Both submitted but no output yet - go to synthesis status page
+            navigate('/');
           } else {
+            // Waiting for partner
             navigate('/');
           }
           return;
@@ -149,17 +166,31 @@ export default function QuickInput() {
   };
 
   const handleBack = () => {
-    setStep('cards');
+    if (step === 'desire') {
+      setStep('cards');
+    }
   };
 
+  /**
+   * Submit handler - CRITICAL FIX
+   * 
+   * This function:
+   * 1. Saves the user's input (never blocks)
+   * 2. If partner has also submitted, triggers synthesis in background
+   * 3. ALWAYS redirects to dashboard - synthesis status is shown there
+   * 
+   * This prevents users from getting stuck on infinite loading screens.
+   */
   const handleSubmit = async () => {
-    if (!weeklyCycleId || !couple) return;
+    if (!weeklyCycleId || !couple || !user) return;
 
     setIsSubmitting(true);
-    console.log('[SYNTHESIS] Starting submission flow...');
+    setSubmitError(null);
+    setStep('submitting');
+    console.log('[INPUT] Starting submission flow...');
 
     try {
-      const isPartnerOne = couple.partner_one === user?.id;
+      const isPartnerOne = couple.partner_one === user.id;
       const updateField = isPartnerOne ? 'partner_one_input' : 'partner_two_input';
       const submittedField = isPartnerOne ? 'partner_one_submitted_at' : 'partner_two_submitted_at';
 
@@ -169,8 +200,9 @@ export default function QuickInput() {
         inputType: 'cards',
       };
 
-      console.log('[SYNTHESIS] Saving input for', isPartnerOne ? 'partner_one' : 'partner_two');
+      console.log('[INPUT] Saving input for', isPartnerOne ? 'partner_one' : 'partner_two');
 
+      // Step 1: Save the user's input (this must succeed)
       const { error: saveError } = await supabase
         .from('weekly_cycles')
         .update({
@@ -179,76 +211,55 @@ export default function QuickInput() {
         })
         .eq('id', weeklyCycleId);
 
-      if (saveError) throw saveError;
+      if (saveError) {
+        throw new Error(`Failed to save your input: ${saveError.message}`);
+      }
 
-      // Check if both partners completed
-      const { data: cycle } = await supabase
+      console.log('[INPUT] Input saved successfully');
+
+      // Step 2: Check if partner has also submitted
+      const { data: cycle, error: fetchError } = await supabase
         .from('weekly_cycles')
-        .select('partner_one_input, partner_two_input')
+        .select('partner_one_input, partner_two_input, synthesized_output')
         .eq('id', weeklyCycleId)
         .single();
 
-      const partnerInput = isPartnerOne ? cycle?.partner_two_input : cycle?.partner_one_input;
-
-      if (partnerInput) {
-        // Both completed - trigger synthesis
-        console.log('[SYNTHESIS] Both partners submitted, calling synthesize-rituals...');
-        setIsSynthesizing(true);
-
-        const { data, error } = await supabase.functions.invoke('synthesize-rituals', {
-          body: {
-            partnerOneInput: isPartnerOne ? inputData : partnerInput,
-            partnerTwoInput: isPartnerOne ? partnerInput : inputData,
-            coupleId: couple.id,
-            userCity: couple.preferred_city || 'New York'
-          }
-        });
-
-        console.log('[SYNTHESIS] Edge function response:', { data, error });
-
-        if (error) throw error;
-        if (!data?.rituals || !Array.isArray(data.rituals) || data.rituals.length === 0) {
-          throw new Error('Synthesis returned no rituals');
-        }
-
-        console.log('[SYNTHESIS] Got', data.rituals.length, 'rituals, saving to DB...');
-
-        const { error: updateError } = await supabase
-          .from('weekly_cycles')
-          .update({
-            synthesized_output: { rituals: data.rituals },
-            generated_at: new Date().toISOString(),
-            sync_completed_at: new Date().toISOString()
-          })
-          .eq('id', weeklyCycleId);
-
-        if (updateError) throw updateError;
-
-        // CRITICAL: Verify the save worked
-        const { data: verifyData } = await supabase
-          .from('weekly_cycles')
-          .select('synthesized_output')
-          .eq('id', weeklyCycleId)
-          .single();
-
-        console.log('[SYNTHESIS] Verification:', verifyData?.synthesized_output ? 'SAVED' : 'FAILED');
-
-        if (!verifyData?.synthesized_output) {
-          throw new Error('Failed to save synthesized rituals to database');
-        }
-
-        await refreshCycle();
-        navigate('/picker');
-      } else {
-        setNotification({ type: 'success', message: 'All set! We\'ll notify you when your partner is ready' });
-        await refreshCycle();
-        setTimeout(() => navigate('/'), 2000);
+      if (fetchError) {
+        console.warn('[INPUT] Could not check partner status:', fetchError);
+        // Still redirect - input was saved
       }
+
+      const partnerInput = isPartnerOne ? cycle?.partner_two_input : cycle?.partner_one_input;
+      const alreadyHasOutput = !!cycle?.synthesized_output;
+
+      // Step 3: If both partners have submitted and no output yet, trigger synthesis
+      if (partnerInput && !alreadyHasOutput) {
+        console.log('[INPUT] Both partners submitted, triggering synthesis in background...');
+        
+        // Trigger synthesis but DON'T wait for it - let it run in background
+        // Use the idempotent trigger-synthesis endpoint
+        supabase.functions.invoke('trigger-synthesis', {
+          body: { cycleId: weeklyCycleId }
+        }).then(result => {
+          console.log('[INPUT] Background synthesis triggered:', result.data?.status);
+        }).catch(err => {
+          console.error('[INPUT] Background synthesis trigger failed:', err);
+          // This is fine - it will be retried when user views dashboard
+        });
+      }
+
+      // Step 4: ALWAYS redirect to dashboard
+      // The dashboard will show appropriate status based on cycle state
+      await refreshCycle();
+      
+      console.log('[INPUT] Redirecting to dashboard');
+      navigate('/');
+
     } catch (error) {
-      console.error('[SYNTHESIS] Error:', error);
-      setNotification({ type: 'error', message: error instanceof Error ? error.message : 'Failed to save. Please try again.' });
+      console.error('[INPUT] Error:', error);
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save. Please try again.');
+      setStep('desire'); // Go back to allow retry
       setIsSubmitting(false);
-      setIsSynthesizing(false);
     }
   };
 
@@ -261,8 +272,23 @@ export default function QuickInput() {
     );
   }
 
-  if (isSynthesizing) {
-    return <SynthesisAnimation />;
+  // Submitting state - show simple feedback
+  if (step === 'submitting') {
+    return (
+      <div className="h-full bg-gradient-warm flex flex-col items-center justify-center gap-4 px-6">
+        <motion.div
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="w-20 h-20 rounded-full bg-gradient-ritual flex items-center justify-center"
+        >
+          <Sparkles className="w-10 h-10 text-white" />
+        </motion.div>
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-bold">Saving your vibes...</h2>
+          <p className="text-sm text-muted-foreground">Just a moment</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -288,6 +314,27 @@ export default function QuickInput() {
         </div>
       )}
 
+      {/* Error notification */}
+      {submitError && (
+        <div className="flex-none px-4 pt-2">
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-destructive font-medium">Failed to save</p>
+              <p className="text-xs text-destructive/80">{submitError}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSubmitError(null)}
+              className="text-xs h-auto py-1 px-2"
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 px-4 py-4 overflow-y-auto min-h-0">
         <AnimatePresence mode="wait">
@@ -303,7 +350,7 @@ export default function QuickInput() {
                 cycleId={weeklyCycleId}
               />
             </motion.div>
-          ) : (
+          ) : step === 'desire' ? (
             <motion.div
               key="desire"
               initial={{ opacity: 0, x: 20 }}
@@ -347,6 +394,7 @@ export default function QuickInput() {
                 <Button
                   variant="outline"
                   onClick={handleBack}
+                  disabled={isSubmitting}
                   className="flex-1"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
@@ -371,7 +419,7 @@ export default function QuickInput() {
                 </Button>
               </div>
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </div>
     </div>

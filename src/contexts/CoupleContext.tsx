@@ -1,11 +1,25 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+/**
+ * CoupleContext
+ * 
+ * Global context for couple/partner state management.
+ * 
+ * CRITICAL FIX (2025-12-15):
+ * - Improved realtime sync for partner completion
+ * - Added synthesis status tracking
+ * - Fixed edge cases in state derivation
+ * 
+ * @updated 2025-12-15 - Fixed two-partner flow reliability
+ */
+
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import type { Couple, PartnerProfile, WeeklyCycle } from '@/types/database';
+import { deriveCycleState, type CycleState } from '@/types/database';
 
 // Version tracking for deployment verification
-const CONTEXT_VERSION = '2024-12-13-v5';
+const CONTEXT_VERSION = '2024-12-15-v6';
 
 // Check localStorage for existing Supabase session token (instant, synchronous)
 const checkCachedSession = (): boolean => {
@@ -25,11 +39,13 @@ interface CoupleContextType {
   partnerProfile: PartnerProfile | null;
   userProfile: { name: string } | null;
   currentCycle: WeeklyCycle | null;
+  cycleState: CycleState;
   loading: boolean;
   hasKnownSession: boolean;
   refreshCouple: () => Promise<void>;
-  refreshCycle: () => Promise<void>;
+  refreshCycle: () => Promise<WeeklyCycle | null>;
   leaveCouple: () => Promise<{ success: boolean; error?: string }>;
+  triggerSynthesis: () => Promise<{ success: boolean; error?: string }>;
 }
 
 const CoupleContext = createContext<CoupleContextType | null>(null);
@@ -304,17 +320,35 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
           const partnerOneInputChanged = newData?.partner_one_input && !oldData?.partner_one_input;
           const partnerTwoInputChanged = newData?.partner_two_input && !oldData?.partner_two_input;
           const synthesisReady = newData?.synthesized_output && !oldData?.synthesized_output;
+          const bothNowComplete = newData?.partner_one_input && newData?.partner_two_input;
           
           if (partnerOneInputChanged || partnerTwoInputChanged) {
             // Fetch the cycle using the couple_id from the payload to avoid stale closure
             if (newData?.couple_id) {
               console.log('[REALTIME] Partner input changed, refreshing cycle for couple:', newData.couple_id);
               await fetchCycle(newData.couple_id);
+              
+              // If both partners just completed and no output yet, trigger synthesis
+              if (bothNowComplete && !newData?.synthesized_output) {
+                console.log('[REALTIME] Both partners complete, triggering synthesis...');
+                // Trigger synthesis via the idempotent endpoint
+                supabase.functions.invoke('trigger-synthesis', {
+                  body: { cycleId: newData.id }
+                }).then(result => {
+                  console.log('[REALTIME] Synthesis trigger result:', result.data?.status);
+                }).catch(err => {
+                  console.error('[REALTIME] Synthesis trigger failed:', err);
+                });
+              }
             }
           }
           
           if (synthesisReady) {
-            console.log('[REALTIME] Synthesis ready! Navigating to /picker');
+            console.log('[REALTIME] Synthesis ready! Refreshing cycle and navigating to /picker');
+            // Refresh cycle first to ensure state is updated
+            if (newData?.couple_id) {
+              await fetchCycle(newData.couple_id);
+            }
             // Small delay to let state settle
             setTimeout(() => {
               navigate('/picker');
@@ -339,9 +373,55 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
     if (user) await fetchCouple(user.id);
   };
 
-  const refreshCycle = async () => {
-    if (couple) await fetchCycle(couple.id);
-  };
+  const refreshCycle = useCallback(async (): Promise<WeeklyCycle | null> => {
+    if (couple) {
+      return await fetchCycle(couple.id);
+    }
+    return null;
+  }, [couple?.id]);
+
+  /**
+   * Trigger synthesis using the idempotent endpoint.
+   * Safe to call multiple times - will only run once per cycle.
+   */
+  const triggerSynthesis = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    if (!currentCycle?.id) {
+      return { success: false, error: 'No current cycle' };
+    }
+
+    try {
+      console.log('[CONTEXT] Triggering synthesis for cycle:', currentCycle.id);
+      
+      const { data, error } = await supabase.functions.invoke('trigger-synthesis', {
+        body: { cycleId: currentCycle.id }
+      });
+
+      if (error) {
+        console.error('[CONTEXT] Synthesis trigger error:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (data?.status === 'ready') {
+        await refreshCycle();
+        return { success: true };
+      } else if (data?.status === 'generating') {
+        return { success: true }; // In progress is also success
+      } else if (data?.status === 'failed') {
+        return { success: false, error: data.error || 'Synthesis failed' };
+      } else if (data?.status === 'waiting') {
+        return { success: false, error: 'Waiting for partner' };
+      }
+
+      return { success: false, error: 'Unknown response' };
+    } catch (error) {
+      console.error('[CONTEXT] Synthesis trigger exception:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }, [currentCycle?.id, refreshCycle]);
+
+  // Derive the current cycle state
+  const isPartnerOne = couple?.partner_one === user?.id;
+  const cycleState = deriveCycleState(currentCycle, user?.id, isPartnerOne);
 
   const leaveCouple = async (): Promise<{ success: boolean; error?: string }> => {
     if (!couple || !user) {
@@ -394,11 +474,13 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       partnerProfile,
       userProfile,
       currentCycle,
+      cycleState,
       loading: !isFullyLoaded,
       hasKnownSession,
       refreshCouple,
       refreshCycle,
       leaveCouple,
+      triggerSynthesis,
     }}>
       {children}
     </CoupleContext.Provider>

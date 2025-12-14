@@ -52,7 +52,7 @@ export const WaitingForPartner = ({
   // Listen for partner completion in realtime
   useEffect(() => {
     const channel = supabase
-      .channel(`cycle-updates-${currentCycleId}`)
+      .channel(`cycle-updates-${currentCycleId}-${Date.now()}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -63,18 +63,37 @@ export const WaitingForPartner = ({
         const partnerSubmitted = isPartnerOne
           ? payload.new.partner_two_input
           : payload.new.partner_one_input;
+        const hasOutput = payload.new.synthesized_output;
 
-        if (partnerSubmitted) {
-          // Partner just completed! Show celebration
+        if (partnerSubmitted && !hasOutput) {
+          // Partner just completed! Trigger synthesis and show celebration
+          console.log('[WaitingForPartner] Partner completed, triggering synthesis...');
+          
+          // Trigger synthesis via the idempotent endpoint
+          supabase.functions.invoke('trigger-synthesis', {
+            body: { cycleId: currentCycleId }
+          }).then(result => {
+            console.log('[WaitingForPartner] Synthesis trigger result:', result.data?.status);
+          }).catch(err => {
+            console.error('[WaitingForPartner] Synthesis trigger failed:', err);
+          });
+          
           setShowCelebration(true);
+        } else if (hasOutput) {
+          // Synthesis already complete, go straight to picker
+          console.log('[WaitingForPartner] Synthesis already ready');
+          await refreshCycle();
+          navigate('/picker');
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[WaitingForPartner] Channel status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentCycleId, couple, user]);
+  }, [currentCycleId, couple, user, refreshCycle, navigate]);
 
   const handleNudge = async () => {
     // Check premium nudge limit first
@@ -146,6 +165,17 @@ export const WaitingForPartner = ({
       <CelebrationScreen
         message="Both vibes are in! ✨"
         onComplete={async () => {
+          // Trigger synthesis and refresh before navigating
+          try {
+            console.log('[WaitingForPartner] Celebration complete, checking synthesis...');
+            const { data } = await supabase.functions.invoke('trigger-synthesis', {
+              body: { cycleId: currentCycleId }
+            });
+            console.log('[WaitingForPartner] Synthesis status:', data?.status);
+          } catch (err) {
+            console.warn('[WaitingForPartner] Synthesis trigger error:', err);
+          }
+          
           await refreshCycle();
           navigate('/picker');
         }}

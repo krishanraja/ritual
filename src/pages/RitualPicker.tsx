@@ -1,3 +1,16 @@
+/**
+ * RitualPicker Page
+ * 
+ * Allows users to rank rituals and agree on one with their partner.
+ * 
+ * CRITICAL FIX (2025-12-15):
+ * - Uses idempotent trigger-synthesis for retry
+ * - Proper handling of generating/failed states
+ * - Better error recovery and retry logic
+ * 
+ * @updated 2025-12-15 - Fixed reliability issues
+ */
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
@@ -5,7 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
-import { Clock, DollarSign, Calendar as CalendarIcon, Star, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import { Clock, DollarSign, Calendar as CalendarIcon, Star, Loader2, RefreshCw, Sparkles, AlertCircle, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgreementGame } from '@/components/AgreementGame';
 import { cn } from '@/lib/utils';
@@ -14,6 +27,7 @@ import { NotificationContainer } from '@/components/InlineNotification';
 import { usePremium } from '@/hooks/usePremium';
 import { BlurredRitualCard, LockedRitualsPrompt } from '@/components/BlurredRitualCard';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { deriveCycleState } from '@/types/database';
 
 interface Ritual {
   id: string | number;
@@ -191,40 +205,65 @@ export default function RitualPicker() {
   useEffect(() => {
     if (step !== 'generating' || !currentCycle?.id) return;
 
-    console.log('[RitualPicker] Setting up synthesis listener');
+    console.log('[RitualPicker] Setting up synthesis listener for cycle:', currentCycle.id);
+
+    // Trigger synthesis on mount (idempotent, safe to call)
+    supabase.functions.invoke('trigger-synthesis', {
+      body: { cycleId: currentCycle.id }
+    }).then(result => {
+      console.log('[RitualPicker] Initial trigger result:', result.data?.status);
+      if (result.data?.status === 'ready' && result.data?.rituals?.length > 0) {
+        setRituals(result.data.rituals);
+        setStep('rank');
+      }
+    }).catch(err => {
+      console.warn('[RitualPicker] Initial trigger failed:', err);
+    });
 
     const channel = supabase
-      .channel(`synthesis-picker-${currentCycle.id}`)
+      .channel(`synthesis-picker-${currentCycle.id}-${Date.now()}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'weekly_cycles',
         filter: `id=eq.${currentCycle.id}`
       }, async (payload: any) => {
-        console.log('[RitualPicker] Synthesis update received:', payload);
+        console.log('[RitualPicker] Synthesis update received');
         if (payload.new.synthesized_output?.rituals?.length > 0) {
           setRituals(payload.new.synthesized_output.rituals);
           setStep('rank');
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[RitualPicker] Channel status:', status);
+      });
 
-    // Also poll every 5 seconds
+    // Poll every 3 seconds for faster detection
     const pollInterval = setInterval(async () => {
-      const { data } = await supabase
-        .from('weekly_cycles')
-        .select('synthesized_output')
-        .eq('id', currentCycle.id)
-        .single();
-      
-      if (data?.synthesized_output) {
-        const synthesized = data.synthesized_output as any;
-        if (synthesized?.rituals?.length > 0) {
-          setRituals(synthesized.rituals);
-          setStep('rank');
+      try {
+        const { data, error } = await supabase
+          .from('weekly_cycles')
+          .select('synthesized_output')
+          .eq('id', currentCycle.id)
+          .single();
+        
+        if (error) {
+          console.warn('[RitualPicker] Poll error:', error);
+          return;
         }
+        
+        if (data?.synthesized_output) {
+          const synthesized = data.synthesized_output as any;
+          if (synthesized?.rituals?.length > 0) {
+            console.log('[RitualPicker] Rituals found via polling');
+            setRituals(synthesized.rituals);
+            setStep('rank');
+          }
+        }
+      } catch (err) {
+        console.warn('[RitualPicker] Poll exception:', err);
       }
-    }, 5000);
+    }, 3000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -549,64 +588,146 @@ export default function RitualPicker() {
     </div>
   );
 
-  // Render generating state
-  const renderGeneratingStep = () => (
-    <div className="h-full flex flex-col items-center justify-center px-6">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="text-center space-y-6 max-w-sm"
-      >
+  // State for generating step
+  const [generatingError, setGeneratingError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Improved retry handler using idempotent endpoint
+  const handleRetryGeneration = async () => {
+    if (!currentCycle?.id) return;
+    
+    setIsRefreshing(true);
+    setGeneratingError(null);
+    setRetryCount(prev => prev + 1);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('trigger-synthesis', {
+        body: { 
+          cycleId: currentCycle.id,
+          forceRetry: retryCount > 0
+        }
+      });
+
+      console.log('[RitualPicker] Retry response:', data);
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.status === 'ready') {
+        // Rituals ready!
+        setRituals(data.rituals);
+        setStep('rank');
+        await refreshCycle();
+      } else if (data?.status === 'generating') {
+        // Still generating - that's fine, keep waiting
+        console.log('[RitualPicker] Still generating...');
+      } else if (data?.status === 'waiting') {
+        setGeneratingError('Waiting for both partners to complete input.');
+      } else if (data?.status === 'failed') {
+        setGeneratingError(data.error || 'Generation failed. Please try again.');
+      }
+    } catch (err) {
+      console.error('[RitualPicker] Retry error:', err);
+      setGeneratingError('Failed to generate rituals. Please try again.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Render generating state with improved UX
+  const renderGeneratingStep = () => {
+    const hasError = !!generatingError;
+    
+    return (
+      <div className="h-full flex flex-col items-center justify-center px-6">
         <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-          className="w-20 h-20 mx-auto rounded-full bg-gradient-ritual flex items-center justify-center"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center space-y-6 max-w-sm"
         >
-          <Sparkles className="w-10 h-10 text-white" />
-        </motion.div>
-        
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Generating Your Rituals</h2>
-          <p className="text-muted-foreground">
-            We're crafting personalized experiences based on both your preferences...
-          </p>
-        </div>
+          {!hasError ? (
+            <>
+              <motion.div 
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                className="w-20 h-20 mx-auto rounded-full bg-gradient-ritual flex items-center justify-center"
+              >
+                <Sparkles className="w-10 h-10 text-white" />
+              </motion.div>
+              
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Generating Your Rituals</h2>
+                <p className="text-muted-foreground">
+                  We're crafting personalized experiences based on both your preferences...
+                </p>
+              </div>
 
-        <div className="pt-4 space-y-3">
-          <Button
-            variant="outline"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="w-full"
-          >
-            {isRefreshing ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                Checking...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
-              </>
-            )}
-          </Button>
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Clock className="w-4 h-4" />
+                <span>Usually takes 10-20 seconds</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-20 h-20 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertCircle className="w-10 h-10 text-destructive" />
+              </div>
+              
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Something's taking too long</h2>
+                <p className="text-muted-foreground text-sm">
+                  {generatingError}
+                </p>
+              </div>
+            </>
+          )}
+
+          <div className="pt-4 space-y-3">
+            <Button
+              onClick={handleRetryGeneration}
+              disabled={isRefreshing}
+              className={hasError ? "w-full bg-gradient-ritual" : "w-full"}
+              variant={hasError ? "default" : "outline"}
+            >
+              {isRefreshing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  {retryCount > 0 ? 'Retrying...' : 'Checking...'}
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  {hasError ? 'Try Again' : 'Refresh'}
+                </>
+              )}
+            </Button>
+            
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/')}
+              className="w-full"
+            >
+              <Home className="w-4 h-4 mr-2" />
+              Go to Dashboard
+            </Button>
+          </div>
+
+          {!hasError && (
+            <p className="text-xs text-muted-foreground">
+              Rituals will appear automatically when ready.
+            </p>
+          )}
           
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="w-full"
-          >
-            Go to Dashboard
-          </Button>
-        </div>
-
-        <p className="text-xs text-muted-foreground">
-          This usually takes 10-20 seconds. Rituals will appear automatically.
-        </p>
-      </motion.div>
-    </div>
-  );
+          {retryCount > 2 && hasError && (
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+              Having trouble? Try going back to the dashboard and checking again in a few minutes.
+            </p>
+          )}
+        </motion.div>
+      </div>
+    );
+  };
 
   if (loading) {
     return (

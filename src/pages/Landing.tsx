@@ -1,8 +1,22 @@
+/**
+ * Landing Page
+ * 
+ * Main dashboard that shows different views based on user/couple state.
+ * 
+ * CRITICAL FIX (2025-12-15):
+ * - Added explicit "generating" state card
+ * - Fixed state derivation to handle all edge cases
+ * - Proper retry mechanism for failed synthesis
+ * - Never shows blank page or 404 for normal flow states
+ * 
+ * @updated 2025-12-15 - Fixed two-partner flow reliability
+ */
+
 import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { MapPin, Heart, Sparkles, TrendingUp, Share2, X, Calendar, Clock, MessageSquare, Copy } from 'lucide-react';
+import { MapPin, Heart, Sparkles, TrendingUp, Share2, X, Calendar, Clock, MessageSquare, Copy, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { RitualLogo } from '@/components/RitualLogo';
 import { RitualSpinner } from '@/components/RitualSpinner';
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -12,7 +26,6 @@ import { motion } from 'framer-motion';
 import { CreateCoupleDialog } from '@/components/CreateCoupleDialog';
 import { JoinDrawer } from '@/components/JoinDrawer';
 import { WaitingForPartner } from '@/components/WaitingForPartner';
-import { SynthesisAnimation } from '@/components/SynthesisAnimation';
 import { EnhancedPostRitualCheckin } from '@/components/EnhancedPostRitualCheckin';
 import { SurpriseRitualCard } from '@/components/SurpriseRitualCard';
 import { StreakBadge } from '@/components/StreakBadge';
@@ -22,6 +35,7 @@ import { format, isPast, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import ritualBackgroundVideo from '@/assets/ritual-background.mp4';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { deriveCycleState, type CycleState } from '@/types/database';
 
 // ============================================================================
 // ANIMATION CONFIG - Google-style: fast, subtle, no layout shift
@@ -73,10 +87,10 @@ type ViewType =
   | 'loading'
   | 'marketing'
   | 'welcome'
-  | 'waiting-for-partner'
-  | 'synthesis'
-  | 'waiting-for-input'
-  | 'dashboard';
+  | 'waiting-for-partner-join'  // Partner hasn't joined couple yet
+  | 'waiting-for-partner-input' // Partner hasn't submitted input
+  | 'generating'                // Both submitted, synthesis in progress
+  | 'dashboard';                // Main dashboard view (handles ready, picking, agreed)
 
 // ============================================================================
 // SHARED COMPONENTS
@@ -140,18 +154,27 @@ export default function Landing() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [postRitualChecked, setPostRitualChecked] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
+  const [isRetryingSynthesis, setIsRetryingSynthesis] = useState(false);
+  const [synthesisError, setSynthesisError] = useState<string | null>(null);
   
   // Track if initial load is complete (for skeleton -> content transition)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  // Compute derived state once
+  // Determine if user is partner one
+  const isPartnerOne = couple?.partner_one === user?.id;
+
+  // Use the canonical state derivation function
+  const cycleState = useMemo((): CycleState => {
+    return deriveCycleState(currentCycle, user?.id, isPartnerOne);
+  }, [currentCycle, user?.id, isPartnerOne]);
+
+  // Compute derived state for UI
   const derivedState = useMemo(() => {
-    const hasSynthesized = currentCycle?.synthesized_output;
+    const hasSynthesized = !!currentCycle?.synthesized_output;
     const hasPartnerOne = !!currentCycle?.partner_one_input;
     const hasPartnerTwo = !!currentCycle?.partner_two_input;
-    const userIsPartnerOne = couple?.partner_one === user?.id;
-    const userSubmitted = userIsPartnerOne ? hasPartnerOne : hasPartnerTwo;
-    const partnerSubmitted = userIsPartnerOne ? hasPartnerTwo : hasPartnerOne;
+    const userSubmitted = isPartnerOne ? hasPartnerOne : hasPartnerTwo;
+    const partnerSubmitted = isPartnerOne ? hasPartnerTwo : hasPartnerOne;
     const hasAgreedRitual = currentCycle?.agreement_reached && currentCycle?.agreed_ritual;
     const hasRecentNudge = currentCycle?.nudged_at && 
       (Date.now() - new Date(currentCycle.nudged_at).getTime()) < 24 * 60 * 60 * 1000;
@@ -163,21 +186,68 @@ export default function Landing() {
       hasAgreedRitual,
       hasRecentNudge,
     };
-  }, [currentCycle, couple, user]);
+  }, [currentCycle, isPartnerOne]);
 
   // Single source of truth for current view
   const currentView = useMemo((): ViewType => {
     if (loading || (couple && surpriseLoading)) return 'loading';
     if (!user) return 'marketing';
     if (!couple) return 'welcome';
-    if (!couple.partner_two) return 'waiting-for-partner';
+    if (!couple.partner_two) return 'waiting-for-partner-join';
     
-    const { userSubmitted, partnerSubmitted, hasSynthesized } = derivedState;
-    if (userSubmitted && partnerSubmitted && !hasSynthesized) return 'synthesis';
-    if (userSubmitted && !partnerSubmitted) return 'waiting-for-input';
+    // Use the derived cycle state
+    switch (cycleState) {
+      case 'waiting_for_partner':
+        return 'waiting-for-partner-input';
+      case 'both_complete':
+      case 'generating':
+        return 'generating';
+      case 'failed':
+        return 'generating'; // Show generating UI with error state
+      default:
+        return 'dashboard';
+    }
+  }, [loading, surpriseLoading, user, couple, cycleState]);
+
+  // Retry synthesis handler
+  const handleRetrySynthesis = useCallback(async () => {
+    if (!currentCycle?.id) return;
     
-    return 'dashboard';
-  }, [loading, surpriseLoading, user, couple, derivedState]);
+    setIsRetryingSynthesis(true);
+    setSynthesisError(null);
+    console.log('[LANDING] Retrying synthesis for cycle:', currentCycle.id);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('trigger-synthesis', {
+        body: { 
+          cycleId: currentCycle.id,
+          forceRetry: true
+        }
+      });
+
+      console.log('[LANDING] Retry response:', data);
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.status === 'ready') {
+        // Synthesis complete! Refresh and navigate
+        await refreshCycle();
+        navigate('/picker');
+      } else if (data?.status === 'generating') {
+        // In progress - refresh to update state
+        await refreshCycle();
+      } else if (data?.status === 'failed') {
+        setSynthesisError(data.error || 'Generation failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('[LANDING] Retry error:', error);
+      setSynthesisError('Failed to generate rituals. Please try again.');
+    } finally {
+      setIsRetryingSynthesis(false);
+    }
+  }, [currentCycle?.id, refreshCycle, navigate]);
 
   // Mark initial load complete after first non-loading view
   useEffect(() => {
@@ -194,6 +264,57 @@ export default function Landing() {
       refreshCycle();
     }
   }, [couple?.id]);
+
+  // Poll for synthesis completion when in generating state
+  useEffect(() => {
+    if (currentView !== 'generating' || !currentCycle?.id) return;
+
+    console.log('[LANDING] Starting synthesis poll for cycle:', currentCycle.id);
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('weekly_cycles')
+          .select('synthesized_output')
+          .eq('id', currentCycle.id)
+          .single();
+
+        if (error) {
+          console.warn('[LANDING] Poll error:', error);
+          return;
+        }
+
+        if (data?.synthesized_output) {
+          console.log('[LANDING] Synthesis complete, refreshing...');
+          await refreshCycle();
+          // Navigation will happen automatically via view change
+        }
+      } catch (err) {
+        console.warn('[LANDING] Poll exception:', err);
+      }
+    }, 3000);
+
+    // Also set up realtime subscription as backup
+    const channel = supabase
+      .channel(`landing-synthesis-${currentCycle.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'weekly_cycles',
+        filter: `id=eq.${currentCycle.id}`
+      }, async (payload: any) => {
+        if (payload.new?.synthesized_output) {
+          console.log('[LANDING] Synthesis complete via realtime');
+          await refreshCycle();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
+  }, [currentView, currentCycle?.id, refreshCycle]);
 
   // Handle pending join action after auth
   useEffect(() => {
@@ -329,16 +450,92 @@ export default function Landing() {
   }
 
   // ==========================================================================
-  // RENDER: Synthesis view
+  // RENDER: Generating state - synthesis in progress
   // ==========================================================================
-  if (currentView === 'synthesis') {
-    return <SynthesisAnimation />;
+  if (currentView === 'generating') {
+    const isFailed = cycleState === 'failed';
+    
+    return (
+      <div className="h-full flex flex-col relative">
+        <Background videoLoaded={videoLoaded} setVideoLoaded={setVideoLoaded} isMobile={isMobile} />
+        
+        <motion.div 
+          className="flex-1 flex flex-col items-center justify-center px-6 relative z-10"
+          {...fadeIn()}
+        >
+          <div className="text-center space-y-6 max-w-sm">
+            <RitualLogo size="md" variant="full" className="mx-auto" />
+            
+            {!isFailed ? (
+              <>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                  className="w-20 h-20 mx-auto rounded-full bg-gradient-ritual flex items-center justify-center"
+                >
+                  <Sparkles className="w-10 h-10 text-white" />
+                </motion.div>
+                
+                <div>
+                  <h1 className="text-2xl font-bold mb-2">Generating Your Rituals</h1>
+                  <p className="text-sm text-muted-foreground">
+                    We're crafting personalized experiences based on both your preferences...
+                  </p>
+                </div>
+                
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  <span>This usually takes 10-20 seconds</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
+                  <AlertCircle className="w-10 h-10 text-destructive" />
+                </div>
+                
+                <div>
+                  <h1 className="text-2xl font-bold mb-2">Taking Longer Than Expected</h1>
+                  <p className="text-sm text-muted-foreground">
+                    {synthesisError || "Your rituals are still being generated. Please try refreshing."}
+                  </p>
+                </div>
+              </>
+            )}
+            
+            <div className="space-y-3">
+              <Button
+                onClick={handleRetrySynthesis}
+                disabled={isRetryingSynthesis}
+                className="w-full bg-gradient-ritual text-white h-12 rounded-xl"
+              >
+                {isRetryingSynthesis ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    {isFailed ? 'Try Again' : 'Refresh'}
+                  </>
+                )}
+              </Button>
+              
+              <p className="text-xs text-muted-foreground">
+                Rituals will appear automatically when ready.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
   }
 
   // ==========================================================================
   // RENDER: Waiting for partner input
   // ==========================================================================
-  if (currentView === 'waiting-for-input' && currentCycle) {
+  if (currentView === 'waiting-for-partner-input' && currentCycle) {
     const partnerName = partnerProfile?.name || 'your partner';
     return (
       <div className="h-full relative">
@@ -514,7 +711,7 @@ export default function Landing() {
   // ==========================================================================
   // RENDER: Waiting for partner to join
   // ==========================================================================
-  if (currentView === 'waiting-for-partner' && couple) {
+  if (currentView === 'waiting-for-partner-join' && couple) {
     return (
       <div className="h-full flex flex-col relative">
         <Background videoLoaded={videoLoaded} setVideoLoaded={setVideoLoaded} isMobile={isMobile} />
