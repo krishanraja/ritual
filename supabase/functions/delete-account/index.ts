@@ -18,10 +18,18 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Database configuration missing');
+    }
+
     // Create client with user's auth
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY,
       {
         global: {
           headers: { Authorization: authHeader },
@@ -40,8 +48,8 @@ serve(async (req) => {
 
     // Create admin client for deletion
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY,
     );
 
     // First, handle couple cleanup

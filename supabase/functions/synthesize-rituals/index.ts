@@ -277,10 +277,24 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
+    // Validate Supabase environment variables
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!SUPABASE_URL) {
+      log('error', 'SUPABASE_URL not configured', { requestId });
+      throw new Error('SUPABASE_URL not configured');
+    }
+    
+    if (!SUPABASE_ANON_KEY) {
+      log('error', 'SUPABASE_ANON_KEY not configured', { requestId });
+      throw new Error('SUPABASE_ANON_KEY not configured');
+    }
+
     // Initialize Supabase client for historical data
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY,
       {
         global: {
           headers: { Authorization: req.headers.get('Authorization')! },

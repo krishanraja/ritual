@@ -24,7 +24,9 @@ const CONTEXT_VERSION = '2024-12-15-v6';
 // Check localStorage for existing Supabase session token (instant, synchronous)
 const checkCachedSession = (): boolean => {
   try {
-    const storageKey = `sb-gdojuuzlxpxftsfkmneu-auth-token`;
+    // Use project ID from environment variable to construct storage key
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'ffowyysujkzwxisjckxh';
+    const storageKey = `sb-${projectId}-auth-token`;
     const cached = localStorage.getItem(storageKey);
     return !!cached;
   } catch {
