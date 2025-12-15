@@ -51,8 +51,8 @@ export const OnboardingModal = ({ open, onComplete }: OnboardingModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white rounded-3xl [&>button]:hidden">
-        <div className="p-8">
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white rounded-3xl [&>button]:hidden max-h-[calc(100dvh-2rem)] m-4">
+        <div className="p-5 sm:p-6 md:p-8 flex flex-col max-h-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
@@ -60,22 +60,22 @@ export const OnboardingModal = ({ open, onComplete }: OnboardingModalProps) => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
-              className="text-center space-y-6"
+              className="text-center space-y-4 sm:space-y-5 flex-1 flex flex-col justify-center"
             >
               {/* Icon */}
-              <div className={`w-20 h-20 mx-auto rounded-full ${slides[currentSlide].color} flex items-center justify-center`}>
+              <div className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full ${slides[currentSlide].color} flex items-center justify-center flex-shrink-0`}>
                 {(() => {
                   const Icon = slides[currentSlide].icon;
-                  return <Icon className="w-10 h-10" />;
+                  return <Icon className="w-8 h-8 sm:w-10 sm:h-10" />;
                 })()}
               </div>
 
               {/* Content */}
-              <div className="space-y-3">
-                <h2 className="text-2xl font-bold text-foreground">
+              <div className="space-y-2 sm:space-y-3">
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground">
                   {slides[currentSlide].title}
                 </h2>
-                <p className="text-muted-foreground leading-relaxed">
+                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed px-2">
                   {slides[currentSlide].description}
                 </p>
               </div>
@@ -83,7 +83,7 @@ export const OnboardingModal = ({ open, onComplete }: OnboardingModalProps) => {
           </AnimatePresence>
 
           {/* Progress dots */}
-          <div className="flex justify-center gap-2 mt-8">
+          <div className="flex justify-center gap-2 mt-4 sm:mt-6 flex-shrink-0">
             {slides.map((_, index) => (
               <div
                 key={index}
@@ -95,10 +95,10 @@ export const OnboardingModal = ({ open, onComplete }: OnboardingModalProps) => {
           </div>
 
           {/* Actions */}
-          <div className="mt-8 space-y-3">
+          <div className="mt-4 sm:mt-6 space-y-2 sm:space-y-3 flex-shrink-0">
             <Button
               onClick={handleNext}
-              className="w-full bg-gradient-ritual text-white h-12 rounded-xl"
+              className="w-full bg-gradient-ritual text-white h-11 sm:h-12 rounded-xl"
             >
               {isLastSlide ? "Let's go!" : "Next"}
               {!isLastSlide && <ChevronRight className="w-4 h-4 ml-1" />}
@@ -107,7 +107,7 @@ export const OnboardingModal = ({ open, onComplete }: OnboardingModalProps) => {
             {!isLastSlide && (
               <button
                 onClick={handleSkip}
-                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="w-full text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
               >
                 Skip intro
               </button>
