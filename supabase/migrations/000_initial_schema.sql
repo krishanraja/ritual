@@ -10,7 +10,7 @@
 -- ===========================================
 
 -- ===========================================
--- SECTION 1: HELPER FUNCTIONS
+-- SECTION 1: BASIC HELPER FUNCTION (No table dependencies)
 -- ===========================================
 
 -- Function to auto-update updated_at timestamps
@@ -22,158 +22,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
--- Function to check if a profile is the current user's partner
-CREATE OR REPLACE FUNCTION public.is_partner(profile_id UUID)
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM couples
-    WHERE is_active = true
-    AND (
-      (partner_one = auth.uid() AND partner_two = profile_id)
-      OR (partner_two = auth.uid() AND partner_one = profile_id)
-    )
-  )
-$$;
-
--- Function to securely get partner's name (only name, not email)
-CREATE OR REPLACE FUNCTION public.get_partner_name(partner_id uuid)
-RETURNS text
-LANGUAGE sql
-STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT name FROM profiles WHERE id = partner_id AND is_partner(partner_id)
-$$;
-
--- Function to validate couple code without exposing it
-CREATE OR REPLACE FUNCTION public.validate_couple_code(input_code TEXT)
-RETURNS TABLE (couple_id UUID, is_valid BOOLEAN)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT 
-    c.id as couple_id,
-    TRUE as is_valid
-  FROM couples c
-  WHERE c.couple_code = input_code
-    AND c.partner_two IS NULL
-    AND c.is_active = true
-    AND c.code_expires_at > now()
-  LIMIT 1;
-END;
-$$;
-
--- Function to join couple with code (bulletproof with verification)
-CREATE OR REPLACE FUNCTION public.join_couple_with_code(input_code text)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  target_couple couples%ROWTYPE;
-  current_user_id uuid;
-  verified_partner_two uuid;
-  rows_updated integer;
-BEGIN
-  -- Get current user
-  current_user_id := auth.uid();
-  
-  IF current_user_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
-  END IF;
-  
-  -- Find and lock the couple row to prevent race conditions
-  SELECT * INTO target_couple
-  FROM couples
-  WHERE couple_code = input_code
-    AND partner_two IS NULL
-    AND is_active = true
-    AND code_expires_at > now()
-  FOR UPDATE;
-  
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Code not found or expired. Check with your partner.');
-  END IF;
-  
-  -- Check not joining own couple
-  IF target_couple.partner_one = current_user_id THEN
-    RETURN jsonb_build_object('success', false, 'error', 'You cannot join your own couple code!');
-  END IF;
-  
-  -- Perform the join
-  UPDATE couples
-  SET partner_two = current_user_id
-  WHERE id = target_couple.id
-    AND partner_two IS NULL;
-  
-  GET DIAGNOSTICS rows_updated = ROW_COUNT;
-  
-  IF rows_updated = 0 THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Join failed - someone else may have joined first');
-  END IF;
-  
-  -- Verify the update persisted
-  SELECT partner_two INTO verified_partner_two
-  FROM couples
-  WHERE id = target_couple.id;
-  
-  IF verified_partner_two IS NULL OR verified_partner_two != current_user_id THEN
-    RETURN jsonb_build_object(
-      'success', false, 
-      'error', 'Database update failed to persist',
-      'debug', jsonb_build_object(
-        'expected', current_user_id::text,
-        'actual', COALESCE(verified_partner_two::text, 'NULL'),
-        'couple_id', target_couple.id::text
-      )
-    );
-  END IF;
-  
-  -- Return success
-  RETURN jsonb_build_object(
-    'success', true,
-    'couple_id', target_couple.id,
-    'partner_one', target_couple.partner_one,
-    'partner_two', current_user_id,
-    'verified', true
-  );
-END;
-$$;
-
--- Function to auto-create profile on user signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-  INSERT INTO public.profiles (id, name, email)
-  VALUES (
-    new.id,
-    COALESCE(new.raw_user_meta_data->>'name', 'User'),
-    new.email
-  );
-  RETURN new;
-END;
-$$;
-
--- Grant execute permissions
-GRANT EXECUTE ON FUNCTION public.validate_couple_code(TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_partner(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_partner_name(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.join_couple_with_code(text) TO authenticated;
-
 -- ===========================================
--- SECTION 2: TABLES
+-- SECTION 2: TABLES (Must be created before functions that reference them)
 -- ===========================================
 
 -- Profiles table
@@ -423,7 +273,161 @@ CREATE TABLE public.contact_submissions (
 );
 
 -- ===========================================
--- SECTION 3: ENABLE ROW LEVEL SECURITY
+-- SECTION 3: FUNCTIONS THAT DEPEND ON TABLES (Created after tables exist)
+-- ===========================================
+
+-- Function to check if a profile is the current user's partner
+CREATE OR REPLACE FUNCTION public.is_partner(profile_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM couples
+    WHERE is_active = true
+    AND (
+      (partner_one = auth.uid() AND partner_two = profile_id)
+      OR (partner_two = auth.uid() AND partner_one = profile_id)
+    )
+  )
+$$;
+
+-- Function to securely get partner's name (only name, not email)
+CREATE OR REPLACE FUNCTION public.get_partner_name(partner_id uuid)
+RETURNS text
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT name FROM profiles WHERE id = partner_id AND is_partner(partner_id)
+$$;
+
+-- Function to validate couple code without exposing it
+CREATE OR REPLACE FUNCTION public.validate_couple_code(input_code TEXT)
+RETURNS TABLE (couple_id UUID, is_valid BOOLEAN)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    c.id as couple_id,
+    TRUE as is_valid
+  FROM couples c
+  WHERE c.couple_code = input_code
+    AND c.partner_two IS NULL
+    AND c.is_active = true
+    AND c.code_expires_at > now()
+  LIMIT 1;
+END;
+$$;
+
+-- Function to join couple with code (bulletproof with verification)
+CREATE OR REPLACE FUNCTION public.join_couple_with_code(input_code text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  target_couple couples%ROWTYPE;
+  current_user_id uuid;
+  verified_partner_two uuid;
+  rows_updated integer;
+BEGIN
+  -- Get current user
+  current_user_id := auth.uid();
+  
+  IF current_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
+  END IF;
+  
+  -- Find and lock the couple row to prevent race conditions
+  SELECT * INTO target_couple
+  FROM couples
+  WHERE couple_code = input_code
+    AND partner_two IS NULL
+    AND is_active = true
+    AND code_expires_at > now()
+  FOR UPDATE;
+  
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Code not found or expired. Check with your partner.');
+  END IF;
+  
+  -- Check not joining own couple
+  IF target_couple.partner_one = current_user_id THEN
+    RETURN jsonb_build_object('success', false, 'error', 'You cannot join your own couple code!');
+  END IF;
+  
+  -- Perform the join
+  UPDATE couples
+  SET partner_two = current_user_id
+  WHERE id = target_couple.id
+    AND partner_two IS NULL;
+  
+  GET DIAGNOSTICS rows_updated = ROW_COUNT;
+  
+  IF rows_updated = 0 THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Join failed - someone else may have joined first');
+  END IF;
+  
+  -- Verify the update persisted
+  SELECT partner_two INTO verified_partner_two
+  FROM couples
+  WHERE id = target_couple.id;
+  
+  IF verified_partner_two IS NULL OR verified_partner_two != current_user_id THEN
+    RETURN jsonb_build_object(
+      'success', false, 
+      'error', 'Database update failed to persist',
+      'debug', jsonb_build_object(
+        'expected', current_user_id::text,
+        'actual', COALESCE(verified_partner_two::text, 'NULL'),
+        'couple_id', target_couple.id::text
+      )
+    );
+  END IF;
+  
+  -- Return success
+  RETURN jsonb_build_object(
+    'success', true,
+    'couple_id', target_couple.id,
+    'partner_one', target_couple.partner_one,
+    'partner_two', current_user_id,
+    'verified', true
+  );
+END;
+$$;
+
+-- Function to auto-create profile on user signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, name, email)
+  VALUES (
+    new.id,
+    COALESCE(new.raw_user_meta_data->>'name', 'User'),
+    new.email
+  );
+  RETURN new;
+END;
+$$;
+
+-- Grant execute permissions
+GRANT EXECUTE ON FUNCTION public.validate_couple_code(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_partner(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_partner_name(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.join_couple_with_code(text) TO authenticated;
+
+-- ===========================================
+-- SECTION 4: ENABLE ROW LEVEL SECURITY
 -- ===========================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -446,7 +450,7 @@ ALTER TABLE public.user_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.contact_submissions ENABLE ROW LEVEL SECURITY;
 
 -- ===========================================
--- SECTION 4: RLS POLICIES
+-- SECTION 5: RLS POLICIES
 -- ===========================================
 
 -- Profiles policies
@@ -909,7 +913,7 @@ CREATE POLICY "Users can view their own submissions"
   USING (auth.uid() = user_id);
 
 -- ===========================================
--- SECTION 5: TRIGGERS
+-- SECTION 6: TRIGGERS
 -- ===========================================
 
 -- Trigger to auto-create profile on user signup
@@ -944,7 +948,7 @@ CREATE TRIGGER update_couple_billing_updated_at
   EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ===========================================
--- SECTION 6: INDEXES
+-- SECTION 7: INDEXES
 -- ===========================================
 
 -- Performance indexes
@@ -963,7 +967,7 @@ CREATE INDEX idx_feedback_user_id ON public.user_feedback(user_id);
 CREATE INDEX idx_feedback_type ON public.user_feedback(feedback_type);
 
 -- ===========================================
--- SECTION 7: STORAGE BUCKET
+-- SECTION 8: STORAGE BUCKET
 -- ===========================================
 
 -- Create ritual-photos storage bucket
@@ -1001,7 +1005,7 @@ USING (
 );
 
 -- ===========================================
--- SECTION 8: REALTIME
+-- SECTION 9: REALTIME
 -- ===========================================
 
 -- Enable realtime for tables that need live updates
