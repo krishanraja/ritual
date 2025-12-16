@@ -114,8 +114,8 @@ This checklist ensures your new Supabase project is fully configured and ready f
 
 ### 11. Set Edge Function Secrets
 - [ ] Go to Project Settings → Edge Functions → Secrets
-- [ ] Add `SUPABASE_SERVICE_ROLE_KEY`:
-  - [ ] Name: `SUPABASE_SERVICE_ROLE_KEY`
+- [ ] Add `SERVICE_ROLE_KEY`:
+  - [ ] Name: `SERVICE_ROLE_KEY` (⚠️ NOT `SUPABASE_SERVICE_ROLE_KEY` - Supabase doesn't allow `SUPABASE_` prefix)
   - [ ] Value: Your service_role key
   - [ ] Click "Save"
 - [ ] Verify secret appears in list (value is hidden)
