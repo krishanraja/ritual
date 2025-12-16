@@ -20,9 +20,9 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const SERVICE_ROLE_KEY = Deno.env.get('SERVICE_ROLE_KEY');
     
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SERVICE_ROLE_KEY) {
       throw new Error('Database configuration missing');
     }
 
@@ -49,7 +49,7 @@ serve(async (req) => {
     // Create admin client for deletion
     const supabaseAdmin = createClient(
       SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY,
+      SERVICE_ROLE_KEY,
     );
 
     // First, handle couple cleanup

@@ -118,13 +118,14 @@
 
 ### 4.2 Add Service Role Key
 1. Click **Add new secret** button
-2. In the **Name** field, type exactly: `SUPABASE_SERVICE_ROLE_KEY`
+2. In the **Name** field, type exactly: `SERVICE_ROLE_KEY`
    - ⚠️ Must be EXACTLY this (copy-paste it to be sure)
+   - ⚠️ Note: Do NOT use `SUPABASE_SERVICE_ROLE_KEY` - Supabase doesn't allow `SUPABASE_` prefix
 3. In the **Value** field, paste your **Service Role Key** (from Step 1.5)
 4. Click **Save** or **Add secret**
 
 **✅ CHECKPOINT:** Secret should be saved
-- [ ] Secret `SUPABASE_SERVICE_ROLE_KEY` appears in the list
+- [ ] Secret `SERVICE_ROLE_KEY` appears in the list
 - [ ] Value is hidden (shows as dots/asterisks)
 
 ---
@@ -316,7 +317,7 @@ VITE_SUPABASE_PROJECT_ID=abcdefghijklmnop
 
 ### Problem: Edge function secret not working
 **Solution:**
-1. Check the name is EXACTLY `SUPABASE_SERVICE_ROLE_KEY` (no typos)
+1. Check the name is EXACTLY `SERVICE_ROLE_KEY` (no typos, no SUPABASE_ prefix)
 2. Check you pasted the service_role key, not the anon key
 3. Make sure you clicked Save
 
@@ -328,7 +329,7 @@ Before you're done, verify:
 
 - [ ] SQL schema ran successfully
 - [ ] All 18 tables exist in Supabase
-- [ ] Edge function secret `SUPABASE_SERVICE_ROLE_KEY` is set
+- [ ] Edge function secret `SERVICE_ROLE_KEY` is set
 - [ ] All 3 environment variables are in Vercel
 - [ ] All 3 environment variables are in local `.env` file
 - [ ] App redeployed on Vercel

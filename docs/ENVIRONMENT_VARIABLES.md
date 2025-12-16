@@ -62,12 +62,13 @@ Supabase automatically injects these into edge functions:
 
 ### Required Manual Secrets
 
-#### `SUPABASE_SERVICE_ROLE_KEY`
+#### `SERVICE_ROLE_KEY`
 - **Description:** Service role key for admin operations (bypasses RLS)
 - **Format:** JWT token
 - **Where to find:** Supabase Dashboard → Settings → API → `service_role` `secret` key
 - **Security:** ⚠️ **SECRET** - Never expose in client code
 - **Where to set:** Supabase Dashboard → Project Settings → Edge Functions → Secrets
+- **⚠️ IMPORTANT:** Must be named `SERVICE_ROLE_KEY` (NOT `SUPABASE_SERVICE_ROLE_KEY`) - Supabase reserves the `SUPABASE_` prefix
 - **Used by:** 
   - `delete-account` function
   - `stripe-webhook` function
@@ -106,8 +107,8 @@ VITE_SUPABASE_PROJECT_ID=your-project-id
 ### Supabase Edge Functions
 
 1. Go to Supabase Dashboard → Project Settings → Edge Functions → Secrets
-2. Add `SUPABASE_SERVICE_ROLE_KEY`:
-   - **Name:** `SUPABASE_SERVICE_ROLE_KEY`
+2. Add `SERVICE_ROLE_KEY`:
+   - **Name:** `SERVICE_ROLE_KEY` (⚠️ NOT `SUPABASE_SERVICE_ROLE_KEY` - Supabase doesn't allow `SUPABASE_` prefix)
    - **Value:** Your service role key from API settings
 3. Click "Save"
 
@@ -179,8 +180,8 @@ To verify you're using the correct key type:
 - **Fix:** Replace `VITE_SUPABASE_PUBLISHABLE_KEY` with anon/public key
 
 ### Edge functions failing
-- **Cause:** Missing `SUPABASE_SERVICE_ROLE_KEY` secret
-- **Fix:** Add secret in Supabase Dashboard → Edge Functions → Secrets
+- **Cause:** Missing `SERVICE_ROLE_KEY` secret
+- **Fix:** Add secret named `SERVICE_ROLE_KEY` (NOT `SUPABASE_SERVICE_ROLE_KEY`) in Supabase Dashboard → Edge Functions → Secrets
 
 ---
 
@@ -193,7 +194,7 @@ To verify you're using the correct key type:
 | `VITE_SUPABASE_PROJECT_ID` | Client | localStorage keys | ✅ Public |
 | `SUPABASE_URL` | Edge Functions | Auto-provided | ✅ Public |
 | `SUPABASE_ANON_KEY` | Edge Functions | Auto-provided | ✅ Public (anon) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Edge Functions | Admin operations | ⚠️ Secret |
+| `SERVICE_ROLE_KEY` | Edge Functions | Admin operations | ⚠️ Secret |
 
 ---
 

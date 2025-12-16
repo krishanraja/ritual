@@ -64,9 +64,9 @@ serve(async (req) => {
   }
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
+
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     return new Response(JSON.stringify({ error: "Database configuration missing" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -75,7 +75,7 @@ serve(async (req) => {
 
   const supabaseClient = createClient(
     SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY
+    SERVICE_ROLE_KEY
   );
 
   try {
