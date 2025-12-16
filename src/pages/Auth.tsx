@@ -51,6 +51,9 @@ const getErrorMessage = (error: any): string => {
 };
 
 const Auth = () => {
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:53',message:'Auth component mounted',data:{pathname:window.location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
   const isMobile = useIsMobile();
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [searchParams] = useSearchParams();
@@ -96,42 +99,81 @@ const Auth = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    // Set up listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("[AUTH] Auth state change event:", event, "has session:", !!session);
-      if (session) {
-        console.log("[AUTH] Session detected, navigating to home");
-        navigate("/");
-      } else if (event === 'SIGNED_OUT') {
-        console.log("[AUTH] User signed out");
-      } else if (event === 'TOKEN_REFRESHED') {
-        console.log("[AUTH] Token refreshed");
-      }
-    });
-
-    // Then check existing session with explicit error handling
-    supabase.auth.getSession()
-      .then(({ data: { session }, error }) => {
-        if (error) {
-          console.error("[AUTH] Session check error:", error.message);
-          // Don't show error to user - they might just not be logged in
-          // Only log for debugging
-        }
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:98',message:'Auth useEffect started - setting up session check',data:{pathname:window.location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
+    let subscription: { unsubscribe: () => void } | null = null;
+    
+    try {
+      // Set up listener FIRST
+      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:100',message:'onAuthStateChange event',data:{event,hasSession:!!session,userId:session?.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        console.log("[AUTH] Auth state change event:", event, "has session:", !!session);
         if (session) {
-          console.log("[AUTH] Existing session found, navigating to home");
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:103',message:'Session detected, navigating to home',data:{userId:session.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          console.log("[AUTH] Session detected, navigating to home");
           navigate("/");
-        } else {
-          console.log("[AUTH] No existing session, showing auth form");
+        } else if (event === 'SIGNED_OUT') {
+          console.log("[AUTH] User signed out");
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log("[AUTH] Token refreshed");
         }
-      })
-      .catch((error) => {
-        console.error("[AUTH] Unexpected error checking session:", error);
-        // Fail gracefully - allow user to still see auth form
       });
+      subscription = authSubscription;
+
+      // Then check existing session with explicit error handling
+      supabase.auth.getSession()
+        .then(({ data: { session }, error }) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:114',message:'getSession result',data:{hasSession:!!session,hasError:!!error,errorMessage:error?.message,userId:session?.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          if (error) {
+            console.error("[AUTH] Session check error:", error.message);
+            // Don't show error to user - they might just not be logged in
+            // Only log for debugging
+          }
+          if (session) {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:121',message:'Existing session found, navigating to home',data:{userId:session.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            console.log("[AUTH] Existing session found, navigating to home");
+            navigate("/");
+          } else {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:124',message:'No existing session, showing auth form',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            console.log("[AUTH] No existing session, showing auth form");
+          }
+        })
+        .catch((error) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:127',message:'Unexpected error checking session',data:{errorMessage:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          console.error("[AUTH] Unexpected error checking session:", error);
+          // Fail gracefully - allow user to still see auth form
+        });
+    } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:132',message:'Error initializing Supabase auth',data:{errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      console.error("[AUTH] Error initializing Supabase auth:", error);
+      // Show user-friendly error message
+      setNotification({
+        type: 'error',
+        message: 'Unable to connect to authentication service. Please check your connection and try again.'
+      });
+    }
 
     return () => {
       console.log("[AUTH] Cleaning up auth state listener");
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, [navigate]);
 
@@ -240,8 +282,14 @@ const Auth = () => {
       }
     } catch (error: any) {
       console.error("[AUTH] Auth error caught:", error);
-      const friendlyMessage = getErrorMessage(error);
-      showNotification('error', friendlyMessage);
+      // Check if error is due to Supabase client not being initialized
+      if (error?.message?.includes('Supabase configuration is invalid') || 
+          error?.message?.includes('Failed to initialize Supabase client')) {
+        showNotification('error', 'Authentication service is not properly configured. Please contact support.');
+      } else {
+        const friendlyMessage = getErrorMessage(error);
+        showNotification('error', friendlyMessage);
+      }
       setLoading(false);
     }
   };
@@ -262,6 +310,9 @@ const Auth = () => {
     </video>
   ) : null;
 
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:265',message:'Auth component rendering',data:{isLogin,loading,hasNotification:!!notification,pathname:window.location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 flex items-center justify-center p-3 sm:p-4 relative overflow-hidden min-h-0">

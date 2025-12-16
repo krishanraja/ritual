@@ -23,11 +23,20 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
 
   // Only generate code when user explicitly confirms - NOT on dialog open
   const handleCreateSpace = async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CreateCoupleDialog.tsx:25',message:'handleCreateSpace called',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     setLoading(true);
     setError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CreateCoupleDialog.tsx:29',message:'getUser result in CreateCoupleDialog',data:{hasUser:!!user,userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       if (!user) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CreateCoupleDialog.tsx:31',message:'No user found, showing error',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         setError("Please sign in first");
         setLoading(false);
         return;

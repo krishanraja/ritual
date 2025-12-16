@@ -190,6 +190,9 @@ export default function Landing() {
 
   // Single source of truth for current view
   const currentView = useMemo((): ViewType => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:192',message:'currentView calculation',data:{loading,user:!!user,userId:user?.id,couple:!!couple,coupleId:couple?.id,partnerTwo:!!couple?.partner_two,cycleState,hasKnownSession},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     if (loading || (couple && surpriseLoading)) return 'loading';
     if (!user) return 'marketing';
     if (!couple) return 'welcome';
@@ -207,7 +210,7 @@ export default function Landing() {
       default:
         return 'dashboard';
     }
-  }, [loading, surpriseLoading, user, couple, cycleState]);
+  }, [loading, surpriseLoading, user, couple, cycleState, hasKnownSession]);
 
   // Retry synthesis handler
   const handleRetrySynthesis = useCallback(async () => {
@@ -635,7 +638,15 @@ export default function Landing() {
           
           <motion.div variants={staggerItem} className="w-full max-w-sm space-y-3 flex-shrink-0">
             <Button 
-              onClick={() => navigate('/auth')} 
+              onClick={() => {
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:638',message:'Start New Ritual button clicked',data:{user:!!user,userId:user?.id,currentView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+                navigate('/auth');
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:640',message:'Navigate to /auth called',data:{pathname:window.location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+              }} 
               size="lg" 
               className="w-full h-12 sm:h-14 text-base bg-gradient-ritual text-white"
             >
@@ -704,7 +715,12 @@ export default function Landing() {
             </div>
             
             <div className="space-y-2">
-              <Button onClick={() => setCreateOpen(true)} className="w-full bg-gradient-ritual text-white h-12 rounded-xl">
+              <Button onClick={() => {
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:707',message:'Start a Ritual Space button clicked',data:{user:!!user,userId:user?.id,currentView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+                setCreateOpen(true);
+              }} className="w-full bg-gradient-ritual text-white h-12 rounded-xl">
                 <Heart className="w-4 h-4 mr-2" />Start a Ritual Space
               </Button>
               <Button onClick={() => setJoinOpen(true)} variant="outline" className="w-full h-12 rounded-xl">

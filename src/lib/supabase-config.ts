@@ -185,8 +185,16 @@ export function validateSupabaseConfig(): {
   
   // Additional validation - normalize URL if protocol is missing or wrong
   let urlToValidate = urlResult.value!.trim();
-  // Auto-fix common issues: add https:// if protocol is missing, or convert http:// to https://
-  if (!urlToValidate.match(/^https?:\/\//)) {
+  // Auto-fix common issues: fix malformed protocols, add https:// if protocol is missing, or convert http:// to https://
+  if (urlToValidate.startsWith('ttps://')) {
+    // Fix missing "h" in "https://"
+    console.warn('[Supabase Config] URL has malformed protocol (ttps://), fixing to https://');
+    urlToValidate = 'https://' + urlToValidate.substring(7); // Remove "ttps://" and prepend "https://"
+  } else if (urlToValidate.startsWith('ttp://')) {
+    // Fix missing "h" in "http://"
+    console.warn('[Supabase Config] URL has malformed protocol (ttp://), fixing to https://');
+    urlToValidate = 'https://' + urlToValidate.substring(6); // Remove "ttp://" and prepend "https://"
+  } else if (!urlToValidate.match(/^https?:\/\//)) {
     console.warn('[Supabase Config] URL missing protocol, adding https://');
     urlToValidate = 'https://' + urlToValidate;
   } else if (urlToValidate.startsWith('http://')) {
