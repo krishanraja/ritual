@@ -98,23 +98,41 @@ const Auth = () => {
   useEffect(() => {
     // Set up listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth event on /auth:", event);
+      console.log("[AUTH] Auth state change event:", event, "has session:", !!session);
       if (session) {
+        console.log("[AUTH] Session detected, navigating to home");
         navigate("/");
+      } else if (event === 'SIGNED_OUT') {
+        console.log("[AUTH] User signed out");
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log("[AUTH] Token refreshed");
       }
     });
 
-    // Then check existing session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.log("Auth page session check error:", error.message);
-      }
-      if (session) {
-        navigate("/");
-      }
-    });
+    // Then check existing session with explicit error handling
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) {
+          console.error("[AUTH] Session check error:", error.message);
+          // Don't show error to user - they might just not be logged in
+          // Only log for debugging
+        }
+        if (session) {
+          console.log("[AUTH] Existing session found, navigating to home");
+          navigate("/");
+        } else {
+          console.log("[AUTH] No existing session, showing auth form");
+        }
+      })
+      .catch((error) => {
+        console.error("[AUTH] Unexpected error checking session:", error);
+        // Fail gracefully - allow user to still see auth form
+      });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log("[AUTH] Cleaning up auth state listener");
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
@@ -176,14 +194,23 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        console.log("[AUTH] Attempting sign in for:", trimmedEmail);
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: trimmedEmail,
           password,
         });
-        if (error) throw error;
+        
+        if (error) {
+          console.error("[AUTH] Sign in error:", error.message);
+          throw error;
+        }
+        
+        console.log("[AUTH] Sign in successful, user:", data.user?.id);
         // Success - navigation will happen via onAuthStateChange
+        // Note: Don't set loading to false - let navigation handle it
       } else {
-        const { error } = await supabase.auth.signUp({
+        console.log("[AUTH] Attempting sign up for:", trimmedEmail);
+        const { data, error } = await supabase.auth.signUp({
           email: trimmedEmail,
           password,
           options: {
@@ -193,15 +220,30 @@ const Auth = () => {
             },
           },
         });
-        if (error) throw error;
+        
+        if (error) {
+          console.error("[AUTH] Sign up error:", error.message);
+          throw error;
+        }
+        
+        console.log("[AUTH] Sign up successful, user:", data.user?.id);
+        
+        // Check if email confirmation is required
+        if (data.user && !data.session) {
+          showNotification('info', 'Please check your email to confirm your account before signing in.');
+          setLoading(false);
+          return;
+        }
+        
         // Success - navigation will happen via onAuthStateChange
+        // Note: Don't set loading to false - let navigation handle it
       }
     } catch (error: any) {
+      console.error("[AUTH] Auth error caught:", error);
       const friendlyMessage = getErrorMessage(error);
       showNotification('error', friendlyMessage);
       setLoading(false);
     }
-    // Note: Don't set loading to false on success - let navigation handle it
   };
 
   // Mobile video background component

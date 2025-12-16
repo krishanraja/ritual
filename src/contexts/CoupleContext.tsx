@@ -25,11 +25,17 @@ const CONTEXT_VERSION = '2024-12-15-v6';
 const checkCachedSession = (): boolean => {
   try {
     // Use project ID from environment variable to construct storage key
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'ffowyysujkzwxisjckxh';
+    // Fail loudly if project ID is missing (no hardcoded fallback for multi-project safety)
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    if (!projectId) {
+      console.warn('[AUTH] VITE_SUPABASE_PROJECT_ID not set, cannot check cached session');
+      return false;
+    }
     const storageKey = `sb-${projectId}-auth-token`;
     const cached = localStorage.getItem(storageKey);
     return !!cached;
-  } catch {
+  } catch (error) {
+    console.warn('[AUTH] Error checking cached session:', error);
     return false;
   }
 };
@@ -66,14 +72,33 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data } = await supabase
+      console.log('[PROFILE] Fetching profile for user:', userId);
+      const { data, error } = await supabase
         .from('profiles')
         .select('name')
         .eq('id', userId)
         .single();
-      if (data) setUserProfile(data);
+      
+      if (error) {
+        // Profile might not exist yet - this is OK for new users
+        if (error.code === 'PGRST116') {
+          console.warn('[PROFILE] Profile not found for user:', userId, '- will be created by trigger');
+          // Profile should be created by handle_new_user trigger
+          // If it's still missing, we'll handle it in onboarding
+        } else {
+          console.error('[PROFILE] Error fetching profile:', error.message);
+        }
+        return;
+      }
+      
+      if (data) {
+        console.log('[PROFILE] Profile found:', data.name);
+        setUserProfile(data);
+      } else {
+        console.warn('[PROFILE] Profile query returned no data for user:', userId);
+      }
     } catch (error) {
-      console.error('[PROFILE] Error fetching user profile:', error);
+      console.error('[PROFILE] Unexpected error fetching profile:', error);
     }
   };
 

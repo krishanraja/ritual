@@ -6,8 +6,11 @@ Ritual uses Supabase Edge Functions (Deno runtime) for backend logic.
 
 ### Base URL
 ```
-https://gdojuuzlxpxftsfkmneu.supabase.co/functions/v1
+{SUPABASE_URL}/functions/v1
 ```
+
+**Note:** Replace `{SUPABASE_URL}` with your Supabase project URL (e.g., `https://your-project-id.supabase.co`). 
+The URL is automatically provided to edge functions via the `SUPABASE_URL` environment variable.
 
 ### Authentication
 All edge functions require JWT authentication:
