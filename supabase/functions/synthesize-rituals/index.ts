@@ -271,10 +271,10 @@ serve(async (req) => {
   try {
     log('info', 'Function invoked', { requestId, method: req.method });
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      log('error', 'LOVABLE_API_KEY not configured', { requestId });
-      throw new Error('LOVABLE_API_KEY not configured');
+    const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
+    if (!GOOGLE_AI_API_KEY) {
+      log('error', 'GOOGLE_AI_API_KEY not configured', { requestId });
+      throw new Error('GOOGLE_AI_API_KEY not configured');
     }
 
     // Validate Supabase environment variables
@@ -465,15 +465,19 @@ Return ONE ritual as JSON:
   "why": "One sentence explaining which intimacy dimensions this targets and why it's perfect for them"
 }`;
 
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_API_KEY}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [{ role: 'user', content: swapPrompt }],
+          contents: [{ parts: [{ text: swapPrompt }] }],
+          generationConfig: {
+            temperature: 0.8,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 4096,
+          }
         }),
       });
 
@@ -484,19 +488,13 @@ Return ONE ritual as JSON:
             { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        if (response.status === 402) {
-          return new Response(
-            JSON.stringify({ error: 'AI credits depleted. Please add credits to continue.' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
         const errorText = await response.text();
         log('error', 'AI API error on swap', { requestId, status: response.status, error: errorText });
         throw new Error(`AI API error: ${response.status}`);
       }
 
       const data = await response.json();
-      let content = data.choices[0].message.content;
+      let content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const ritual = JSON.parse(content);
 
@@ -618,15 +616,20 @@ Return JSON array:
   }
 ]`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Use Gemini 2.0 Flash for main synthesis (good balance of quality and speed)
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [{ role: 'user', content: fullPrompt }],
+        contents: [{ parts: [{ text: fullPrompt }] }],
+        generationConfig: {
+          temperature: 0.9,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 8192,
+        }
       }),
     });
 
@@ -637,21 +640,15 @@ Return JSON array:
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI credits depleted. Please add credits to continue.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-        const errorText = await response.text();
-        log('error', 'AI API error on synthesis', { requestId, status: response.status, error: errorText });
-        throw new Error(`AI API error: ${response.status}`);
-      }
+      const errorText = await response.text();
+      log('error', 'AI API error on synthesis', { requestId, status: response.status, error: errorText });
+      throw new Error(`AI API error: ${response.status}`);
+    }
 
-      const data = await response.json();
-      let content = data.choices[0].message.content;
-      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const rituals = JSON.parse(content);
+    const data = await response.json();
+    let content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const rituals = JSON.parse(content);
 
       const executionTime = Date.now() - startTime;
       log('info', 'Synthesis completed', { requestId, ritualsCount: rituals.length, executionTimeMs: executionTime });

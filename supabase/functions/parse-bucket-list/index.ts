@@ -26,10 +26,10 @@ serve(async (req) => {
   try {
     log('info', 'Function invoked', { requestId });
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      log('error', 'LOVABLE_API_KEY not configured', { requestId });
-      throw new Error('LOVABLE_API_KEY not configured');
+    const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
+    if (!GOOGLE_AI_API_KEY) {
+      log('error', 'GOOGLE_AI_API_KEY not configured', { requestId });
+      throw new Error('GOOGLE_AI_API_KEY not configured');
     }
 
     const { imageData } = await req.json();
@@ -60,21 +60,29 @@ serve(async (req) => {
 
     log('info', 'Processing bucket list image', { requestId, imageDataLength: imageData.length });
 
-    // Use Gemini's vision capability to extract text
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Extract base64 data and mime type from data URL
+    const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) {
+      log('warn', 'Invalid data URL format', { requestId });
+      return new Response(
+        JSON.stringify({ error: 'Invalid data URL format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+
+    // Use Google Gemini API directly
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
+        contents: [
           {
-            role: 'user',
-            content: [
+            parts: [
               {
-                type: 'text',
                 text: `You are extracting bucket list items from an image. 
                 
 Look at this image and extract all bucket list items, goals, or wishlist items you can see.
@@ -92,14 +100,20 @@ Return ONLY a JSON array of strings, nothing else:
 If you cannot find any list items, return an empty array: []`
               },
               {
-                type: 'image_url',
-                image_url: {
-                  url: imageData
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data
                 }
               }
             ]
           }
         ],
+        generationConfig: {
+          temperature: 0.2,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        }
       }),
     });
 
@@ -111,20 +125,15 @@ If you cannot find any list items, return an empty array: []`
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
-        log('warn', 'AI credits depleted', { requestId });
-        return new Response(
-          JSON.stringify({ error: 'AI credits depleted.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
       const errorText = await response.text();
       log('error', 'AI API error', { requestId, status: response.status, error: errorText });
       throw new Error(`AI API error: ${response.status}`);
     }
 
     const data = await response.json();
-    let content = data.choices[0].message.content;
+    
+    // Extract text from Gemini response format
+    let content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
     // Clean up the response
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
