@@ -59,7 +59,7 @@ export function CardDrawInput({ onComplete, cycleId }: CardDrawInputProps) {
     fetchInitialProgress();
   }, [cycleId, couple, isPartnerOne, user]);
 
-  // Real-time subscription for partner's progress updates
+  // Real-time subscription for partner's progress updates (stable channel name)
   useEffect(() => {
     if (!cycleId || !couple || !user) return;
 
@@ -90,7 +90,9 @@ export function CardDrawInput({ onComplete, cycleId }: CardDrawInputProps) {
         }
       )
       .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
+        if (status === 'SUBSCRIBED') {
+          console.log('[CardDrawInput] ✅ Realtime subscription active');
+        } else if (status === 'CHANNEL_ERROR') {
           console.error('[CardDrawInput] Realtime channel error');
         }
       });

@@ -24,30 +24,10 @@ const validateName = (name: string): boolean => {
   return name.trim().length >= 2 && name.trim().length <= 100;
 };
 
+import { getUserFriendlyError } from '@/utils/errorHandling';
+
 const getErrorMessage = (error: any): string => {
-  const message = error?.message || 'An unexpected error occurred';
-  
-  // User-friendly error messages
-  if (message.includes('Invalid login credentials') || message.includes('Invalid email or password')) {
-    return 'Invalid email or password. Please check your credentials and try again.';
-  }
-  if (message.includes('User already registered') || message.includes('already registered')) {
-    return 'An account with this email already exists. Please sign in instead.';
-  }
-  if (message.includes('Email rate limit') || message.includes('rate limit')) {
-    return 'Too many requests. Please wait a moment and try again.';
-  }
-  if (message.includes('Password should be at least')) {
-    return 'Password must be at least 8 characters long.';
-  }
-  if (message.includes('network') || message.includes('fetch')) {
-    return 'Network error. Please check your connection and try again.';
-  }
-  if (message.includes('Email not confirmed')) {
-    return 'Please check your email and confirm your account.';
-  }
-  
-  return message;
+  return getUserFriendlyError(error);
 };
 
 const Auth = () => {

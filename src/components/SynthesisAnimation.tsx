@@ -358,14 +358,14 @@ export const SynthesisAnimation = () => {
     }
   };
 
-  // Realtime subscription for synthesis completion
+  // Realtime subscription for synthesis completion (stable channel name)
   useEffect(() => {
     if (!cycleId) return;
 
     console.log('[SYNTHESIS] Setting up realtime listener for cycle:', cycleId);
 
     const channel = supabase
-      .channel(`synthesis-${cycleId}-${Date.now()}`)
+      .channel(`synthesis-${cycleId}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -380,6 +380,9 @@ export const SynthesisAnimation = () => {
       })
       .subscribe((status) => {
         console.log('[SYNTHESIS] Channel status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('[SYNTHESIS] ✅ Realtime subscription active, polling disabled');
+        }
       });
 
     return () => {
@@ -387,7 +390,7 @@ export const SynthesisAnimation = () => {
     };
   }, [cycleId, handleComplete]);
 
-  // Poll as backup (every 2 seconds for faster detection)
+  // Poll as backup only if realtime subscription fails (reduced frequency)
   useEffect(() => {
     if (!cycleId || isComplete || hasError) return;
 

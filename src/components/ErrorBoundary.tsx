@@ -40,17 +40,15 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+    // Use centralized error logging
+    import('@/utils/errorHandling').then(({ logError }) => {
+      logError(error, 'ErrorBoundary');
+    });
+    
     this.setState({
       error,
       errorInfo,
     });
-
-    // Log to error tracking service (e.g., Sentry) in production
-    if (import.meta.env.PROD) {
-      // TODO: Add Sentry or similar error tracking
-      // Sentry.captureException(error, { contexts: { react: errorInfo } });
-    }
   }
 
   handleReset = () => {

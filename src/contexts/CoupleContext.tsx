@@ -167,31 +167,25 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
         }, 10000);
       });
       
-      // Step 1: Fetch couple (check both as partner_one and partner_two)
-      const coupleQueryPromise = Promise.all([
-        supabase
-          .from('couples')
-          .select('*')
-          .eq('partner_one', userId)
-          .eq('is_active', true)
-          .maybeSingle(),
-        supabase
-          .from('couples')
-          .select('*')
-          .eq('partner_two', userId)
-          .eq('is_active', true)
-          .maybeSingle(),
+      // Step 1: Fetch couple (optimized single query using OR instead of two separate queries)
+      const coupleQueryPromise = supabase
+        .from('couples')
+        .select('*')
+        .eq('is_active', true)
+        .or(`partner_one.eq.${userId},partner_two.eq.${userId}`)
+        .maybeSingle();
+
+      const { data: coupleData, error: coupleError } = await Promise.race([
+        coupleQueryPromise,
+        timeoutPromise,
       ]);
-      
-      const [result1, result2] = await Promise.race([coupleQueryPromise, timeoutPromise]);
-      const { data: asPartnerOne, error: err1 } = result1;
-      const { data: asPartnerTwo, error: err2 } = result2;
 
-      console.log('[COUPLE] Query results - asPartnerOne:', asPartnerOne?.id, 'asPartnerTwo:', asPartnerTwo?.id);
-      if (err1) console.error('[COUPLE] Error fetching as partner_one:', err1);
-      if (err2) console.error('[COUPLE] Error fetching as partner_two:', err2);
-
-      const coupleData = asPartnerOne || asPartnerTwo;
+      if (coupleError) {
+        console.error('[COUPLE] Error fetching couple:', coupleError);
+        const duration = Date.now() - startTime;
+        console.log(`[DIAG] fetchCouple completed in ${duration}ms (error)`);
+        return null;
+      }
       
       if (!coupleData) {
         console.log('[COUPLE] No active couple found for user');
@@ -294,16 +288,22 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // FIX #3: Use couple's preferred_city for timezone-aware week calculation
-      // Fetch couple to get preferred_city
-      const coupleDataPromise = supabase
-        .from('couples')
-        .select('preferred_city')
-        .eq('id', coupleId)
-        .single();
+      // Optimize: Use couple from context if available, otherwise fetch
+      let preferredCity: 'London' | 'Sydney' | 'Melbourne' | 'New York' = 'New York';
       
-      const { data: coupleData } = await Promise.race([coupleDataPromise, timeoutPromise]);
-      
-      const preferredCity = (coupleData?.preferred_city || 'New York') as 'London' | 'Sydney' | 'Melbourne' | 'New York';
+      if (couple?.id === coupleId && couple.preferred_city) {
+        preferredCity = couple.preferred_city as 'London' | 'Sydney' | 'Melbourne' | 'New York';
+      } else {
+        // Fallback: fetch couple if not in context
+        const coupleDataPromise = supabase
+          .from('couples')
+          .select('preferred_city')
+          .eq('id', coupleId)
+          .single();
+        
+        const { data: coupleData } = await Promise.race([coupleDataPromise, timeoutPromise]);
+        preferredCity = (coupleData?.preferred_city || 'New York') as 'London' | 'Sydney' | 'Melbourne' | 'New York';
+      }
       
       // Use timezone-aware week calculation
       const { getWeekStartDate } = await import('@/utils/timezoneUtils');
@@ -653,13 +653,13 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
         }
       }, 12000);
 
-      // Realtime subscriptions with improved sync and detailed logging
+      // Realtime subscriptions with stable channel names (no timestamps to prevent memory leaks)
       // Note: These are set up after data fetch starts, but don't block loading state
-      const channelName = `couples-${user.id}-${Date.now()}`;
-      console.log('[REALTIME] Setting up channel:', channelName);
+      const couplesChannelName = `couples-${user.id}`;
+      console.log('[REALTIME] Setting up channel:', couplesChannelName);
       
       const couplesChannel = supabase
-        .channel(channelName)
+        .channel(couplesChannelName)
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
@@ -667,8 +667,6 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
         }, async (payload: any) => {
           console.log('[REALTIME] === Couples change detected ===');
           console.log('[REALTIME] Event type:', payload.eventType);
-          console.log('[REALTIME] Old record:', JSON.stringify(payload.old, null, 2));
-          console.log('[REALTIME] New record:', JSON.stringify(payload.new, null, 2));
           
           // Check if this update is relevant to this user
           const isRelevant = 
@@ -676,8 +674,6 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
             payload.new?.partner_two === user.id ||
             payload.old?.partner_one === user.id ||
             payload.old?.partner_two === user.id;
-          
-          console.log('[REALTIME] Is relevant to user:', isRelevant);
           
           if (!isRelevant) {
             console.log('[REALTIME] Ignoring - not relevant to this user');
@@ -690,32 +686,13 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
             payload.new?.partner_two && 
             !payload.old?.partner_two;
           
-          console.log('[REALTIME] Partner joined?', partnerJoined);
-          
           if (partnerJoined) {
             console.log('[REALTIME] 🎉 Partner joined! New partner_two:', payload.new.partner_two);
-            console.log('[REALTIME] Refreshing couple data multiple times...');
-            
-            // Immediate refresh
+            // Single refresh is sufficient - realtime ensures consistency
             await fetchCouple(user.id);
-            console.log('[REALTIME] First refresh complete');
-            
-            // Delayed refreshes for consistency
-            setTimeout(async () => {
-              console.log('[REALTIME] Second refresh (300ms)');
-              await fetchCouple(user.id);
-            }, 300);
-            
-            setTimeout(async () => {
-              console.log('[REALTIME] Third refresh (800ms)');
-              await fetchCouple(user.id);
-            }, 800);
-            
-            // Navigate both users to /input
-            console.log('[REALTIME] Navigating to /input');
             navigate('/input');
           } else if (payload.eventType === 'UPDATE') {
-            console.log('[REALTIME] Couple updated (not partner join), refreshing...');
+            console.log('[REALTIME] Couple updated, refreshing...');
             await fetchCouple(user.id);
           } else if (payload.eventType === 'DELETE') {
             console.log('[REALTIME] Couple deleted, clearing state...');
@@ -734,8 +711,9 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
           }
         });
 
+      const cyclesChannelName = `cycles-${user.id}`;
       const cyclesChannel = supabase
-        .channel(`cycles-${user.id}-${Date.now()}`)
+        .channel(cyclesChannelName)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_cycles' }, async (payload: any) => {
           console.log('[REALTIME] Cycles change:', payload.eventType, 'cycle id:', payload.new?.id);
           const oldData = payload.old;

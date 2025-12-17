@@ -12,6 +12,7 @@ import { Camera, X, Loader2, Check, ImagePlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { getUserFriendlyError } from '@/utils/errorHandling';
 
 interface PhotoCaptureProps {
   coupleId: string;
@@ -97,28 +98,66 @@ export function PhotoCapture({ coupleId, onUploadComplete, onError, className }:
     await handleUpload(file);
   };
 
+  // Upload with retry logic
+  const uploadWithRetry = async (
+    filename: string,
+    blob: Blob,
+    retries = 3,
+    delay = 1000
+  ): Promise<{ data: any; error: any }> => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const { data, error } = await supabase.storage
+          .from('ritual-photos')
+          .upload(filename, blob, {
+            contentType: 'image/jpeg',
+            upsert: false,
+          });
+
+        if (!error) {
+          return { data, error: null };
+        }
+
+        // Don't retry on certain errors (e.g., file already exists)
+        if (error.statusCode === '409' || error.statusCode === '400') {
+          throw error;
+        }
+
+        // If last attempt, throw error
+        if (attempt === retries) {
+          throw error;
+        }
+
+        // Wait before retrying (exponential backoff)
+        await new Promise((resolve) => setTimeout(resolve, delay * attempt));
+        console.log(`[PhotoCapture] Retry attempt ${attempt + 1}/${retries}...`);
+      } catch (error) {
+        if (attempt === retries) {
+          return { data: null, error };
+        }
+      }
+    }
+    return { data: null, error: new Error('Upload failed after retries') };
+  };
+
   const handleUpload = async (file: File) => {
     setUploading(true);
     setUploadProgress(10);
 
     try {
-      // Compress image
+      // Compress image with optimized settings
       setUploadProgress(20);
-      const compressedBlob = await compressImage(file);
+      const compressedBlob = await compressImage(file, 1200, 0.85);
       setUploadProgress(40);
 
-      // Generate unique filename
+      // Generate unique filename with UUID to prevent conflicts
       const timestamp = Date.now();
-      const filename = `${coupleId}/${timestamp}.jpg`;
+      const randomId = crypto.randomUUID().slice(0, 8);
+      const filename = `${coupleId}/${timestamp}-${randomId}.jpg`;
 
-      // Upload to Supabase storage
+      // Upload to Supabase storage with retry logic
       setUploadProgress(60);
-      const { data, error } = await supabase.storage
-        .from('ritual-photos')
-        .upload(filename, compressedBlob, {
-          contentType: 'image/jpeg',
-          upsert: false,
-        });
+      const { data, error } = await uploadWithRetry(filename, compressedBlob);
 
       if (error) throw error;
 
@@ -136,7 +175,8 @@ export function PhotoCapture({ coupleId, onUploadComplete, onError, className }:
       onUploadComplete(urlData.publicUrl);
     } catch (error) {
       console.error('[PhotoCapture] Upload failed:', error);
-      onError?.(error instanceof Error ? error.message : 'Upload failed');
+      const errorMessage = getUserFriendlyError(error);
+      onError?.(errorMessage);
       setPreview(null);
     } finally {
       setUploading(false);

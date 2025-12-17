@@ -52,10 +52,12 @@ export const WaitingForPartner = ({
   // FIX #2: Abandoned Input Detection
   const [abandonedWarning, setAbandonedWarning] = useState<string | null>(null);
 
-  // Listen for partner completion in realtime
+  // Listen for partner completion in realtime (stable channel name)
   useEffect(() => {
+    if (!currentCycleId) return;
+    
     const channel = supabase
-      .channel(`cycle-updates-${currentCycleId}-${Date.now()}`)
+      .channel(`cycle-updates-${currentCycleId}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -91,6 +93,9 @@ export const WaitingForPartner = ({
       })
       .subscribe((status) => {
         console.log('[WaitingForPartner] Channel status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('[WaitingForPartner] ✅ Realtime subscription active');
+        }
       });
 
     // FIX #2: Check for abandoned input (24+ hours)

@@ -312,7 +312,7 @@ export default function Landing() {
       }
     }, 3000);
 
-    // Also set up realtime subscription as backup
+    // Realtime subscription for synthesis completion (stable channel name)
     const channel = supabase
       .channel(`landing-synthesis-${currentCycle.id}`)
       .on('postgres_changes', {
@@ -327,7 +327,11 @@ export default function Landing() {
           clearInterval(pollInterval);
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[LANDING] ✅ Realtime subscription active');
+        }
+      });
 
     return () => {
       clearInterval(pollInterval);
