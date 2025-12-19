@@ -16,43 +16,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    // Optimize chunk splitting for better caching
+    // Let Vite handle chunk splitting automatically to ensure correct dependency order
+    // Manual chunk splitting was causing "Cannot read properties of undefined (reading 'forwardRef')"
+    // because chunks loaded in wrong order
     rollupOptions: {
       output: {
-        // Manual chunk splitting strategy
-        // IMPORTANT: React and all React-dependent libraries MUST be in the same chunk
-        // to prevent "Cannot read properties of undefined (reading 'forwardRef')" errors
-        // caused by chunk loading order issues
-        manualChunks: (id) => {
-          // React ecosystem: React, React-DOM, and ALL libraries that depend on React
-          // must be bundled together to ensure React is initialized before consumers
-          if (
-            id.includes('node_modules/react') ||
-            id.includes('node_modules/react-dom') ||
-            id.includes('node_modules/react-router') ||
-            id.includes('node_modules/@radix-ui') ||
-            id.includes('node_modules/framer-motion') ||
-            id.includes('node_modules/@tanstack') ||
-            id.includes('node_modules/cmdk') ||
-            id.includes('node_modules/vaul') ||
-            id.includes('node_modules/react-day-picker') ||
-            id.includes('node_modules/react-hook-form') ||
-            id.includes('node_modules/react-resizable-panels') ||
-            id.includes('node_modules/embla-carousel-react') ||
-            id.includes('node_modules/recharts') ||
-            id.includes('node_modules/input-otp')
-          ) {
-            return 'react-vendor';
-          }
-          // Supabase (doesn't depend on React at runtime)
-          if (id.includes('node_modules/@supabase')) {
-            return 'supabase-vendor';
-          }
-          // Other node_modules (utilities that don't depend on React)
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-        },
         // Optimize chunk file names for better caching
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
@@ -69,17 +37,14 @@ export default defineConfig(({ mode }) => ({
         },
       },
     },
-    // Enable minification (using esbuild - faster and included with Vite)
+    // Enable minification
     minify: 'esbuild',
-    // Note: esbuild doesn't support drop_console, but console.logs are typically
-    // removed in production builds anyway. If you need advanced minification options,
-    // install terser: npm install -D terser and change minify to 'terser'
-    // Increase chunk size warning limit (we're splitting manually)
+    // Increase chunk size warning limit
     chunkSizeWarningLimit: 1000,
     // Enable source maps only in development
     sourcemap: mode === 'development',
     // Optimize asset inlining threshold
-    assetsInlineLimit: 4096, // 4kb
+    assetsInlineLimit: 4096,
   },
   // Optimize dependencies pre-bundling
   optimizeDeps: {
