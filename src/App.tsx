@@ -18,6 +18,10 @@ import { AppShell } from "@/components/AppShell";
 import { SplashScreen } from "@/components/SplashScreen";
 import { ContextualFeedback } from "@/components/ContextualFeedback";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ProtectedRoute, PublicRoute } from "@/components/ProtectedRoute";
+import { SessionExpiredBanner } from "@/components/SessionExpiredBanner";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { AuthDebugPanel } from "@/components/AuthDebugPanel";
 
 // Critical: Landing page loads immediately for fast LCP
 import Landing from "./pages/Landing";
@@ -76,16 +80,46 @@ const AnimatedRoutes = memo(() => {
   return (
     <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>
+        {/* Public routes */}
         <Route path="/" element={<Landing />} />
-        <Route path="/auth" element={<Suspense fallback={<LazyFallback />}><Auth /></Suspense>} />
+        <Route path="/auth" element={
+          <PublicRoute>
+            <Suspense fallback={<LazyFallback />}><Auth /></Suspense>
+          </PublicRoute>
+        } />
         
-        <Route path="/input" element={<Suspense fallback={<LazyFallback />}><QuickInput /></Suspense>} />
-        <Route path="/picker" element={<Suspense fallback={<LazyFallback />}><RitualPicker /></Suspense>} />
-        <Route path="/rituals" element={<Suspense fallback={<LazyFallback />}><RitualCards /></Suspense>} />
-        <Route path="/memories" element={<Suspense fallback={<LazyFallback />}><Memories /></Suspense>} />
+        {/* Protected routes - require authenticated couple with partner */}
+        <Route path="/input" element={
+          <ProtectedRoute requires="paired">
+            <Suspense fallback={<LazyFallback />}><QuickInput /></Suspense>
+          </ProtectedRoute>
+        } />
+        <Route path="/picker" element={
+          <ProtectedRoute requires="paired">
+            <Suspense fallback={<LazyFallback />}><RitualPicker /></Suspense>
+          </ProtectedRoute>
+        } />
+        <Route path="/rituals" element={
+          <ProtectedRoute requires="paired">
+            <Suspense fallback={<LazyFallback />}><RitualCards /></Suspense>
+          </ProtectedRoute>
+        } />
+        <Route path="/memories" element={
+          <ProtectedRoute requires="paired">
+            <Suspense fallback={<LazyFallback />}><Memories /></Suspense>
+          </ProtectedRoute>
+        } />
         {/* Redirect old history route to memories */}
         <Route path="/history" element={<Navigate to="/memories" replace />} />
-        <Route path="/profile" element={<Suspense fallback={<LazyFallback />}><Profile /></Suspense>} />
+        
+        {/* Protected routes - require authentication only */}
+        <Route path="/profile" element={
+          <ProtectedRoute requires="auth">
+            <Suspense fallback={<LazyFallback />}><Profile /></Suspense>
+          </ProtectedRoute>
+        } />
+        
+        {/* Public pages */}
         <Route path="/contact" element={<Suspense fallback={<LazyFallback />}><Contact /></Suspense>} />
         <Route path="/terms" element={<Suspense fallback={<LazyFallback />}><Terms /></Suspense>} />
         <Route path="/privacy" element={<Suspense fallback={<LazyFallback />}><Privacy /></Suspense>} />
@@ -110,10 +144,13 @@ const App = () => (
           <CoupleProvider>
             <AnalyticsProvider>
               <SplashScreen>
+                <OfflineBanner />
+                <SessionExpiredBanner />
                 <AppShell>
                   <AnimatedRoutes />
                   <ContextualFeedback />
                 </AppShell>
+                <AuthDebugPanel />
               </SplashScreen>
             </AnalyticsProvider>
           </CoupleProvider>

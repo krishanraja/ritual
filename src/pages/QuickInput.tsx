@@ -13,20 +13,86 @@
  * @updated 2025-12-15 - Fixed two-partner flow reliability
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
 import { CardDrawInput } from '@/components/CardDrawInput';
 import { useSEO } from '@/hooks/useSEO';
 import { NotificationContainer } from '@/components/InlineNotification';
 import { MOOD_CARDS } from '@/data/moodCards';
+import { logger } from '@/utils/logger';
 
 type Step = 'cards' | 'desire' | 'submitting';
+
+// Local storage key for draft persistence
+const getDraftKey = (userId: string, cycleId: string) => `ritual-input-draft-${userId}-${cycleId}`;
+
+interface DraftData {
+  selectedCards: string[];
+  desire: string;
+  step: Step;
+  timestamp: number;
+}
+
+/**
+ * Save draft to localStorage
+ */
+function saveDraft(userId: string, cycleId: string, data: Omit<DraftData, 'timestamp'>): void {
+  try {
+    const draft: DraftData = { ...data, timestamp: Date.now() };
+    localStorage.setItem(getDraftKey(userId, cycleId), JSON.stringify(draft));
+    logger.debug('[INPUT] Draft saved');
+  } catch (e) {
+    logger.warn('[INPUT] Failed to save draft:', e);
+  }
+}
+
+/**
+ * Load draft from localStorage
+ * Returns null if no valid draft exists or if it's older than 24 hours
+ */
+function loadDraft(userId: string, cycleId: string): DraftData | null {
+  try {
+    const stored = localStorage.getItem(getDraftKey(userId, cycleId));
+    if (!stored) return null;
+    
+    const draft: DraftData = JSON.parse(stored);
+    
+    // Discard drafts older than 24 hours
+    const maxAge = 24 * 60 * 60 * 1000;
+    if (Date.now() - draft.timestamp > maxAge) {
+      localStorage.removeItem(getDraftKey(userId, cycleId));
+      return null;
+    }
+    
+    // Validate draft has required fields
+    if (!Array.isArray(draft.selectedCards)) {
+      return null;
+    }
+    
+    return draft;
+  } catch (e) {
+    logger.warn('[INPUT] Failed to load draft:', e);
+    return null;
+  }
+}
+
+/**
+ * Clear draft from localStorage
+ */
+function clearDraft(userId: string, cycleId: string): void {
+  try {
+    localStorage.removeItem(getDraftKey(userId, cycleId));
+    logger.debug('[INPUT] Draft cleared');
+  } catch (e) {
+    // Ignore
+  }
+}
 
 export default function QuickInput() {
   const { user, couple, currentCycle, loading, refreshCycle } = useCouple();
@@ -38,6 +104,66 @@ export default function QuickInput() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [hasDraft, setHasDraft] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+
+  // Check for and restore draft when cycle ID is set
+  useEffect(() => {
+    if (weeklyCycleId && user?.id && !draftLoaded) {
+      const draft = loadDraft(user.id, weeklyCycleId);
+      if (draft && draft.selectedCards.length > 0) {
+        setHasDraft(true);
+        // Auto-restore if user had made significant progress
+        if (draft.step === 'desire') {
+          setSelectedCards(draft.selectedCards);
+          setDesire(draft.desire || '');
+          setStep(draft.step);
+          setNotification({ type: 'info', message: 'Restored your previous progress' });
+        } else if (draft.selectedCards.length >= 2) {
+          // Show restore prompt for partial progress
+          setNotification({ 
+            type: 'info', 
+            message: `You had ${draft.selectedCards.length} cards selected. Tap to restore.` 
+          });
+        }
+      }
+      setDraftLoaded(true);
+    }
+  }, [weeklyCycleId, user?.id, draftLoaded]);
+
+  // Save draft when cards or desire change
+  const persistDraft = useCallback(() => {
+    if (user?.id && weeklyCycleId && (selectedCards.length > 0 || desire.trim())) {
+      saveDraft(user.id, weeklyCycleId, {
+        selectedCards,
+        desire,
+        step,
+      });
+    }
+  }, [user?.id, weeklyCycleId, selectedCards, desire, step]);
+
+  // Debounced draft save on changes
+  useEffect(() => {
+    if (!draftLoaded) return;
+    const timer = setTimeout(persistDraft, 500);
+    return () => clearTimeout(timer);
+  }, [selectedCards, desire, step, persistDraft, draftLoaded]);
+
+  // Restore draft handler
+  const handleRestoreDraft = () => {
+    if (user?.id && weeklyCycleId) {
+      const draft = loadDraft(user.id, weeklyCycleId);
+      if (draft) {
+        setSelectedCards(draft.selectedCards);
+        setDesire(draft.desire || '');
+        if (draft.step === 'desire') {
+          setStep(draft.step);
+        }
+        setNotification({ type: 'success', message: 'Progress restored!' });
+        setHasDraft(false);
+      }
+    }
+  };
 
   useSEO({
     title: 'Weekly Ritual Input',
@@ -193,7 +319,7 @@ export default function QuickInput() {
     setIsSubmitting(true);
     setSubmitError(null);
     setStep('submitting');
-    console.log('[INPUT] Starting submission flow...');
+    logger.log('[INPUT] Starting submission flow...');
 
     try {
       const isPartnerOne = couple.partner_one === user.id;
@@ -206,7 +332,7 @@ export default function QuickInput() {
         inputType: 'cards',
       };
 
-      console.log('[INPUT] Saving input for', isPartnerOne ? 'partner_one' : 'partner_two');
+      logger.log('[INPUT] Saving input for', isPartnerOne ? 'partner_one' : 'partner_two');
 
       // Step 1: Save the user's input (this must succeed)
       const { error: saveError } = await supabase
@@ -231,11 +357,11 @@ export default function QuickInput() {
           };
           localStorage.setItem(`ritual-state-${user.id}`, JSON.stringify(stateToSave));
         } catch (e) {
-          console.warn('[INPUT] Failed to save state to localStorage:', e);
+          logger.warn('[INPUT] Failed to save state to localStorage:', e);
         }
       }
 
-      console.log('[INPUT] Input saved successfully');
+      logger.log('[INPUT] Input saved successfully');
 
       // Step 2: Check if partner has also submitted
       const { data: cycle, error: fetchError } = await supabase
@@ -245,7 +371,7 @@ export default function QuickInput() {
         .single();
 
       if (fetchError) {
-        console.warn('[INPUT] Could not check partner status:', fetchError);
+        logger.warn('[INPUT] Could not check partner status:', fetchError);
         // Still redirect - input was saved
       }
 
@@ -254,29 +380,32 @@ export default function QuickInput() {
 
       // Step 3: If both partners have submitted and no output yet, trigger synthesis
       if (partnerInput && !alreadyHasOutput) {
-        console.log('[INPUT] Both partners submitted, triggering synthesis in background...');
+        logger.log('[INPUT] Both partners submitted, triggering synthesis in background...');
         
         // Trigger synthesis but DON'T wait for it - let it run in background
         // Use the idempotent trigger-synthesis endpoint
         supabase.functions.invoke('trigger-synthesis', {
           body: { cycleId: weeklyCycleId }
         }).then(result => {
-          console.log('[INPUT] Background synthesis triggered:', result.data?.status);
+          logger.log('[INPUT] Background synthesis triggered:', result.data?.status);
         }).catch(err => {
-          console.error('[INPUT] Background synthesis trigger failed:', err);
+          logger.error('[INPUT] Background synthesis trigger failed:', err);
           // This is fine - it will be retried when user views dashboard
         });
       }
 
-      // Step 4: ALWAYS redirect to dashboard
+      // Step 4: Clear draft and redirect to dashboard
       // The dashboard will show appropriate status based on cycle state
+      if (user?.id && weeklyCycleId) {
+        clearDraft(user.id, weeklyCycleId);
+      }
       await refreshCycle();
       
-      console.log('[INPUT] Redirecting to dashboard');
+      logger.log('[INPUT] Redirecting to dashboard');
       navigate('/');
 
     } catch (error) {
-      console.error('[INPUT] Error:', error);
+      logger.error('[INPUT] Error:', error);
       setSubmitError(error instanceof Error ? error.message : 'Failed to save. Please try again.');
       setStep('desire'); // Go back to allow retry
       setIsSubmitting(false);
@@ -327,10 +456,25 @@ export default function QuickInput() {
       {/* Notification */}
       {notification && (
         <div className="flex-none px-4 pt-2">
-          <NotificationContainer
-            notification={notification}
-            onDismiss={() => setNotification(null)}
-          />
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <NotificationContainer
+                notification={notification}
+                onDismiss={() => setNotification(null)}
+              />
+            </div>
+            {hasDraft && step === 'cards' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRestoreDraft}
+                className="flex-shrink-0"
+              >
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Restore
+              </Button>
+            )}
+          </div>
         </div>
       )}
 

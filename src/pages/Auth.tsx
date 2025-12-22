@@ -25,15 +25,18 @@ const validateName = (name: string): boolean => {
 };
 
 import { getUserFriendlyError } from '@/utils/errorHandling';
+import { logger } from '@/utils/logger';
+import { 
+  trackSignInAttempt, 
+  trackSignInSuccess, 
+  trackSignInError 
+} from '@/utils/authAnalytics';
 
 const getErrorMessage = (error: any): string => {
   return getUserFriendlyError(error);
 };
 
 const Auth = () => {
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:53',message:'Auth component mounted',data:{pathname:window.location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
   const isMobile = useIsMobile();
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [searchParams] = useSearchParams();
@@ -79,29 +82,19 @@ const Auth = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:98',message:'Auth useEffect started - setting up session check',data:{pathname:window.location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-    
     let subscription: { unsubscribe: () => void } | null = null;
     
     try {
       // Set up listener FIRST
       const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:100',message:'onAuthStateChange event',data:{event,hasSession:!!session,userId:session?.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-        console.log("[AUTH] Auth state change event:", event, "has session:", !!session);
+        logger.log("[AUTH] Auth state change event:", event, "has session:", !!session);
         if (session) {
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:103',message:'Session detected, navigating to home',data:{userId:session.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
-          console.log("[AUTH] Session detected, navigating to home");
+          logger.log("[AUTH] Session detected, navigating to home");
           navigate("/");
         } else if (event === 'SIGNED_OUT') {
-          console.log("[AUTH] User signed out");
+          logger.log("[AUTH] User signed out");
         } else if (event === 'TOKEN_REFRESHED') {
-          console.log("[AUTH] Token refreshed");
+          logger.log("[AUTH] Token refreshed");
         }
       });
       subscription = authSubscription;
@@ -109,39 +102,24 @@ const Auth = () => {
       // Then check existing session with explicit error handling
       supabase.auth.getSession()
         .then(({ data: { session }, error }) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:114',message:'getSession result',data:{hasSession:!!session,hasError:!!error,errorMessage:error?.message,userId:session?.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
           if (error) {
-            console.error("[AUTH] Session check error:", error.message);
+            logger.error("[AUTH] Session check error:", error.message);
             // Don't show error to user - they might just not be logged in
             // Only log for debugging
           }
           if (session) {
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:121',message:'Existing session found, navigating to home',data:{userId:session.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
-            console.log("[AUTH] Existing session found, navigating to home");
+            logger.log("[AUTH] Existing session found, navigating to home");
             navigate("/");
           } else {
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:124',message:'No existing session, showing auth form',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
-            console.log("[AUTH] No existing session, showing auth form");
+            logger.log("[AUTH] No existing session, showing auth form");
           }
         })
         .catch((error) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:127',message:'Unexpected error checking session',data:{errorMessage:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
-          console.error("[AUTH] Unexpected error checking session:", error);
+          logger.error("[AUTH] Unexpected error checking session:", error);
           // Fail gracefully - allow user to still see auth form
         });
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:132',message:'Error initializing Supabase auth',data:{errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-      console.error("[AUTH] Error initializing Supabase auth:", error);
+      logger.error("[AUTH] Error initializing Supabase auth:", error);
       // Show user-friendly error message
       setNotification({
         type: 'error',
@@ -150,7 +128,7 @@ const Auth = () => {
     }
 
     return () => {
-      console.log("[AUTH] Cleaning up auth state listener");
+      logger.debug("[AUTH] Cleaning up auth state listener");
       if (subscription) {
         subscription.unsubscribe();
       }
@@ -213,25 +191,29 @@ const Auth = () => {
     
     setLoading(true);
     setNotification(null); // Clear any previous notifications
+    const startTime = Date.now();
+    trackSignInAttempt(isLogin);
 
     try {
       if (isLogin) {
-        console.log("[AUTH] Attempting sign in for:", trimmedEmail);
+        logger.log("[AUTH] Attempting sign in for:", trimmedEmail);
         const { data, error } = await supabase.auth.signInWithPassword({
           email: trimmedEmail,
           password,
         });
         
         if (error) {
-          console.error("[AUTH] Sign in error:", error.message);
+          logger.error("[AUTH] Sign in error:", error.message);
+          trackSignInError(true, error.code || 'unknown', 'auth');
           throw error;
         }
         
-        console.log("[AUTH] Sign in successful, user:", data.user?.id);
+        logger.log("[AUTH] Sign in successful, user:", data.user?.id);
+        trackSignInSuccess(true, Date.now() - startTime);
         // Success - navigation will happen via onAuthStateChange
         // Note: Don't set loading to false - let navigation handle it
       } else {
-        console.log("[AUTH] Attempting sign up for:", trimmedEmail);
+        logger.log("[AUTH] Attempting sign up for:", trimmedEmail);
         const { data, error } = await supabase.auth.signUp({
           email: trimmedEmail,
           password,
@@ -244,11 +226,13 @@ const Auth = () => {
         });
         
         if (error) {
-          console.error("[AUTH] Sign up error:", error.message);
+          logger.error("[AUTH] Sign up error:", error.message);
+          trackSignInError(false, error.code || 'unknown', 'auth');
           throw error;
         }
         
-        console.log("[AUTH] Sign up successful, user:", data.user?.id);
+        logger.log("[AUTH] Sign up successful, user:", data.user?.id);
+        trackSignInSuccess(false, Date.now() - startTime);
         
         // Check if email confirmation is required
         if (data.user && !data.session) {
@@ -261,7 +245,7 @@ const Auth = () => {
         // Note: Don't set loading to false - let navigation handle it
       }
     } catch (error: any) {
-      console.error("[AUTH] Auth error caught:", error);
+      logger.error("[AUTH] Auth error caught:", error);
       // Check if error is due to Supabase client not being initialized
       if (error?.message?.includes('Supabase configuration is invalid') || 
           error?.message?.includes('Failed to initialize Supabase client')) {
@@ -290,9 +274,6 @@ const Auth = () => {
     </video>
   ) : null;
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/265854d9-dd9a-485b-b5e4-fb8ae00c17c3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:265',message:'Auth component rendering',data:{isLogin,loading,hasNotification:!!notification,pathname:window.location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 flex items-center justify-center p-3 sm:p-4 relative overflow-hidden min-h-0">

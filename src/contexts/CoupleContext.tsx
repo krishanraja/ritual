@@ -14,9 +14,20 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { User } from '@supabase/supabase-js';
+import { User, Session } from '@supabase/supabase-js';
 import type { Couple, PartnerProfile, WeeklyCycle } from '@/types/database';
 import { deriveCycleState, type CycleState } from '@/types/database';
+import { 
+  type AuthState, 
+  type OnboardingState,
+  createInitialState,
+  createAnonymousState,
+  createAuthenticatedState,
+  createSessionExpiredState,
+  persistAuthStateHint,
+  mayHaveExistingSession,
+} from '@/lib/authState';
+import { logger } from '@/utils/logger';
 
 // Version tracking for deployment verification
 const CONTEXT_VERSION = '2024-12-15-v6';
@@ -42,7 +53,7 @@ const checkCachedSession = (): boolean => {
 
 interface CoupleContextType {
   user: User | null;
-  session: any;
+  session: Session | null;
   couple: Couple | null;
   partnerProfile: PartnerProfile | null;
   userProfile: { name: string } | null;
@@ -50,6 +61,10 @@ interface CoupleContextType {
   cycleState: CycleState;
   loading: boolean;
   hasKnownSession: boolean;
+  // Auth state machine
+  authState: AuthState;
+  onboardingState: OnboardingState | null;
+  isSessionExpired: boolean;
   refreshCouple: () => Promise<void>;
   refreshCycle: () => Promise<WeeklyCycle | null>;
   leaveCouple: () => Promise<{ success: boolean; error?: string }>;
@@ -59,15 +74,18 @@ interface CoupleContextType {
 const CoupleContext = createContext<CoupleContextType | null>(null);
 
 export const CoupleProvider = ({ children }: { children: ReactNode }) => {
-  const [hasKnownSession] = useState(() => checkCachedSession());
+  const [hasKnownSession] = useState(() => checkCachedSession() || mayHaveExistingSession());
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [couple, setCouple] = useState<Couple | null>(null);
   const [partnerProfile, setPartnerProfile] = useState<PartnerProfile | null>(null);
   const [userProfile, setUserProfile] = useState<{ name: string } | null>(null);
   const [currentCycle, setCurrentCycle] = useState<WeeklyCycle | null>(null);
   const [loading, setLoadingState] = useState(true);
   const [coupleLoading, setCoupleLoadingState] = useState(false);
+  // Auth state machine state
+  const [authState, setAuthState] = useState<AuthState>('initializing');
+  const [isSessionExpired, setIsSessionExpired] = useState(false);
   const navigate = useNavigate();
   
   // Use refs to access current state values in timeout callbacks
@@ -85,23 +103,17 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
 
   // Diagnostic logging wrappers for state changes
   const setLoading = (value: boolean) => {
-    const stack = new Error().stack;
-    console.log(`[DIAG] setLoading(${value}) called`, {
+    logger.debug(`[DIAG] setLoading(${value}) called`, {
       previousValue: loading,
       newValue: value,
-      stack: stack?.split('\n').slice(2, 5).join('\n'), // First 3 stack frames
-      timestamp: new Date().toISOString(),
     });
     setLoadingState(value);
   };
 
   const setCoupleLoading = (value: boolean) => {
-    const stack = new Error().stack;
-    console.log(`[DIAG] setCoupleLoading(${value}) called`, {
+    logger.debug(`[DIAG] setCoupleLoading(${value}) called`, {
       previousValue: coupleLoading,
       newValue: value,
-      stack: stack?.split('\n').slice(2, 5).join('\n'),
-      timestamp: new Date().toISOString(),
     });
     setCoupleLoadingState(value);
   };
@@ -416,18 +428,52 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
         const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((_event, session) => {
           listenerFired = true;
           const eventTime = performance.now() - authInitStartTime;
-          console.log(`[AUTH] onAuthStateChange event (${eventTime.toFixed(2)}ms):`, _event, 'has session:', !!session);
+          logger.log(`[AUTH] onAuthStateChange event (${eventTime.toFixed(2)}ms):`, _event, 'has session:', !!session);
           
           if (!isMounted) {
-            console.log('[DIAG] onAuthStateChange fired but component is unmounted');
+            logger.debug('[DIAG] onAuthStateChange fired but component is unmounted');
             return;
           }
           
-          console.log('[DIAG] Clearing safety timeout from onAuthStateChange');
+          logger.debug('[DIAG] Clearing safety timeout from onAuthStateChange');
           clearTimeout(safetyTimeout);
           setSession(session);
           setUser(session?.user ?? null);
           setLoading(false);
+          
+          // Update auth state based on event
+          if (_event === 'SIGNED_IN' && session) {
+            setAuthState('authenticated');
+            setIsSessionExpired(false);
+            persistAuthStateHint(session.user.id);
+          } else if (_event === 'SIGNED_OUT') {
+            setAuthState('anonymous');
+            setIsSessionExpired(false);
+            persistAuthStateHint(null);
+          } else if (_event === 'TOKEN_REFRESHED' && session) {
+            setAuthState('authenticated');
+            setIsSessionExpired(false);
+          } else if (_event === 'INITIAL_SESSION') {
+            if (session) {
+              setAuthState('authenticated');
+              persistAuthStateHint(session.user.id);
+            } else {
+              setAuthState('anonymous');
+              persistAuthStateHint(null);
+            }
+          } else if (_event === 'USER_UPDATED' && session) {
+            // User data updated, still authenticated
+            setAuthState('authenticated');
+          }
+          
+          // Handle token refresh failures (session expiry)
+          // This is triggered when Supabase cannot refresh the token
+          if (!session && _event !== 'SIGNED_OUT' && authState === 'authenticated') {
+            logger.warn('[AUTH] Session lost unexpectedly - likely expired');
+            setAuthState('session_expired');
+            setIsSessionExpired(true);
+            persistAuthStateHint(null);
+          }
           
           // FIX #8: Session Recovery - Restore critical state from localStorage if session was lost
           if (session?.user) {
@@ -435,11 +481,11 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
               const savedState = localStorage.getItem(`ritual-state-${session.user.id}`);
               if (savedState) {
                 const parsed = JSON.parse(savedState);
-                console.log('[AUTH] Restoring saved state:', parsed);
+                logger.debug('[AUTH] Restoring saved state:', parsed);
                 // State will be refreshed from database, but this provides fallback
               }
             } catch (e) {
-              console.warn('[AUTH] Failed to restore saved state:', e);
+              logger.warn('[AUTH] Failed to restore saved state:', e);
             }
           }
         });
@@ -828,6 +874,32 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
   const isPartnerOne = couple?.partner_one === user?.id;
   const cycleState = deriveCycleState(currentCycle, user?.id, isPartnerOne);
 
+  // Derive onboarding state based on couple and cycle status
+  const onboardingState: OnboardingState | null = (() => {
+    if (authState !== 'authenticated') return null;
+    if (!couple) return 'no_couple';
+    if (!couple.partner_two) return 'waiting_for_partner';
+    
+    // We have a paired couple - check cycle status
+    switch (cycleState) {
+      case 'not_started':
+      case 'partner_one_waiting':
+      case 'partner_two_waiting':
+        return 'needs_input';
+      case 'waiting_for_partner':
+        return 'waiting_partner_input';
+      case 'both_complete':
+      case 'generating':
+        return 'generating';
+      case 'ready':
+        return 'ready';
+      case 'failed':
+        return 'generating'; // Show as generating with error handling
+      default:
+        return 'paired';
+    }
+  })();
+
   const leaveCouple = async (): Promise<{ success: boolean; error?: string }> => {
     if (!couple || !user) {
       return { success: false, error: "No couple to leave" };
@@ -892,6 +964,10 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       cycleState,
       loading: !isFullyLoaded,
       hasKnownSession,
+      // Auth state machine
+      authState,
+      onboardingState,
+      isSessionExpired,
       refreshCouple,
       refreshCycle,
       leaveCouple,
