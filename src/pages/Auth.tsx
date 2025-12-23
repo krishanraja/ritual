@@ -234,6 +234,62 @@ const Auth = () => {
         logger.log("[AUTH] Sign up successful, user:", data.user?.id);
         trackSignInSuccess(false, Date.now() - startTime);
         
+        // Verify profile was created
+        if (data.user) {
+          // Log detailed signup response for debugging
+          logger.log("[AUTH] Sign up response details:", {
+            userId: data.user.id,
+            email: data.user.email,
+            metadata: data.user.user_metadata,
+            hasSession: !!data.session
+          });
+          
+          // Wait a brief moment for trigger to complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Try to verify profile was created
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+          
+          if (profileError || !profile) {
+            logger.error("[AUTH] Profile creation failed:", {
+              userId: data.user.id,
+              error: profileError,
+              profile,
+              errorCode: profileError?.code,
+              errorMessage: profileError?.message
+            });
+            
+            // Attempt to create profile manually as fallback
+            const { error: createError } = await supabase
+              .from('profiles')
+              .insert({
+                id: data.user.id,
+                name: data.user.user_metadata?.name || name.trim() || 'User',
+                email: data.user.email || null
+              });
+            
+            if (createError) {
+              logger.error("[AUTH] Manual profile creation also failed:", {
+                error: createError,
+                errorCode: createError.code,
+                errorMessage: createError.message,
+                errorDetails: createError.details,
+                errorHint: createError.hint
+              });
+              showNotification('error', 'Unable to create profile. Please try again.');
+              setLoading(false);
+              return;
+            }
+            logger.log("[AUTH] Profile created manually as fallback");
+          } else {
+            logger.log("[AUTH] Profile verified:", profile);
+          }
+        }
+        
         // Check if email confirmation is required
         if (data.user && !data.session) {
           showNotification('info', 'Please check your email to confirm your account before signing in.');
