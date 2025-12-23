@@ -72,10 +72,10 @@ serve(async (req) => {
 
     log('info', 'Checking cycle state', { requestId, cycleId, forceRetry });
 
-    // Step 1: Fetch current cycle state
+    // Step 1: Fetch current cycle state (use LEFT JOIN to handle missing couples gracefully)
     const { data: cycle, error: fetchError } = await supabaseClient
       .from('weekly_cycles')
-      .select('*, couples!inner(preferred_city)')
+      .select('*, couples(preferred_city)')
       .eq('id', cycleId)
       .single();
 
@@ -85,6 +85,54 @@ serve(async (req) => {
         JSON.stringify({ error: 'Cycle not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Check if couple exists and has valid profile references
+    if (!cycle.couples) {
+      log('error', 'Couple not found for cycle', { requestId, cycleId, coupleId: cycle.couple_id });
+      return new Response(
+        JSON.stringify({ error: 'Couple not found. Please contact support.' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify profiles exist for both partners (if couple exists)
+    // This is a safety check - profiles should exist, but we verify to prevent synthesis failures
+    const { data: coupleData, error: coupleError } = await supabaseClient
+      .from('couples')
+      .select('partner_one, partner_two')
+      .eq('id', cycle.couple_id)
+      .single();
+
+    if (coupleError || !coupleData) {
+      log('error', 'Failed to fetch couple data', { requestId, cycleId, coupleId: cycle.couple_id, error: coupleError?.message });
+      return new Response(
+        JSON.stringify({ error: 'Failed to verify couple. Please contact support.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Log profile status (for debugging, but don't fail if profiles are missing)
+    const { data: p1Profile } = await supabaseClient
+      .from('profiles')
+      .select('id')
+      .eq('id', coupleData.partner_one)
+      .single();
+    
+    if (!p1Profile) {
+      log('warn', 'Partner one profile missing', { requestId, userId: coupleData.partner_one, cycleId });
+    }
+    
+    if (coupleData.partner_two) {
+      const { data: p2Profile } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('id', coupleData.partner_two)
+        .single();
+      
+      if (!p2Profile) {
+        log('warn', 'Partner two profile missing', { requestId, userId: coupleData.partner_two, cycleId });
+      }
     }
 
     // Step 2: If already synthesized, return existing rituals

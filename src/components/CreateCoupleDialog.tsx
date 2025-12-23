@@ -6,6 +6,7 @@ import { RitualLogo } from "@/components/RitualLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { useCouple } from "@/contexts/CoupleContext";
 import { shareCodeToWhatsApp, shareCodeToSMS } from "@/utils/shareUtils";
+import { ensureProfileExists } from "@/utils/profileUtils";
 
 interface CreateCoupleDialogProps {
   open: boolean;
@@ -29,6 +30,14 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setError("Please sign in first");
+        setLoading(false);
+        return;
+      }
+
+      // Ensure profile exists before creating couple
+      const profileExists = await ensureProfileExists(user.id);
+      if (!profileExists) {
+        setError("Unable to create profile. Please try again.");
         setLoading(false);
         return;
       }
@@ -90,8 +99,41 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
 
           if (insertError) {
             if (insertError.code === '23505') {
+              // Duplicate code - retry with new code
               attempts++;
               continue;
+            }
+            if (insertError.code === '23503') {
+              // Foreign key violation - profile missing, try to create and retry
+              console.log('[CREATE_COUPLE] Foreign key violation, ensuring profile exists...');
+              const profileCreated = await ensureProfileExists(user.id);
+              if (profileCreated) {
+                // Retry insert
+                const { error: retryError } = await supabase
+                  .from('couples')
+                  .insert({
+                    partner_one: user.id,
+                    couple_code: code,
+                    is_active: true,
+                    code_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                  });
+                
+                if (retryError) {
+                  if (retryError.code === '23505') {
+                    attempts++;
+                    continue;
+                  }
+                  throw retryError;
+                }
+                // Success on retry
+                setCoupleCode(code);
+                setIsExistingCouple(false);
+                setHasConfirmed(true);
+                await refreshCouple();
+                break;
+              } else {
+                throw new Error('Unable to create profile. Please try again.');
+              }
             }
             throw insertError;
           }

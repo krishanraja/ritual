@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { NotificationContainer } from './InlineNotification';
+import { ensureProfileExists } from '@/utils/profileUtils';
 
 // Version tracking for deployment verification
 const CODE_VERSION = '2024-12-12-v3';
@@ -46,6 +47,17 @@ export const JoinDrawer = ({ open, onOpenChange }: JoinDrawerProps) => {
       setNotification({ type: 'error', message: 'Not authenticated' });
       return;
     }
+
+    // Ensure profile exists before joining couple
+    console.log('[JOIN] Ensuring profile exists for user:', user.id);
+    const profileExists = await ensureProfileExists(user.id);
+    if (!profileExists) {
+      console.error('[JOIN] ERROR: Failed to ensure profile exists');
+      setNotification({ type: 'error', message: 'Unable to create profile. Please try again.' });
+      setLoading(false);
+      return;
+    }
+    console.log('[JOIN] Profile verified/created');
 
     const cleanCode = code.replace(/-/g, '').toUpperCase();
     console.log('[JOIN] Clean code (no dashes):', cleanCode);
