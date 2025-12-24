@@ -62,3 +62,6 @@ BEGIN
   RAISE NOTICE 'Migration complete. Created % missing profiles.', profiles_created;
 END $$;
 
+
+
+

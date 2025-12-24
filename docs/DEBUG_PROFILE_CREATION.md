@@ -278,3 +278,4 @@ To prevent this issue in the future:
 - [PostgreSQL SECURITY DEFINER Functions](https://www.postgresql.org/docs/current/sql-createfunction.html#SQL-CREATEFUNCTION-SECURITY)
 - [PostgreSQL Triggers](https://www.postgresql.org/docs/current/triggers.html)
 
+

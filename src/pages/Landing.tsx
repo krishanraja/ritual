@@ -179,6 +179,35 @@ export default function Landing() {
     const hasRecentNudge = currentCycle?.nudged_at && 
       (Date.now() - new Date(currentCycle.nudged_at).getTime()) < 24 * 60 * 60 * 1000;
     
+    const logData = {
+      location: 'Landing.tsx:173',
+      message: 'Derived state computed',
+      data: {
+        hasSynthesized,
+        userSubmitted,
+        partnerSubmitted,
+        hasAgreedRitual,
+        cycleId: currentCycle?.id,
+        hasCurrentCycle: !!currentCycle,
+        synthesizedOutputType: typeof currentCycle?.synthesized_output,
+        ritualCount: (currentCycle?.synthesized_output as any)?.rituals?.length,
+        hasPartnerOneInput: hasPartnerOne,
+        hasPartnerTwoInput: hasPartnerTwo,
+        isPartnerOne,
+        fullCurrentCycle: JSON.stringify(currentCycle)
+      },
+      timestamp: Date.now(),
+      sessionId: 'debug-session',
+      runId: 'run1',
+      hypothesisId: 'H3'
+    };
+    
+    console.log('[DEBUG] Derived state computed:', logData);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData)}).catch(()=>{});
+    // #endregion
+    
     return {
       hasSynthesized,
       userSubmitted,
@@ -196,26 +225,62 @@ export default function Landing() {
     if (!couple.partner_two) return 'waiting-for-partner-join';
     
     // Use the derived cycle state
+    let view: ViewType;
     switch (cycleState) {
       case 'waiting_for_partner':
-        return 'waiting-for-partner-input';
+        view = 'waiting-for-partner-input';
+        break;
       case 'both_complete':
       case 'generating':
-        return 'generating';
+        view = 'generating';
+        break;
       case 'failed':
-        return 'generating'; // Show generating UI with error state
+        view = 'generating'; // Show generating UI with error state
+        break;
       default:
-        return 'dashboard';
+        view = 'dashboard';
     }
-  }, [loading, surpriseLoading, user, couple, cycleState, hasKnownSession]);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:199',message:'View determined from cycleState',data:{cycleState,view,hasSynthesized:!!currentCycle?.synthesized_output,ritualCount:currentCycle?.synthesized_output?.rituals?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
+    // #endregion
+    
+    return view;
+  }, [loading, surpriseLoading, user, couple, cycleState, hasKnownSession, currentCycle]);
 
   // Retry synthesis handler
   const handleRetrySynthesis = useCallback(async () => {
-    if (!currentCycle?.id) return;
+    if (!currentCycle?.id) {
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:228',message:'Refresh clicked but no cycle ID',data:{hasCurrentCycle:!!currentCycle,cycleId:currentCycle?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
+      // #endregion
+      return;
+    }
     
     setIsRetryingSynthesis(true);
     setSynthesisError(null);
     console.log('[LANDING] Retrying synthesis for cycle:', currentCycle.id);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:232',message:'Refresh button clicked - starting retry',data:{cycleId:currentCycle.id,hasPartnerOne:!!currentCycle.partner_one_input,hasPartnerTwo:!!currentCycle.partner_two_input,hasOutput:!!currentCycle.synthesized_output},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
+    // #endregion
+    
+    // Direct database check before refresh
+    try {
+      const { data: dbCheck, error: dbError } = await supabase
+        .from('weekly_cycles')
+        .select('id, partner_one_input, partner_two_input, synthesized_output, generated_at, sync_completed_at')
+        .eq('id', currentCycle.id)
+        .single();
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:236',message:'Direct DB check before refresh',data:{hasData:!!dbCheck,hasError:!!dbError,errorMessage:dbError?.message,hasPartnerOne:!!dbCheck?.partner_one_input,hasPartnerTwo:!!dbCheck?.partner_two_input,hasOutput:!!dbCheck?.synthesized_output,ritualCount:dbCheck?.synthesized_output?.rituals?.length,generatedAt:dbCheck?.generated_at,syncCompletedAt:dbCheck?.sync_completed_at},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
+    } catch (e) {
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:240',message:'Direct DB check exception',data:{error:String(e)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
+    }
     
     try {
       const { data, error } = await supabase.functions.invoke('trigger-synthesis', {
@@ -227,27 +292,57 @@ export default function Landing() {
 
       console.log('[LANDING] Retry response:', data);
 
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:242',message:'Refresh API response received',data:{status:data?.status,hasError:!!error,errorMessage:error?.message,hasRituals:!!data?.rituals,ritualCount:data?.rituals?.length,fullResponse:JSON.stringify(data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
+      // #endregion
+
       if (error) {
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:245',message:'Refresh API returned error',data:{error:error?.message,errorCode:error?.code,errorDetails:JSON.stringify(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
+        // #endregion
         throw error;
       }
 
       if (data?.status === 'ready') {
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:248',message:'Refresh: Status ready - navigating',data:{ritualCount:data?.rituals?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
+        // #endregion
         // Synthesis complete! Refresh and navigate
-        await refreshCycle();
+        const refreshedCycle = await refreshCycle();
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:252',message:'After refreshCycle - checking cycle state',data:{hasRefreshedCycle:!!refreshedCycle,hasOutput:!!refreshedCycle?.synthesized_output,ritualCount:refreshedCycle?.synthesized_output?.rituals?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
+        // #endregion
+        
         navigate('/picker');
       } else if (data?.status === 'generating') {
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:253',message:'Refresh: Status generating - refreshing cycle',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
+        // #endregion
         // In progress - refresh to update state
         await refreshCycle();
       } else if (data?.status === 'failed') {
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:256',message:'Refresh: Status failed',data:{error:data.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
+        // #endregion
         setSynthesisError(data.error || 'Generation failed. Please try again.');
+      } else {
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:258',message:'Refresh: Unknown status',data:{status:data?.status,fullData:JSON.stringify(data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
+        // #endregion
       }
     } catch (error) {
       console.error('[LANDING] Retry error:', error);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:259',message:'Refresh: Exception caught',data:{error:error instanceof Error ? error.message : String(error),errorType:error?.constructor?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
+      // #endregion
+      
       setSynthesisError('Failed to generate rituals. Please try again.');
     } finally {
       setIsRetryingSynthesis(false);
     }
-  }, [currentCycle?.id, refreshCycle, navigate]);
+  }, [currentCycle?.id, refreshCycle, navigate, currentCycle]);
 
   // Mark initial load complete after first non-loading view
   useEffect(() => {
@@ -262,8 +357,58 @@ export default function Landing() {
   useEffect(() => {
     if (couple?.id && !loading) {
       refreshCycle();
+      
+      // Comprehensive state dump
+      const dumpState = async () => {
+        try {
+          const { data: cycleData, error: cycleError } = await supabase
+            .from('weekly_cycles')
+            .select('*')
+            .eq('couple_id', couple.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          const logData = {
+            location: 'Landing.tsx:277',
+            message: 'COMPREHENSIVE STATE DUMP',
+            data: {
+              hasCycleData: !!cycleData,
+              hasCycleError: !!cycleError,
+              cycleError: cycleError?.message,
+              cycleId: cycleData?.id,
+              hasPartnerOneInput: !!cycleData?.partner_one_input,
+              hasPartnerTwoInput: !!cycleData?.partner_two_input,
+              hasSynthesizedOutput: !!cycleData?.synthesized_output,
+              ritualCount: (cycleData?.synthesized_output as any)?.rituals?.length,
+              generatedAt: cycleData?.generated_at,
+              syncCompletedAt: cycleData?.sync_completed_at,
+              agreementReached: cycleData?.agreement_reached,
+              fullCycle: JSON.stringify(cycleData)
+            },
+            timestamp: Date.now(),
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'H9'
+          };
+          
+          console.log('[DEBUG] COMPREHENSIVE STATE DUMP:', logData);
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData)}).catch(()=>{});
+          // #endregion
+        } catch (e) {
+          const errorLog = {location:'Landing.tsx:280',message:'State dump exception',data:{error:String(e)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H9'};
+          console.error('[DEBUG] State dump exception:', errorLog);
+          // #region agent log
+          fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(errorLog)}).catch(()=>{});
+          // #endregion
+        }
+      };
+      
+      dumpState();
     }
-  }, [couple?.id]);
+  }, [couple?.id, loading]);
 
   // Poll for synthesis completion when in generating state
   useEffect(() => {
@@ -300,6 +445,11 @@ export default function Landing() {
 
         if (data?.synthesized_output) {
           console.log('[LANDING] Synthesis complete, refreshing...');
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:301',message:'Synthesis detected via polling',data:{cycleId:currentCycle.id,hasOutput:!!data.synthesized_output,ritualCount:data.synthesized_output?.rituals?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4'})}).catch(()=>{});
+          // #endregion
+          
           await refreshCycle();
           clearInterval(pollInterval);
           // Navigation will happen automatically via view change
@@ -320,6 +470,11 @@ export default function Landing() {
       }, async (payload: any) => {
         if (payload.new?.synthesized_output) {
           console.log('[LANDING] Synthesis complete via realtime');
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:321',message:'Synthesis detected via realtime subscription',data:{cycleId:payload.new?.id,hasOutput:!!payload.new?.synthesized_output,ritualCount:payload.new?.synthesized_output?.rituals?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6'})}).catch(()=>{});
+          // #endregion
+          
           await refreshCycle();
           clearInterval(pollInterval);
         }
@@ -475,9 +630,34 @@ export default function Landing() {
   if (currentView === 'generating') {
     const isFailed = cycleState === 'failed';
     
+    // Debug panel data
+    const debugInfo = {
+      cycleId: currentCycle?.id || 'NO CYCLE',
+      hasPartnerOneInput: !!currentCycle?.partner_one_input,
+      hasPartnerTwoInput: !!currentCycle?.partner_two_input,
+      hasSynthesizedOutput: !!currentCycle?.synthesized_output,
+      generatedAt: currentCycle?.generated_at || 'N/A',
+      cycleState,
+      isPartnerOne,
+      userId: user?.id || 'NO USER',
+      coupleId: couple?.id || 'NO COUPLE'
+    };
+    
     return (
       <div className="h-full flex flex-col relative">
         <Background videoLoaded={videoLoaded} setVideoLoaded={setVideoLoaded} isMobile={isMobile} />
+        
+        {/* DEBUG PANEL - Visible state info */}
+        <div className="absolute top-4 left-4 right-4 z-50 bg-black/80 text-white text-xs p-3 rounded-lg font-mono max-h-40 overflow-y-auto">
+          <div className="font-bold mb-2">DEBUG STATE:</div>
+          <div>Cycle ID: {debugInfo.cycleId}</div>
+          <div>Partner 1 Input: {debugInfo.hasPartnerOneInput ? 'YES' : 'NO'}</div>
+          <div>Partner 2 Input: {debugInfo.hasPartnerTwoInput ? 'YES' : 'NO'}</div>
+          <div>Has Output: {debugInfo.hasSynthesizedOutput ? 'YES' : 'NO'}</div>
+          <div>Generated At: {debugInfo.generatedAt}</div>
+          <div>Cycle State: {debugInfo.cycleState}</div>
+          <div>Is Partner One: {debugInfo.isPartnerOne ? 'YES' : 'NO'}</div>
+        </div>
         
         <motion.div 
           className="flex-1 flex flex-col items-center justify-center px-6 relative z-10"
@@ -946,7 +1126,12 @@ export default function Landing() {
               Your personalized rituals are ready. Rank your favorites and agree with your partner.
             </p>
             <Button 
-              onClick={() => navigate('/picker')}
+              onClick={() => {
+                // #region agent log
+                fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Landing.tsx:949',message:'Navigating to picker from dashboard',data:{cycleId:currentCycle?.id,hasSynthesized,ritualCount:currentCycle?.synthesized_output?.rituals?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4'})}).catch(()=>{});
+                // #endregion
+                navigate('/picker');
+              }}
               className="w-full bg-gradient-ritual text-white h-12 rounded-xl"
             >
               Pick Your Rituals

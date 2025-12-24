@@ -382,14 +382,26 @@ export default function QuickInput() {
       if (partnerInput && !alreadyHasOutput) {
         logger.log('[INPUT] Both partners submitted, triggering synthesis in background...');
         
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'QuickInput.tsx:383',message:'Both partners submitted - triggering synthesis',data:{cycleId:weeklyCycleId,hasPartnerInput:!!partnerInput,alreadyHasOutput},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
+        // #endregion
+        
         // Trigger synthesis but DON'T wait for it - let it run in background
         // Use the idempotent trigger-synthesis endpoint
         supabase.functions.invoke('trigger-synthesis', {
           body: { cycleId: weeklyCycleId }
         }).then(result => {
           logger.log('[INPUT] Background synthesis triggered:', result.data?.status);
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'QuickInput.tsx:390',message:'Synthesis trigger response received',data:{status:result.data?.status,hasRituals:!!result.data?.rituals,ritualCount:result.data?.rituals?.length,error:result.error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
+          // #endregion
         }).catch(err => {
           logger.error('[INPUT] Background synthesis trigger failed:', err);
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'QuickInput.tsx:393',message:'Synthesis trigger failed',data:{error:err?.message,errorType:err?.constructor?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
+          // #endregion
           // This is fine - it will be retried when user views dashboard
         });
       }

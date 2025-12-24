@@ -35,8 +35,17 @@ export const CreateCoupleDialog = ({ open, onOpenChange }: CreateCoupleDialogPro
       }
 
       // Ensure profile exists before creating couple
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CreateCoupleDialog.tsx:38',message:'Calling ensureProfileExists',data:{userId:user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       const profileExists = await ensureProfileExists(user.id);
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CreateCoupleDialog.tsx:40',message:'ensureProfileExists result',data:{profileExists,userId:user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       if (!profileExists) {
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CreateCoupleDialog.tsx:43',message:'Profile creation failed, setting error',data:{userId:user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         setError("Unable to create profile. Please try again.");
         setLoading(false);
         return;
