@@ -289,22 +289,11 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
         const cycleDate = new Date(incompleteCycle.created_at);
         const isStale = cycleDate.getTime() < new Date(sevenDaysAgo).getTime();
         
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CoupleContext.tsx:286',message:'Incomplete cycle found in fetchCycle',data:{cycleId:incompleteCycle.id,hasSynthesizedOutput:!!incompleteCycle.synthesized_output,ritualCount:incompleteCycle.synthesized_output?.rituals?.length,hasPartnerOne:!!incompleteCycle.partner_one_input,hasPartnerTwo:!!incompleteCycle.partner_two_input,isStale,agreementReached:incompleteCycle.agreement_reached,generatedAt:incompleteCycle.generated_at,syncCompletedAt:incompleteCycle.sync_completed_at},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
-        
         if (isStale && (!incompleteCycle.synthesized_output || !incompleteCycle.agreement_reached)) {
           console.log('[CYCLE] Stale cycle detected, will create new cycle for current week');
           // Don't return stale cycle, fall through to create new one
         } else {
           setCurrentCycle(incompleteCycle);
-          const duration = Date.now() - startTime;
-          console.log(`[DIAG] fetchCycle completed in ${duration}ms (incomplete cycle found)`);
-          
-          // #region agent log
-          fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CoupleContext.tsx:295',message:'fetchCycle returning cycle',data:{cycleId:incompleteCycle.id,hasSynthesizedOutput:!!incompleteCycle.synthesized_output},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
-          
           return incompleteCycle;
         }
       }
@@ -804,10 +793,6 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
           if (synthesisReady) {
             console.log('[REALTIME] Synthesis ready! Refreshing cycle and navigating to /picker');
             
-            // #region agent log
-            fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CoupleContext.tsx:798',message:'Synthesis ready detected via realtime',data:{cycleId:newData?.id,hasOutput:!!newData?.synthesized_output,ritualCount:newData?.synthesized_output?.rituals?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6'})}).catch(()=>{});
-            // #endregion
-            
             // Refresh cycle first to ensure state is updated
             if (newData?.couple_id) {
               await fetchCycle(newData.couple_id);
@@ -916,14 +901,7 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
   })();
 
   const leaveCouple = async (): Promise<{ success: boolean; error?: string }> => {
-    // #region agent log
-    fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CoupleContext.tsx:917',message:'leaveCouple called',data:{hasCouple:!!couple,hasUser:!!user,coupleId:couple?.id,userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-    // #endregion
-    
     if (!couple || !user) {
-      // #region agent log
-      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CoupleContext.tsx:919',message:'leaveCouple: No couple or user',data:{hasCouple:!!couple,hasUser:!!user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-      // #endregion
       return { success: false, error: "No couple to leave" };
     }
     
@@ -936,19 +914,11 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       
       const isPartnerOne = couple.partner_one === user.id;
       
-      // #region agent log
-      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CoupleContext.tsx:923',message:'leaveCouple: Starting operation',data:{isPartnerOne,coupleId:couple.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-      // #endregion
-      
       if (isPartnerOne) {
         const { error } = await supabase
           .from('couples')
           .delete()
           .eq('id', couple.id);
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CoupleContext.tsx:926',message:'leaveCouple: Delete executed',data:{hasError:!!error,errorMessage:error?.message,errorCode:error?.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-        // #endregion
         
         if (error) {
           console.error('Delete error:', error);
@@ -959,10 +929,6 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
           .from('couples')
           .update({ partner_two: null })
           .eq('id', couple.id);
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CoupleContext.tsx:936',message:'leaveCouple: Update executed',data:{hasError:!!error,errorMessage:error?.message,errorCode:error?.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-        // #endregion
         
         if (error) {
           console.error('Update error:', error);
@@ -975,18 +941,9 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       setCurrentCycle(null);
       navigate('/');
       
-      // #region agent log
-      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CoupleContext.tsx:947',message:'leaveCouple: Success',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-      // #endregion
-      
       return { success: true };
     } catch (error: any) {
       console.error('Error leaving couple:', error);
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CoupleContext.tsx:953',message:'leaveCouple: Exception',data:{error:error?.message,errorType:error?.constructor?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-      // #endregion
-      
       return { success: false, error: error.message || 'Failed to leave couple' };
     }
   };

@@ -170,6 +170,7 @@ serve(async (req) => {
     // Step 4: Try to acquire synthesis lock using atomic conditional update
     // Only set generated_at if it's currently null (or if forceRetry)
     const lockTimestamp = new Date().toISOString();
+    const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
     
     let lockAcquired = false;
     
@@ -194,10 +195,38 @@ serve(async (req) => {
         .select('id');
       
       lockAcquired = !lockError && lockResult && lockResult.length > 0;
+      
+      // STUCK LOCK RECOVERY: If lock wasn't acquired, check if it's a stale lock
+      if (!lockAcquired && cycle.generated_at && !cycle.synthesized_output) {
+        const lockAge = Date.now() - new Date(cycle.generated_at).getTime();
+        
+        if (lockAge > LOCK_TIMEOUT_MS) {
+          log('warn', 'Detected stuck lock, clearing and retrying', { 
+            requestId, 
+            cycleId, 
+            lockAge: Math.round(lockAge / 1000) + 's',
+            lockedAt: cycle.generated_at
+          });
+          
+          // Clear the stale lock and acquire a new one
+          const { data: recoveryResult, error: recoveryError } = await supabaseClient
+            .from('weekly_cycles')
+            .update({ generated_at: lockTimestamp })
+            .eq('id', cycleId)
+            .eq('generated_at', cycle.generated_at) // Only update if lock hasn't changed
+            .select('id');
+          
+          lockAcquired = !recoveryError && recoveryResult && recoveryResult.length > 0;
+          
+          if (lockAcquired) {
+            log('info', 'Successfully recovered from stuck lock', { requestId, cycleId });
+          }
+        }
+      }
     }
 
     if (!lockAcquired) {
-      // Another process is already running synthesis
+      // Another process is already running synthesis (and lock is not stale)
       log('info', 'Synthesis already in progress', { requestId, cycleId });
       return new Response(
         JSON.stringify({ 

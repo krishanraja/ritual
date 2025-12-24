@@ -103,33 +103,16 @@ export default function RitualPicker() {
       try {
         console.log('[RitualPicker] Loading data for cycle:', currentCycle.id);
         
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:104',message:'RitualPicker loadData started',data:{cycleId:currentCycle.id,hasSynthesizedOutput:!!currentCycle.synthesized_output,outputType:typeof currentCycle.synthesized_output},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
-        
         // Load rituals from current cycle
         const synthesized = currentCycle.synthesized_output as any;
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:107',message:'Checking synthesized output',data:{hasSynthesized:!!synthesized,hasRituals:!!synthesized?.rituals,ritualCount:synthesized?.rituals?.length,ritualArrayType:Array.isArray(synthesized?.rituals)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
         
         if (!synthesized?.rituals || synthesized.rituals.length === 0) {
           // No rituals yet - show generating state
           console.log('[RitualPicker] No rituals found, showing generating state');
-          
-          // #region agent log
-          fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:110',message:'No rituals found - showing generating state',data:{cycleId:currentCycle.id,reason:synthesized?'rituals array empty or missing':'synthesized_output is null/undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{});
-          // #endregion
-          
           setStep('generating');
           setLoading(false);
           return;
         }
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:117',message:'Rituals found - setting rituals state',data:{ritualCount:synthesized.rituals.length,firstRitualTitle:synthesized.rituals[0]?.title},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
         
         setRituals(synthesized.rituals);
 
@@ -627,19 +610,12 @@ export default function RitualPicker() {
   // Improved retry handler using idempotent endpoint
   const handleRetryGeneration = async () => {
     if (!currentCycle?.id) {
-      // #region agent log
-      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:629',message:'RitualPicker refresh: no cycle ID',data:{hasCurrentCycle:!!currentCycle},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-      // #endregion
       return;
     }
     
     setIsRefreshing(true);
     setGeneratingError(null);
     setRetryCount(prev => prev + 1);
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:633',message:'RitualPicker refresh clicked',data:{cycleId:currentCycle.id,retryCount:retryCount+1,hasPartnerOne:!!currentCycle.partner_one_input,hasPartnerTwo:!!currentCycle.partner_two_input,hasOutput:!!currentCycle.synthesized_output},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-    // #endregion
     
     try {
       const { data, error } = await supabase.functions.invoke('trigger-synthesis', {
@@ -651,63 +627,27 @@ export default function RitualPicker() {
 
       console.log('[RitualPicker] Retry response:', data);
 
-      // #region agent log
-      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:643',message:'RitualPicker refresh API response',data:{status:data?.status,hasError:!!error,errorMessage:error?.message,hasRituals:!!data?.rituals,ritualCount:data?.rituals?.length,fullResponse:JSON.stringify(data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-      // #endregion
-
       if (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:646',message:'RitualPicker refresh API error',data:{error:error?.message,errorCode:error?.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-        // #endregion
         throw error;
       }
 
       if (data?.status === 'ready') {
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:649',message:'RitualPicker refresh: Status ready',data:{ritualCount:data?.rituals?.length,hasRitualsArray:Array.isArray(data?.rituals)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-        // #endregion
         // Rituals ready!
         if (data.rituals && Array.isArray(data.rituals) && data.rituals.length > 0) {
           setRituals(data.rituals);
           setStep('rank');
-        } else {
-          // #region agent log
-          fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:652',message:'RitualPicker refresh: Status ready but no rituals in response',data:{hasRituals:!!data.rituals,isArray:Array.isArray(data.rituals),length:data.rituals?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-          // #endregion
         }
-        const refreshedCycle = await refreshCycle();
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:655',message:'After refreshCycle in RitualPicker',data:{hasRefreshedCycle:!!refreshedCycle,hasOutput:!!refreshedCycle?.synthesized_output,ritualCount:refreshedCycle?.synthesized_output?.rituals?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-        // #endregion
+        await refreshCycle();
       } else if (data?.status === 'generating') {
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:655',message:'RitualPicker refresh: Status generating',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-        // #endregion
         // Still generating - that's fine, keep waiting
         console.log('[RitualPicker] Still generating...');
       } else if (data?.status === 'waiting') {
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:658',message:'RitualPicker refresh: Status waiting',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-        // #endregion
         setGeneratingError('Waiting for both partners to complete input.');
       } else if (data?.status === 'failed') {
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:660',message:'RitualPicker refresh: Status failed',data:{error:data.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-        // #endregion
         setGeneratingError(data.error || 'Generation failed. Please try again.');
-      } else {
-        // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:662',message:'RitualPicker refresh: Unknown status',data:{status:data?.status,fullData:JSON.stringify(data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-        // #endregion
       }
     } catch (err) {
       console.error('[RitualPicker] Retry error:', err);
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RitualPicker.tsx:663',message:'RitualPicker refresh: Exception',data:{error:err instanceof Error ? err.message : String(err)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-      // #endregion
-      
       setGeneratingError('Failed to generate rituals. Please try again.');
     } finally {
       setIsRefreshing(false);

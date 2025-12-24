@@ -21,7 +21,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute, PublicRoute } from "@/components/ProtectedRoute";
 import { SessionExpiredBanner } from "@/components/SessionExpiredBanner";
 import { OfflineBanner } from "@/components/OfflineBanner";
-import { AuthDebugPanel } from "@/components/AuthDebugPanel";
 
 // Critical: Landing page loads immediately for fast LCP
 import Landing from "./pages/Landing";
@@ -150,7 +149,6 @@ const App = () => (
                   <AnimatedRoutes />
                   <ContextualFeedback />
                 </AppShell>
-                <AuthDebugPanel />
               </SplashScreen>
             </AnalyticsProvider>
           </CoupleProvider>
