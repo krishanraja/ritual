@@ -58,8 +58,27 @@ GRANT EXECUTE ON FUNCTION public.ensure_profile_exists() TO authenticated;
 
 -- Also add a client-side INSERT policy as fallback (allows users to create their own profile)
 -- This is less secure but provides a fallback if RPC fails
-CREATE POLICY IF NOT EXISTS "Users can create their own profile"
+-- Drop existing policy if it exists with different definition
+DROP POLICY IF EXISTS "Users can create their own profile" ON public.profiles;
+
+CREATE POLICY "Users can create their own profile"
   ON public.profiles FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = id);
+
+-- Verify the policy was created
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+    AND tablename = 'profiles' 
+    AND policyname = 'Users can create their own profile'
+    AND cmd = 'INSERT'
+  ) THEN
+    RAISE NOTICE 'INSERT policy "Users can create their own profile" verified';
+  ELSE
+    RAISE WARNING 'INSERT policy "Users can create their own profile" was not created!';
+  END IF;
+END $$;
 

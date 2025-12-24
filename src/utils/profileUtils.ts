@@ -68,33 +68,64 @@ export async function ensureProfileExists(userId: string): Promise<boolean> {
     }
     
     // Try RPC function first (more secure, bypasses RLS)
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('ensure_profile_exists');
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:54',message:'RPC call result',data:{rpcResult,rpcErrorCode:rpcError?.code,rpcErrorMessage:rpcError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    
-    if (!rpcError && rpcResult === true) {
-      console.log('[PROFILE] Successfully created profile via RPC for user:', userId);
+    // Check if RPC function exists by trying to call it
+    let rpcWorked = false;
+    try {
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('ensure_profile_exists');
+      
       // #region agent log
-      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:59',message:'RPC success, returning true',data:{userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:71',message:'RPC call result',data:{rpcResult,rpcErrorCode:rpcError?.code,rpcErrorMessage:rpcError?.message,rpcErrorDetails:rpcError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
-      return true;
+      
+      // RPC function exists and succeeded
+      if (!rpcError && rpcResult === true) {
+        console.log('[PROFILE] Successfully created profile via RPC for user:', userId);
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:77',message:'RPC success, returning true',data:{userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        return true;
+      }
+      
+      // RPC function exists but returned false or had an error
+      if (rpcError) {
+        console.warn('[PROFILE] RPC function error:', rpcError);
+        // If function doesn't exist (42883), skip to direct INSERT
+        if (rpcError.code === '42883' || rpcError.message?.includes('does not exist')) {
+          console.warn('[PROFILE] RPC function does not exist, using direct INSERT');
+        } else {
+          // Other RPC error - log but continue to fallback
+          console.warn('[PROFILE] RPC error, falling back to direct INSERT:', rpcError.message);
+        }
+      } else if (rpcResult === false) {
+        console.warn('[PROFILE] RPC function returned false, trying direct INSERT');
+      }
+    } catch (rpcException) {
+      // RPC call threw an exception (function might not exist)
+      console.warn('[PROFILE] RPC call exception, using direct INSERT:', rpcException);
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:95',message:'RPC exception',data:{errorMessage:rpcException instanceof Error ? rpcException.message : String(rpcException)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
     }
     
     // Fallback: Try direct INSERT (requires INSERT policy)
-    console.warn('[PROFILE] RPC failed, trying direct INSERT:', rpcError?.message);
+    console.log('[PROFILE] Attempting direct INSERT for user:', userId);
+    
+    const profileData = {
+      id: userId,
+      name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+      email: user.email || null
+    };
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:103',message:'Attempting direct INSERT',data:{profileData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     
     const { error: insertError } = await supabase
       .from('profiles')
-      .insert({
-        id: userId,
-        name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-        email: user.email || null
-      });
+      .insert(profileData);
     
     // #region agent log
-    fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:72',message:'Direct INSERT result',data:{insertErrorCode:insertError?.code,insertErrorMessage:insertError?.message,insertErrorDetails:insertError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:110',message:'Direct INSERT result',data:{insertErrorCode:insertError?.code,insertErrorMessage:insertError?.message,insertErrorDetails:insertError,insertErrorHints:insertError?.hints},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     
     if (insertError) {
@@ -102,13 +133,23 @@ export async function ensureProfileExists(userId: string): Promise<boolean> {
       if (insertError.code === '23505') {
         console.log('[PROFILE] Profile already exists (race condition):', userId);
         // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:78',message:'Race condition detected, returning true',data:{userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:118',message:'Race condition detected, returning true',data:{userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
         // #endregion
         return true;
       }
-      console.error('[PROFILE] Failed to create profile:', insertError);
+      
+      // Check if it's an RLS policy violation
+      if (insertError.code === '42501' || insertError.message?.includes('permission denied') || insertError.message?.includes('policy')) {
+        console.error('[PROFILE] RLS policy violation - INSERT policy may be missing:', insertError);
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:125',message:'RLS violation detected',data:{errorCode:insertError.code,errorMessage:insertError.message,errorDetails:insertError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+      } else {
+        console.error('[PROFILE] Failed to create profile:', insertError);
+      }
+      
       // #region agent log
-      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:83',message:'INSERT failed, returning false',data:{errorCode:insertError.code,errorMessage:insertError.message,errorDetails:insertError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7250/ingest/1e40f760-cc38-4a6c-aac8-84efd2c161d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'profileUtils.ts:131',message:'INSERT failed, returning false',data:{errorCode:insertError.code,errorMessage:insertError.message,errorDetails:insertError,errorHints:insertError.hints},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
       return false;
     }
