@@ -20,7 +20,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Clock, DollarSign, Calendar as CalendarIcon, Star, Loader2, RefreshCw, Sparkles, AlertCircle, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AgreementGame } from '@/components/AgreementGame';
+import { RitualResults } from '@/components/RitualResults';
+import { TimeRangePicker } from '@/components/TimeRangePicker';
 import { cn } from '@/lib/utils';
 import { useSEO } from '@/hooks/useSEO';
 import { NotificationContainer } from '@/components/InlineNotification';
@@ -28,6 +29,7 @@ import { usePremium } from '@/hooks/usePremium';
 import { BlurredRitualCard, LockedRitualsPrompt } from '@/components/BlurredRitualCard';
 import { UpgradeModal } from '@/components/UpgradeModal';
 import { deriveCycleState } from '@/types/database';
+import { safeRituals, safePreferences } from '@/utils/guards';
 
 interface Ritual {
   id: string | number;
@@ -45,8 +47,9 @@ export default function RitualPicker() {
   const [rituals, setRituals] = useState<Ritual[]>([]);
   const [selectedRanks, setSelectedRanks] = useState<{ [key: number]: Ritual | null }>({ 1: null, 2: null, 3: null });
   const [proposedDate, setProposedDate] = useState<Date | undefined>(undefined);
-  const [proposedTime, setProposedTime] = useState('19:00');
-  const [step, setStep] = useState<'rank' | 'schedule' | 'waiting' | 'agreement' | 'generating'>('rank');
+  const [proposedTimeStart, setProposedTimeStart] = useState('17:00');
+  const [proposedTimeEnd, setProposedTimeEnd] = useState('21:00');
+  const [step, setStep] = useState<'rank' | 'schedule' | 'waiting' | 'agreement' | 'results' | 'generating'>('rank');
   const [partnerPreferences, setPartnerPreferences] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
@@ -201,17 +204,23 @@ export default function RitualPicker() {
     loadData();
   }, [user, couple, currentCycle, navigate, refreshCycle]);
 
-  // Listen for synthesis completion when in generating state
+  // CONSOLIDATED: Realtime subscription moved to CoupleContext
+  // Check for synthesis completion from context changes
   useEffect(() => {
     if (step !== 'generating' || !currentCycle?.id) return;
 
-    console.log('[RitualPicker] Setting up synthesis listener for cycle:', currentCycle.id);
+    console.log('[RitualPicker] Checking for synthesis completion from context');
 
-    // FIX #1: Add timeout - max 40 attempts (2 minutes at 3s intervals)
-    let pollAttempts = 0;
-    const MAX_POLL_ATTEMPTS = 40; // 2 minutes total
+    // If currentCycle already has rituals, update local state
+    const synthesized = currentCycle.synthesized_output as any;
+    if (synthesized?.rituals?.length > 0) {
+      console.log('[RitualPicker] Rituals found in context');
+      setRituals(synthesized.rituals);
+      setStep('rank');
+      return;
+    }
 
-    // Trigger synthesis on mount (idempotent, safe to call)
+    // Trigger synthesis once on mount (idempotent, safe to call)
     supabase.functions.invoke('trigger-synthesis', {
       body: { cycleId: currentCycle.id }
     }).then(result => {
@@ -224,67 +233,16 @@ export default function RitualPicker() {
       console.warn('[RitualPicker] Initial trigger failed:', err);
     });
 
-    const channel = supabase
-      .channel(`synthesis-picker-${currentCycle.id}-${Date.now()}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'weekly_cycles',
-        filter: `id=eq.${currentCycle.id}`
-      }, async (payload: any) => {
-        console.log('[RitualPicker] Synthesis update received');
-        if (payload.new.synthesized_output?.rituals?.length > 0) {
-          setRituals(payload.new.synthesized_output.rituals);
-          setStep('rank');
-        }
-      })
-      .subscribe((status) => {
-        console.log('[RitualPicker] Channel status:', status);
-      });
-
-    // Poll every 3 seconds for faster detection with timeout
-    const pollInterval = setInterval(async () => {
-      pollAttempts++;
-      
-      // FIX #1: Timeout after max attempts
-      if (pollAttempts >= MAX_POLL_ATTEMPTS) {
-        console.warn('[RitualPicker] Synthesis timeout after', MAX_POLL_ATTEMPTS, 'attempts');
-        clearInterval(pollInterval);
-        setGeneratingError('Synthesis is taking longer than expected. Please try again.');
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('weekly_cycles')
-          .select('synthesized_output')
-          .eq('id', currentCycle.id)
-          .single();
-        
-        if (error) {
-          console.warn('[RitualPicker] Poll error:', error);
-          return;
-        }
-        
-        if (data?.synthesized_output) {
-          const synthesized = data.synthesized_output as any;
-          if (synthesized?.rituals?.length > 0) {
-            console.log('[RitualPicker] Rituals found via polling');
-            setRituals(synthesized.rituals);
-            setStep('rank');
-            clearInterval(pollInterval);
-          }
-        }
-      } catch (err) {
-        console.warn('[RitualPicker] Poll exception:', err);
-      }
-    }, 3000);
+    // Set a timeout for generating state
+    const timeoutId = setTimeout(() => {
+      console.warn('[RitualPicker] Synthesis timeout after 2 minutes');
+      setGeneratingError('Synthesis is taking longer than expected. Please try again.');
+    }, 120000); // 2 minutes
 
     return () => {
-      supabase.removeChannel(channel);
-      clearInterval(pollInterval);
+      clearTimeout(timeoutId);
     };
-  }, [step, currentCycle?.id]);
+  }, [step, currentCycle?.id, currentCycle?.synthesized_output]);
 
   const handleSelectRitual = (ritual: Ritual, rank: number) => {
     // Check if already selected at this exact rank - if so, deselect
@@ -338,7 +296,7 @@ export default function RitualPicker() {
         .eq('weekly_cycle_id', currentCycle!.id)
         .eq('user_id', user!.id);
 
-      // Insert all 3 preferences
+      // Insert all 3 preferences with time range
       const preferences = [1, 2, 3].map(rank => ({
         weekly_cycle_id: currentCycle!.id,
         user_id: user!.id,
@@ -346,7 +304,9 @@ export default function RitualPicker() {
         ritual_data: selectedRanks[rank] as any,
         rank,
         proposed_date: proposedDate.toISOString().split('T')[0],
-        proposed_time: rank === 1 ? proposedTime : null
+        proposed_time: rank === 1 ? proposedTimeStart : null, // Legacy field for compatibility
+        proposed_time_start: rank === 1 ? proposedTimeStart : null,
+        proposed_time_end: rank === 1 ? proposedTimeEnd : null
       }));
 
       const { error } = await supabase
@@ -491,12 +451,12 @@ export default function RitualPicker() {
         highlightFeature="rituals"
       />
 
-      {/* Fixed button */}
-      <div className="flex-none px-4 py-3 bg-background/80 backdrop-blur-sm border-t border-border/50">
+      {/* Fixed button - with safe area padding */}
+      <div className="flex-none px-4 py-3 pb-safe bg-background/95 backdrop-blur-sm border-t border-border/50 sticky bottom-0">
         <Button
           onClick={handleSubmitRankings}
           disabled={!selectedRanks[1] || !selectedRanks[2] || !selectedRanks[3]}
-          className="w-full h-12 bg-gradient-ritual text-white"
+          className="w-full h-11 bg-gradient-ritual text-white"
         >
           Next: Pick a Time
         </Button>
@@ -506,54 +466,54 @@ export default function RitualPicker() {
 
   const renderScheduleStep = () => (
     <div className="h-full flex flex-col">
-      {/* Fixed header */}
-      <div className="flex-none px-4 py-3 text-center">
-        <h2 className="text-xl font-bold mb-2">When works for you?</h2>
-        <p className="text-sm text-muted-foreground">
-          For your top pick: {selectedRanks[1]?.title}
+      {/* Fixed header - compact */}
+      <div className="flex-none px-4 py-2 text-center">
+        <h2 className="text-lg font-bold mb-1">When works for you?</h2>
+        <p className="text-xs text-muted-foreground truncate">
+          For: {selectedRanks[1]?.title}
         </p>
       </div>
 
-      {/* Scrollable content */}
+      {/* Scrollable content - with safe bottom padding */}
       <div className="flex-1 overflow-y-auto min-h-0 px-4">
-        <div className="space-y-4 pb-4">
+        <div className="space-y-3 pb-4">
           <div>
-            <label className="text-sm font-semibold mb-2 block">Pick a Date</label>
+            <label className="text-sm font-semibold mb-1 block">Pick a Date</label>
             <Calendar
               mode="single"
               selected={proposedDate}
               onSelect={setProposedDate}
               disabled={(date) => date < new Date()}
-              className="rounded-md border w-full"
+              className="rounded-md border w-full [&_.rdp-caption]:py-1 [&_.rdp-cell]:h-8 [&_.rdp-cell]:w-8 [&_.rdp-day]:h-8 [&_.rdp-day]:w-8 [&_.rdp-head_cell]:w-8"
             />
           </div>
 
           <div>
-            <label className="text-sm font-semibold mb-2 block">Preferred Time</label>
-            <input
-              type="time"
-              value={proposedTime}
-              onChange={(e) => setProposedTime(e.target.value)}
-              className="w-full h-12 px-4 rounded-lg border bg-background text-[16px]"
+            <label className="text-sm font-semibold mb-1 block">When are you available?</label>
+            <TimeRangePicker
+              startTime={proposedTimeStart}
+              endTime={proposedTimeEnd}
+              onStartTimeChange={setProposedTimeStart}
+              onEndTimeChange={setProposedTimeEnd}
             />
           </div>
         </div>
       </div>
 
-      {/* Fixed buttons */}
-      <div className="flex-none px-4 py-3 bg-background/80 backdrop-blur-sm border-t border-border/50">
+      {/* Fixed buttons - with safe area padding */}
+      <div className="flex-none px-4 py-3 pb-safe bg-background/95 backdrop-blur-sm border-t border-border/50 sticky bottom-0">
         <div className="flex gap-2">
           <Button
             onClick={() => setStep('rank')}
             variant="outline"
-            className="flex-1"
+            className="flex-1 h-11"
           >
             Back
           </Button>
           <Button
             onClick={handleSubmitSchedule}
             disabled={!proposedDate}
-            className="flex-1 bg-gradient-ritual text-white"
+            className="flex-1 h-11 bg-gradient-ritual text-white"
           >
             Submit Preferences
           </Button>
@@ -826,19 +786,49 @@ export default function RitualPicker() {
             exit={{ opacity: 0 }}
             className="h-full"
           >
-            <AgreementGame
-              myPreferences={[1, 2, 3].map(rank => ({
+            <RitualResults
+              myPreferences={safePreferences([1, 2, 3].map(rank => ({
                 rank,
-                ritual: selectedRanks[rank]!,
-                proposedDate: proposedDate,
-                proposedTime: rank === 1 ? proposedTime : undefined
-              }))}
-              partnerPreferences={partnerPreferences}
-              onAgreementReached={(ritual, date, time) => {
+                ritual_data: selectedRanks[rank],
+                proposed_date: proposedDate?.toISOString().split('T')[0],
+                proposed_time_start: rank === 1 ? proposedTimeStart : undefined,
+                proposed_time_end: rank === 1 ? proposedTimeEnd : undefined
+              })))}
+              partnerPreferences={safePreferences(partnerPreferences)}
+              proposerUserId={(currentCycle as any)?.proposer_user_id || null}
+              currentUserId={user?.id || ''}
+              cycleId={currentCycle?.id || ''}
+              onConfirm={(ritual, date, timeStart, timeEnd) => {
                 refreshCycle();
                 navigate('/rituals');
               }}
+            />
+          </motion.div>
+        )}
+        {step === 'results' && partnerPreferences && (
+          <motion.div
+            key="results"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="h-full"
+          >
+            <RitualResults
+              myPreferences={safePreferences([1, 2, 3].map(rank => ({
+                rank,
+                ritual_data: selectedRanks[rank],
+                proposed_date: proposedDate?.toISOString().split('T')[0],
+                proposed_time_start: rank === 1 ? proposedTimeStart : undefined,
+                proposed_time_end: rank === 1 ? proposedTimeEnd : undefined
+              })))}
+              partnerPreferences={safePreferences(partnerPreferences)}
+              proposerUserId={(currentCycle as any)?.proposer_user_id || null}
+              currentUserId={user?.id || ''}
               cycleId={currentCycle?.id || ''}
+              onConfirm={(ritual, date, timeStart, timeEnd) => {
+                refreshCycle();
+                navigate('/rituals');
+              }}
             />
           </motion.div>
         )}

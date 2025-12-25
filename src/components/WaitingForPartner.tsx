@@ -9,7 +9,6 @@ import { RitualCarousel } from './RitualCarousel';
 import { useSampleRituals } from '@/hooks/useSampleRituals';
 import { supabase } from '@/integrations/supabase/client';
 import { useCouple } from '@/contexts/CoupleContext';
-import { CelebrationScreen } from './CelebrationScreen';
 import { NotificationContainer } from './InlineNotification';
 import { usePremium } from '@/hooks/usePremium';
 import { UpgradeModal } from './UpgradeModal';
@@ -43,62 +42,22 @@ export const WaitingForPartner = ({
   const [isNudging, setIsNudging] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { rituals } = useSampleRituals();
-  const { isPremium, canNudge, nudgesUsedThisWeek } = usePremium();
+  const { isPremium, canNudge } = usePremium();
 
   // FIX #2: Abandoned Input Detection
   const [abandonedWarning, setAbandonedWarning] = useState<string | null>(null);
 
-  // Listen for partner completion in realtime (stable channel name)
+  // CONSOLIDATED: Realtime subscription moved to CoupleContext
+  // This component now only handles UI display and abandoned input detection
+  // Navigation is handled by parent components based on cycleState
+  
+  // Check for abandoned input (24+ hours) - this is a UI-only concern
   useEffect(() => {
     if (!currentCycleId) return;
-    
-    const channel = supabase
-      .channel(`cycle-updates-${currentCycleId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'weekly_cycles',
-        filter: `id=eq.${currentCycleId}`
-      }, async (payload: any) => {
-        const isPartnerOne = couple?.partner_one === user?.id;
-        const partnerSubmitted = isPartnerOne
-          ? payload.new.partner_two_input
-          : payload.new.partner_one_input;
-        const hasOutput = payload.new.synthesized_output;
 
-        if (partnerSubmitted && !hasOutput) {
-          // Partner just completed! Trigger synthesis and show celebration
-          console.log('[WaitingForPartner] Partner completed, triggering synthesis...');
-          
-          // Trigger synthesis via the idempotent endpoint
-          supabase.functions.invoke('trigger-synthesis', {
-            body: { cycleId: currentCycleId }
-          }).then(result => {
-            console.log('[WaitingForPartner] Synthesis trigger result:', result.data?.status);
-          }).catch(err => {
-            console.error('[WaitingForPartner] Synthesis trigger failed:', err);
-          });
-          
-          setShowCelebration(true);
-        } else if (hasOutput) {
-          // Synthesis already complete, go straight to picker
-          console.log('[WaitingForPartner] Synthesis already ready');
-          await refreshCycle();
-          navigate('/picker');
-        }
-      })
-      .subscribe((status) => {
-        console.log('[WaitingForPartner] Channel status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('[WaitingForPartner] ✅ Realtime subscription active');
-        }
-      });
-
-    // FIX #2: Check for abandoned input (24+ hours)
     const checkAbandoned = async () => {
       try {
         const { data: cycle } = await supabase
@@ -136,10 +95,9 @@ export const WaitingForPartner = ({
     const abandonedCheckInterval = setInterval(checkAbandoned, 60 * 60 * 1000);
 
     return () => {
-      supabase.removeChannel(channel);
       clearInterval(abandonedCheckInterval);
     };
-  }, [currentCycleId, couple, user, refreshCycle, navigate]);
+  }, [currentCycleId, couple, user]);
 
   const handleNudge = async () => {
     // Check premium nudge limit first
@@ -206,28 +164,9 @@ export const WaitingForPartner = ({
     }
   };
 
-  if (showCelebration) {
-    return (
-      <CelebrationScreen
-        message="Both vibes are in! ✨"
-        onComplete={async () => {
-          // Trigger synthesis and refresh before navigating
-          try {
-            console.log('[WaitingForPartner] Celebration complete, checking synthesis...');
-            const { data } = await supabase.functions.invoke('trigger-synthesis', {
-              body: { cycleId: currentCycleId }
-            });
-            console.log('[WaitingForPartner] Synthesis status:', data?.status);
-          } catch (err) {
-            console.warn('[WaitingForPartner] Synthesis trigger error:', err);
-          }
-          
-          await refreshCycle();
-          navigate('/picker');
-        }}
-      />
-    );
-  }
+  // CONSOLIDATED: Celebration is now shown based on cycleState from CoupleContext
+  // The parent component (Landing.tsx) handles navigation based on state changes
+  // This component no longer needs showCelebration state
 
   if (showSamples) {
     return (

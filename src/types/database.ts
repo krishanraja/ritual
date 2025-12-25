@@ -22,17 +22,22 @@ export type RitualLibrary = Tables<'ritual_library'>;
 /**
  * Derived cycle state based on weekly_cycles data.
  * This provides a single source of truth for the UI to render.
+ * 
+ * @updated 2025-12-25 - Added picking states and pending_confirmation
  */
 export type CycleState = 
-  | 'no_cycle'           // No weekly cycle exists yet
-  | 'waiting_for_self'   // Current user hasn't submitted input
-  | 'waiting_for_partner' // Current user submitted, partner hasn't
-  | 'both_complete'      // Both submitted, synthesis not started
-  | 'generating'         // Synthesis in progress (generated_at set, no output yet)
-  | 'ready'              // Rituals generated, ready to pick
-  | 'picking'            // Both partners need to rank rituals
-  | 'agreed'             // Agreement reached, ritual scheduled
-  | 'failed';            // Synthesis failed (timeout or error)
+  | 'no_cycle'             // No weekly cycle exists yet
+  | 'waiting_for_self'     // Current user hasn't submitted input
+  | 'waiting_for_partner'  // Current user submitted, partner hasn't
+  | 'both_complete'        // Both submitted, synthesis not started
+  | 'generating'           // Synthesis in progress (generated_at set, no output yet)
+  | 'ready'                // Rituals generated, waiting for preferences
+  | 'picking_self'         // Current user needs to pick preferences
+  | 'picking_partner'      // Partner needs to pick preferences (user done)
+  | 'resolving'            // Both picked, computing result
+  | 'pending_confirmation' // Result computed, awaiting lock-in
+  | 'agreed'               // Agreement reached, ritual scheduled
+  | 'failed';              // Synthesis failed (timeout or error)
 
 /**
  * Derives the current cycle state from a WeeklyCycle and user context.

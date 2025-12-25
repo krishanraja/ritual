@@ -47,7 +47,6 @@ export const SynthesisAnimation = () => {
   const [showRefreshButton, setShowRefreshButton] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [startTime] = useState(Date.now());
   const [cycleId, setCycleId] = useState<string | null>(null);
   const hasNavigatedRef = useRef(false);
   const isCompleteRef = useRef(false);
@@ -358,74 +357,18 @@ export const SynthesisAnimation = () => {
     }
   };
 
-  // Realtime subscription for synthesis completion (stable channel name)
+  // CONSOLIDATED: Realtime subscription moved to CoupleContext
+  // This component now relies on currentCycle from context for updates
+  // Check for synthesis completion from context changes
   useEffect(() => {
-    if (!cycleId) return;
-
-    console.log('[SYNTHESIS] Setting up realtime listener for cycle:', cycleId);
-
-    const channel = supabase
-      .channel(`synthesis-${cycleId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'weekly_cycles',
-        filter: `id=eq.${cycleId}`
-      }, async (payload: any) => {
-        console.log('[SYNTHESIS] Realtime update received:', payload.new?.id);
-        if (payload.new?.synthesized_output && !isCompleteRef.current) {
-          console.log('[SYNTHESIS] Synthesized output detected via realtime');
-          await handleComplete();
-        }
-      })
-      .subscribe((status) => {
-        console.log('[SYNTHESIS] Channel status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('[SYNTHESIS] ✅ Realtime subscription active, polling disabled');
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [cycleId, handleComplete]);
-
-  // Poll as backup only if realtime subscription fails (reduced frequency)
-  useEffect(() => {
-    if (!cycleId || isComplete || hasError) return;
-
-    const pollInterval = setInterval(async () => {
-      if (isCompleteRef.current || hasNavigatedRef.current) {
-        clearInterval(pollInterval);
-        return;
-      }
-
-      const elapsed = Date.now() - startTime;
-      console.log('[SYNTHESIS] Polling... elapsed:', Math.round(elapsed / 1000), 's');
-      
-      try {
-        const { data, error } = await supabase
-          .from('weekly_cycles')
-          .select('synthesized_output')
-          .eq('id', cycleId)
-          .single();
-
-        if (error) {
-          console.warn('[SYNTHESIS] Poll error:', error.message);
-          return;
-        }
-
-        if (data?.synthesized_output) {
-          console.log('[SYNTHESIS] Synthesized output detected via polling');
-          await handleComplete();
-        }
-      } catch (e) {
-        console.warn('[SYNTHESIS] Poll exception:', e);
-      }
-    }, 2000);
-
-    return () => clearInterval(pollInterval);
-  }, [cycleId, isComplete, hasError, startTime, handleComplete]);
+    if (!cycleId || isCompleteRef.current) return;
+    
+    // If currentCycle has synthesized_output, we're done
+    if (currentCycle?.synthesized_output && currentCycle?.id === cycleId) {
+      console.log('[SYNTHESIS] Detected synthesis complete from context');
+      handleComplete();
+    }
+  }, [cycleId, currentCycle?.synthesized_output, currentCycle?.id, handleComplete]);
 
   const currentRitual = displayRituals[currentRitualIndex];
   const nextRitual = displayRituals[(currentRitualIndex + 1) % displayRituals.length];
