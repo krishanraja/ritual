@@ -1,17 +1,17 @@
- /**
+/**
  * PickPhase Component
  * 
- * Combined ritual ranking + availability selection with progressive disclosure.
- * Sections auto-collapse as user completes each step.
+ * Premium ritual ranking + availability selection with beautiful animations.
+ * Features expressive micro-interactions and delightful selection states.
  * 
  * @created 2025-12-26
- * @updated 2025-12-26 - Added progressive disclosure, reduced header height
+ * @updated 2025-12-26 - Premium redesign with enhanced animations
  */
 
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Clock, DollarSign, Star, Check, AlertCircle, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+import { Clock, DollarSign, Star, Check, AlertCircle, ChevronDown, ChevronUp, Calendar, Sparkles, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { AvailabilityGrid } from './AvailabilityGrid';
@@ -31,6 +31,162 @@ interface PickPhaseProps {
 }
 
 type ActiveSection = 'rituals' | 'availability';
+
+// Spring animation config for smooth, bouncy feel
+const springTransition = {
+  type: 'spring' as const,
+  stiffness: 400,
+  damping: 25,
+  mass: 0.8,
+};
+
+// Rank badge component with beautiful animations
+const RankBadge = memo(({ rank, selected }: { rank: number; selected: boolean }) => (
+  <motion.div
+    initial={false}
+    animate={selected ? {
+      scale: [1, 1.15, 1],
+      rotate: [0, -5, 5, 0],
+    } : { scale: 1, rotate: 0 }}
+    transition={springTransition}
+    className={cn(
+      "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-200",
+      selected
+        ? "bg-gradient-to-br from-primary via-teal to-purple-500 text-white shadow-lg shadow-primary/30"
+        : "border-2 border-dashed border-muted-foreground/20 bg-muted/30"
+    )}
+  >
+    {selected ? (
+      <motion.span
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={springTransition}
+      >
+        {rank}
+      </motion.span>
+    ) : (
+      <span className="text-muted-foreground/50">+</span>
+    )}
+  </motion.div>
+));
+RankBadge.displayName = 'RankBadge';
+
+// Ritual card component with premium styling
+const RitualCard = memo(({ 
+  ritual, 
+  rank, 
+  partnerPicked, 
+  isExpanded, 
+  onSelect, 
+  onToggleExpand 
+}: {
+  ritual: Ritual;
+  rank: number | undefined;
+  partnerPicked: boolean;
+  isExpanded: boolean;
+  onSelect: () => void;
+  onToggleExpand: (e: React.MouseEvent) => void;
+}) => {
+  const isSelected = rank !== undefined;
+  
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <Card 
+        variant="interactive"
+        className={cn(
+          "transition-all duration-200 overflow-hidden",
+          isSelected && "ring-2 ring-primary/60 shadow-glow bg-primary/5",
+          partnerPicked && !isSelected && "ring-1 ring-purple-400/50 bg-purple-50/50"
+        )}
+        onClick={onSelect}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start gap-4">
+            {/* Card content */}
+            <div className="flex-1 min-w-0 space-y-2">
+              {/* Title row */}
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-bold text-base leading-tight">{ritual.title}</h3>
+                {partnerPicked && (
+                  <motion.span 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="flex-shrink-0 text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-medium flex items-center gap-1"
+                  >
+                    <Heart className="w-3 h-3" fill="currentColor" />
+                    Partner
+                  </motion.span>
+                )}
+              </div>
+              
+              {/* Description */}
+              <p className={cn(
+                "text-sm text-muted-foreground leading-relaxed",
+                !isExpanded && "line-clamp-2"
+              )}>
+                {ritual.description}
+              </p>
+              
+              {/* Meta badges */}
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 bg-muted/60 rounded-lg">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                  {ritual.time_estimate}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 bg-muted/60 rounded-lg">
+                  <DollarSign className="w-3.5 h-3.5 text-muted-foreground" />
+                  {ritual.budget_band}
+                </span>
+              </div>
+              
+              {/* Expandable "why" section */}
+              {ritual.why && (
+                <>
+                  <button
+                    onClick={onToggleExpand}
+                    className="text-xs text-primary font-medium flex items-center gap-1 hover:underline underline-offset-2"
+                  >
+                    {isExpanded ? (
+                      <>Show less <ChevronUp className="w-3.5 h-3.5" /></>
+                    ) : (
+                      <>Why this ritual? <ChevronDown className="w-3.5 h-3.5" /></>
+                    )}
+                  </button>
+                  
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <p className="text-xs text-muted-foreground italic bg-muted/40 p-3 rounded-lg border border-border/50">
+                          ✨ {ritual.why}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              )}
+            </div>
+            
+            {/* Rank indicator */}
+            <RankBadge rank={rank || 0} selected={isSelected} />
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+});
+RitualCard.displayName = 'RitualCard';
 
 export function PickPhase({
   rituals,
@@ -56,7 +212,7 @@ export function PickPhase({
     return map;
   }, [myPicks]);
   
-  // Check if partner has picked this ritual (show indicator but not rank)
+  // Check if partner has picked this ritual
   const partnerPickedRituals = useMemo(() => {
     return new Set(partnerPicks.map(p => p.ritual_title));
   }, [partnerPicks]);
@@ -72,295 +228,258 @@ export function PickPhase({
     return partnerSlots.some(s => myKeys.has(`${s.day_offset}-${s.time_slot}`));
   }, [mySlots, partnerSlots]);
   
-  // Auto-transition to availability when all picks are done (only once)
+  // Auto-transition to availability when all picks are done
   useEffect(() => {
     if (hasAllPicks && !hasAutoTransitioned.current) {
       hasAutoTransitioned.current = true;
-      // Small delay for smooth UX
       const timer = setTimeout(() => {
         setActiveSection('availability');
-      }, 300);
+      }, 400);
       return () => clearTimeout(timer);
     }
   }, [hasAllPicks]);
   
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
     try {
       await onSubmit();
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [onSubmit]);
   
-  const handleRankClick = async (ritual: Ritual) => {
+  const handleRankClick = useCallback(async (ritual: Ritual) => {
     const currentRank = myPicksByRitual.get(ritual.title);
     
     if (currentRank) {
-      // Already ranked - remove it
       await onRemoveRank(currentRank);
     } else {
-      // Not ranked - assign next available rank
       const usedRanks = new Set(myPicks.map(p => p.rank));
       const nextRank = [1, 2, 3].find(r => !usedRanks.has(r));
       if (nextRank) {
         await onRankRitual(ritual, nextRank);
       }
     }
-  };
+  }, [myPicksByRitual, myPicks, onRankRitual, onRemoveRank]);
   
   // Get selected ritual names for summary
-  const selectedRitualNames = myPicks
-    .sort((a, b) => a.rank - b.rank)
-    .map(p => p.ritual_title.split(' ').slice(0, 2).join(' '));
+  const selectedRitualNames = useMemo(() => 
+    myPicks
+      .sort((a, b) => a.rank - b.rank)
+      .map(p => p.ritual_title.split(' ').slice(0, 2).join(' ')),
+    [myPicks]
+  );
   
   return (
-    <div className="h-full flex flex-col">
-      {/* Compact Header */}
-      <div className="flex-none px-4 py-2">
-        {error && (
-          <div className="mb-2 flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-lg p-2">
-            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+    <div className="h-full flex flex-col bg-gradient-calm">
+      {/* Header */}
+      <div className="flex-none px-5 py-4">
+        {/* Error message */}
+        <AnimatePresence>
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mb-3 flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-xl p-3 border border-destructive/20"
+            >
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{error}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
-        <div className="text-center mb-2">
-          <h2 className="text-lg font-bold">Pick Your Top 3</h2>
-          <p className="text-xs text-muted-foreground">
-            Tap to rank: 1st choice, 2nd choice, 3rd choice
+        {/* Title section */}
+        <div className="text-center mb-4">
+          <h2 className="text-xl font-bold tracking-tight">Choose Your Rituals</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Tap to select your top 3 favorites
           </p>
         </div>
         
-        {/* Compact Selected ranks indicator */}
-        <div className="grid grid-cols-3 gap-1.5 max-w-[280px] mx-auto">
+        {/* Selected ranks indicator */}
+        <div className="flex justify-center gap-3">
           {[1, 2, 3].map(rank => {
             const pick = myPicks.find(p => p.rank === rank);
             return (
-              <button
+              <motion.button
                 key={rank}
                 onClick={() => pick && onRemoveRank(rank)}
                 className={cn(
-                  "h-10 rounded-lg border-2 flex items-center justify-center transition-all px-1.5 gap-1",
+                  "h-12 px-4 rounded-xl flex items-center justify-center gap-2 transition-all",
+                  "min-w-[90px] border-2",
                   pick 
-                    ? "bg-primary/10 border-primary hover:bg-primary/20" 
-                    : "border-dashed border-muted-foreground/30"
+                    ? "bg-primary/10 border-primary/40 text-primary shadow-sm" 
+                    : "border-dashed border-muted-foreground/25 bg-muted/30"
                 )}
+                whileTap={pick ? { scale: 0.95 } : {}}
+                transition={springTransition}
               >
                 {pick ? (
                   <>
-                    <Star className="w-3 h-3 text-primary flex-shrink-0" fill="currentColor" />
-                    <span className="text-[10px] font-medium truncate">
-                      {pick.ritual_title.split(' ').slice(0, 2).join(' ')}
+                    <Star className="w-4 h-4" fill="currentColor" />
+                    <span className="text-xs font-semibold truncate max-w-[60px]">
+                      {pick.ritual_title.split(' ')[0]}
                     </span>
                   </>
                 ) : (
-                  <span className="text-xs text-muted-foreground">#{rank}</span>
+                  <span className="text-sm font-medium text-muted-foreground/60">#{rank}</span>
                 )}
-              </button>
+              </motion.button>
             );
           })}
         </div>
       </div>
       
-      {/* Scrollable content with collapsible sections */}
+      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto min-h-0 px-4">
-        <div className="space-y-3 pb-4">
+        <div className="space-y-4 pb-4">
           
           {/* SECTION 1: Ritual Selection */}
-          <div className="bg-card rounded-xl border overflow-hidden">
-            {/* Section header - clickable to expand/collapse */}
+          <Card variant="elevated" className="overflow-hidden">
+            {/* Section header */}
             <button
               onClick={() => setActiveSection(activeSection === 'rituals' ? 'availability' : 'rituals')}
               className={cn(
-                "w-full flex items-center justify-between p-3 transition-colors",
-                activeSection === 'rituals' ? "bg-primary/5" : "hover:bg-muted/50"
+                "w-full flex items-center justify-between p-4 transition-all duration-200",
+                activeSection === 'rituals' 
+                  ? "bg-gradient-to-r from-primary/5 to-transparent" 
+                  : "hover:bg-muted/30"
               )}
             >
-              <div className="flex items-center gap-2">
-                <div className={cn(
-                  "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                  hasAllPicks 
-                    ? "bg-green-500 text-white" 
-                    : "bg-primary/20 text-primary"
-                )}>
-                  {hasAllPicks ? <Check className="w-3.5 h-3.5" /> : "1"}
-                </div>
+              <div className="flex items-center gap-3">
+                <motion.div 
+                  className={cn(
+                    "w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm",
+                    hasAllPicks 
+                      ? "bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-md" 
+                      : "bg-primary/15 text-primary"
+                  )}
+                  animate={hasAllPicks ? { scale: [1, 1.1, 1] } : {}}
+                  transition={springTransition}
+                >
+                  {hasAllPicks ? <Check className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                </motion.div>
                 <div className="text-left">
-                  <div className="text-sm font-semibold">Choose Rituals</div>
+                  <div className="font-semibold">Select Rituals</div>
                   {hasAllPicks && activeSection !== 'rituals' && (
-                    <div className="text-[10px] text-muted-foreground truncate max-w-[180px]">
-                      {selectedRitualNames.join(', ')}
-                    </div>
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-xs text-muted-foreground truncate max-w-[200px]"
+                    >
+                      {selectedRitualNames.join(' • ')}
+                    </motion.div>
                   )}
                 </div>
               </div>
-              <ChevronDown className={cn(
-                "w-4 h-4 text-muted-foreground transition-transform",
-                activeSection === 'rituals' && "rotate-180"
-              )} />
+              <motion.div
+                animate={{ rotate: activeSection === 'rituals' ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ChevronDown className="w-5 h-5 text-muted-foreground" />
+              </motion.div>
             </button>
             
-            {/* Ritual cards - collapsible */}
+            {/* Ritual cards */}
             <AnimatePresence>
               {activeSection === 'rituals' && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                   className="overflow-hidden"
                 >
-                  <div className="p-3 pt-0 space-y-2">
-                    {rituals.map((ritual, idx) => {
+                  <div className="p-4 pt-0 space-y-3">
+                    {rituals.map((ritual) => {
                       const myRank = myPicksByRitual.get(ritual.title);
                       const partnerPicked = partnerPickedRituals.has(ritual.title);
                       const isExpanded = expandedRitual === ritual.title;
                       
                       return (
-                        <motion.div
+                        <RitualCard
                           key={ritual.title}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: idx * 0.03 }}
-                        >
-                          <Card 
-                            className={cn(
-                              "transition-all cursor-pointer overflow-hidden",
-                              myRank && "ring-2 ring-primary bg-primary/5",
-                              partnerPicked && !myRank && "ring-1 ring-purple-300"
-                            )}
-                            onClick={() => handleRankClick(ritual)}
-                          >
-                            <CardContent className="p-2.5">
-                              <div className="flex items-start gap-2.5">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5 mb-0.5">
-                                    <h3 className="font-semibold text-sm truncate">{ritual.title}</h3>
-                                    {partnerPicked && (
-                                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 flex-shrink-0">
-                                        Partner likes
-                                      </span>
-                                    )}
-                                  </div>
-                                  
-                                  <p className={cn(
-                                    "text-[11px] text-muted-foreground mb-1.5",
-                                    isExpanded ? "" : "line-clamp-2"
-                                  )}>
-                                    {ritual.description}
-                                  </p>
-                                  
-                                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-muted rounded">
-                                      <Clock className="w-2.5 h-2.5" />
-                                      {ritual.time_estimate}
-                                    </span>
-                                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-muted rounded">
-                                      <DollarSign className="w-2.5 h-2.5" />
-                                      {ritual.budget_band}
-                                    </span>
-                                  </div>
-                                  
-                                  {ritual.why && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setExpandedRitual(isExpanded ? null : ritual.title);
-                                      }}
-                                      className="text-[10px] text-primary mt-1.5 hover:underline flex items-center gap-0.5"
-                                    >
-                                      {isExpanded ? (
-                                        <>Show less <ChevronUp className="w-2.5 h-2.5" /></>
-                                      ) : (
-                                        <>Why this ritual? <ChevronDown className="w-2.5 h-2.5" /></>
-                                      )}
-                                    </button>
-                                  )}
-                                  
-                                  {isExpanded && ritual.why && (
-                                    <p className="text-[10px] text-muted-foreground mt-1.5 italic bg-muted/50 p-1.5 rounded">
-                                      {ritual.why}
-                                    </p>
-                                  )}
-                                </div>
-                                
-                                {/* Compact Rank indicator */}
-                                <div className="flex-shrink-0">
-                                  {myRank ? (
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
-                                      {myRank}
-                                    </div>
-                                  ) : (
-                                    <div className="w-8 h-8 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-                                      <span className="text-[10px] text-muted-foreground">+</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
+                          ritual={ritual}
+                          rank={myRank}
+                          partnerPicked={partnerPicked}
+                          isExpanded={isExpanded}
+                          onSelect={() => handleRankClick(ritual)}
+                          onToggleExpand={(e) => {
+                            e.stopPropagation();
+                            setExpandedRitual(isExpanded ? null : ritual.title);
+                          }}
+                        />
                       );
                     })}
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </Card>
           
           {/* SECTION 2: Availability Selection */}
-          <div className="bg-card rounded-xl border overflow-hidden">
-            {/* Section header - clickable to expand/collapse */}
+          <Card variant="elevated" className="overflow-hidden">
+            {/* Section header */}
             <button
               onClick={() => setActiveSection(activeSection === 'availability' ? 'rituals' : 'availability')}
               className={cn(
-                "w-full flex items-center justify-between p-3 transition-colors",
-                activeSection === 'availability' ? "bg-primary/5" : "hover:bg-muted/50",
-                !hasAllPicks && "opacity-60"
+                "w-full flex items-center justify-between p-4 transition-all duration-200",
+                activeSection === 'availability' 
+                  ? "bg-gradient-to-r from-primary/5 to-transparent" 
+                  : "hover:bg-muted/30",
+                !hasAllPicks && "opacity-50 cursor-not-allowed"
               )}
+              disabled={!hasAllPicks}
             >
-              <div className="flex items-center gap-2">
-                <div className={cn(
-                  "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                  hasAvailability 
-                    ? "bg-green-500 text-white" 
-                    : hasAllPicks 
-                      ? "bg-primary/20 text-primary"
-                      : "bg-muted text-muted-foreground"
-                )}>
-                  {hasAvailability ? <Check className="w-3.5 h-3.5" /> : "2"}
-                </div>
+              <div className="flex items-center gap-3">
+                <motion.div 
+                  className={cn(
+                    "w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm",
+                    hasAvailability 
+                      ? "bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-md" 
+                      : hasAllPicks 
+                        ? "bg-primary/15 text-primary"
+                        : "bg-muted text-muted-foreground"
+                  )}
+                  animate={hasAvailability ? { scale: [1, 1.1, 1] } : {}}
+                  transition={springTransition}
+                >
+                  {hasAvailability ? <Check className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
+                </motion.div>
                 <div className="text-left">
-                  <div className="text-sm font-semibold flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5" />
-                    Pick Times
-                  </div>
+                  <div className="font-semibold">Pick Your Times</div>
                   {hasAvailability && activeSection !== 'availability' && (
-                    <div className="text-[10px] text-muted-foreground">
-                      {mySlots.length} slot{mySlots.length !== 1 ? 's' : ''} selected
-                      {hasOverlap && <span className="text-green-600 ml-1">• Match found!</span>}
-                    </div>
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-xs text-muted-foreground"
+                    >
+                      {mySlots.length} slot{mySlots.length !== 1 ? 's' : ''}
+                      {hasOverlap && <span className="text-emerald-600 ml-1.5 font-medium">• Match!</span>}
+                    </motion.div>
                   )}
                 </div>
               </div>
-              <ChevronDown className={cn(
-                "w-4 h-4 text-muted-foreground transition-transform",
-                activeSection === 'availability' && "rotate-180"
-              )} />
+              <motion.div
+                animate={{ rotate: activeSection === 'availability' ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ChevronDown className="w-5 h-5 text-muted-foreground" />
+              </motion.div>
             </button>
             
-            {/* Availability grid - collapsible */}
+            {/* Availability grid */}
             <AnimatePresence>
               {activeSection === 'availability' && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                   className="overflow-hidden"
                 >
-                  <div className="p-3 pt-0">
+                  <div className="p-4 pt-0">
                     <AvailabilityGrid
                       mySlots={mySlots}
                       partnerSlots={partnerSlots}
@@ -370,33 +489,33 @@ export function PickPhase({
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </Card>
         </div>
       </div>
       
       {/* Submit button */}
-      <div className="flex-none px-4 py-3 pb-safe bg-background/95 backdrop-blur-sm border-t">
+      <div className="flex-none px-4 py-4 pb-safe bg-background/90 backdrop-blur-lg border-t border-border/50">
         <Button
           onClick={handleSubmit}
           disabled={!canSubmit || isSubmitting}
-          className="w-full h-11 bg-gradient-to-r from-primary to-purple-500 text-white"
+          variant="gradient"
+          size="xl"
+          loading={isSubmitting}
+          className="w-full"
         >
           {isSubmitting ? (
-            <span className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Saving...
-            </span>
+            'Saving your picks...'
           ) : !hasAllPicks ? (
             `Pick ${3 - myPicks.length} more ritual${3 - myPicks.length > 1 ? 's' : ''}`
           ) : !hasAvailability ? (
             'Select your availability'
           ) : !hasOverlap && partnerSlots.length > 0 ? (
-            'No matching times - adjust or continue'
+            'Continue without matching times'
           ) : (
-            <span className="flex items-center gap-2">
-              <Check className="w-4 h-4" />
-              Done - See Results
-            </span>
+            <>
+              <Check className="w-5 h-5" />
+              See Your Results
+            </>
           )}
         </Button>
       </div>

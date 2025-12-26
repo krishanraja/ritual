@@ -2,89 +2,154 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* =============================================================================
+   RITUAL DESIGN SYSTEM
+   
+   A sophisticated, warm design system for relationship-building experiences.
+   All colors in HSL format for consistency and flexibility.
+   ============================================================================= */
 
 @layer base {
   :root {
-    /* Sophisticated teal/purple palette inspired by logo */
+    /* -------------------------------------------------------------------------
+       CORE COLORS - Refined pastel palette with depth
+       ------------------------------------------------------------------------- */
+    
+    /* Background layers */
     --background: 220 20% 97%;
+    --background-elevated: 0 0% 100%;
     --foreground: 220 30% 15%;
 
+    /* Card surfaces with elevation */
     --card: 0 0% 100%;
     --card-foreground: 220 30% 15%;
+    --card-hover: 220 15% 99%;
 
+    /* Popover surfaces */
     --popover: 0 0% 100%;
     --popover-foreground: 220 30% 15%;
 
-    /* Teal primary - sophisticated, calming */
-    --primary: 175 65% 42%;
+    /* Primary - Deep teal (sophisticated, calming, trustworthy) */
+    --primary: 174 58% 39%;
+    --primary-hover: 174 58% 35%;
     --primary-foreground: 0 0% 100%;
+    --primary-glow: 174 65% 45%;
 
-    /* Warm purple secondary */
+    /* Secondary - Warm purple accent */
     --secondary: 270 45% 95%;
     --secondary-foreground: 270 40% 35%;
 
-    /* Neutral muted tones */
+    /* Muted - Soft neutrals for subtle UI */
     --muted: 220 15% 92%;
     --muted-foreground: 220 15% 45%;
 
-    /* Deep purple accent */
+    /* Accent - Deep purple for highlights */
     --accent: 270 50% 92%;
     --accent-foreground: 270 50% 35%;
 
-    --destructive: 0 84.2% 60.2%;
+    /* Semantic colors */
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
+    --success: 142 72% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
 
-    --border: 220 20% 88%;
-    --input: 220 20% 88%;
-    --ring: 175 65% 42%;
+    /* Borders & inputs */
+    --border: 220 20% 90%;
+    --border-hover: 220 20% 80%;
+    --input: 220 20% 90%;
+    --ring: 174 58% 39%;
 
+    /* Radius - Larger for softer feel */
     --radius: 1rem;
+    --radius-sm: 0.5rem;
+    --radius-lg: 1.5rem;
+    --radius-xl: 2rem;
 
-    /* Custom brand colors derived from logo */
-    --teal: 175 65% 42%;
-    --teal-light: 175 50% 92%;
+    /* -------------------------------------------------------------------------
+       BRAND COLORS - Direct from logo palette
+       ------------------------------------------------------------------------- */
+    --teal: 174 58% 39%;
+    --teal-light: 174 50% 92%;
+    --teal-glow: 174 65% 45%;
     --purple: 270 55% 55%;
     --purple-light: 270 40% 92%;
+    --purple-glow: 270 60% 60%;
     --gold: 40 85% 55%;
     --gold-light: 40 60% 92%;
     
-    /* Legacy color mappings for compatibility */
+    /* Legacy compatibility */
     --lavender: 270 50% 85%;
     --lavender-light: 270 50% 95%;
     --blush: 340 100% 92%;
     --blush-light: 340 100% 96%;
-    --sage: 120 30% 85%;
-    --sage-light: 120 30% 92%;
+    --sage: 142 30% 85%;
+    --sage-light: 142 30% 92%;
     
-    /* Gradients */
-    --gradient-ritual: linear-gradient(135deg, hsl(175 65% 42%), hsl(270 55% 55%));
+    /* -------------------------------------------------------------------------
+       GRADIENTS - Smooth, sophisticated color transitions
+       ------------------------------------------------------------------------- */
+    --gradient-ritual: linear-gradient(135deg, hsl(174 58% 39%), hsl(270 55% 55%));
     --gradient-calm: linear-gradient(180deg, hsl(220 20% 97%), hsl(220 15% 94%));
-    --gradient-warm: linear-gradient(135deg, hsl(270 40% 92%), hsl(40 60% 92%));
+    --gradient-warm: linear-gradient(135deg, hsl(270 40% 94%), hsl(40 60% 94%));
+    --gradient-glow: radial-gradient(ellipse at center, hsl(174 65% 45% / 0.15), transparent 70%);
 
-    /* Shadows */
-    --shadow-soft: 0 4px 24px -4px hsl(220 30% 30% / 0.08);
-    --shadow-card: 0 8px 32px -8px hsl(220 30% 30% / 0.12);
+    /* -------------------------------------------------------------------------
+       SHADOWS - Soft, layered shadows for depth
+       ------------------------------------------------------------------------- */
+    --shadow-xs: 0 1px 2px 0 hsl(220 30% 30% / 0.05);
+    --shadow-sm: 0 2px 4px -1px hsl(220 30% 30% / 0.06), 0 1px 2px -1px hsl(220 30% 30% / 0.04);
+    --shadow-soft: 0 4px 16px -4px hsl(220 30% 30% / 0.08);
+    --shadow-card: 0 8px 24px -8px hsl(220 30% 30% / 0.1), 0 4px 8px -4px hsl(220 30% 30% / 0.04);
+    --shadow-elevated: 0 16px 48px -12px hsl(220 30% 30% / 0.12), 0 8px 16px -8px hsl(220 30% 30% / 0.06);
+    --shadow-glow: 0 0 24px -4px hsl(174 65% 45% / 0.25);
+    --shadow-glow-purple: 0 0 24px -4px hsl(270 60% 60% / 0.25);
+    
+    /* Neumorphic shadows (light mode) */
+    --shadow-neumorphic: 
+      6px 6px 12px hsl(220 20% 85% / 0.5),
+      -6px -6px 12px hsl(0 0% 100% / 0.8);
+    --shadow-neumorphic-inset:
+      inset 3px 3px 6px hsl(220 20% 88% / 0.5),
+      inset -3px -3px 6px hsl(0 0% 100% / 0.7);
 
-    /* Transitions */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    /* -------------------------------------------------------------------------
+       ANIMATION TOKENS - Consistent motion language
+       ------------------------------------------------------------------------- */
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    
+    --duration-instant: 100ms;
+    --duration-fast: 150ms;
+    --duration-normal: 300ms;
+    --duration-slow: 500ms;
+    --duration-slower: 700ms;
+    
+    --transition-smooth: all 0.3s var(--ease-smooth);
+    --transition-bounce: all 0.4s var(--ease-bouncy);
+    --transition-spring: all 0.5s var(--ease-out-expo);
   }
 
+  /* Dark mode */
   .dark {
     --background: 220 25% 10%;
+    --background-elevated: 220 25% 14%;
     --foreground: 220 10% 95%;
 
     --card: 220 25% 13%;
     --card-foreground: 220 10% 95%;
+    --card-hover: 220 25% 16%;
 
     --popover: 220 25% 13%;
     --popover-foreground: 220 10% 95%;
 
-    --primary: 175 55% 50%;
+    --primary: 174 55% 50%;
+    --primary-hover: 174 55% 55%;
     --primary-foreground: 0 0% 100%;
+    --primary-glow: 174 60% 55%;
 
     --secondary: 270 40% 20%;
     --secondary-foreground: 270 50% 90%;
@@ -95,20 +160,29 @@ All colors MUST be HSL.
     --accent: 270 40% 25%;
     --accent-foreground: 270 50% 90%;
 
-    --destructive: 0 62.8% 50%;
+    --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
-    --ring: 175 55% 50%;
+    --border: 220 20% 22%;
+    --border-hover: 220 20% 28%;
+    --input: 220 20% 22%;
+    --ring: 174 55% 50%;
     
     /* Dark mode brand colors */
-    --teal: 175 55% 50%;
-    --teal-light: 175 40% 25%;
+    --teal: 174 55% 50%;
+    --teal-light: 174 40% 25%;
     --purple: 270 50% 60%;
     --purple-light: 270 35% 25%;
     --gold: 40 75% 50%;
     --gold-light: 40 50% 25%;
+    
+    /* Dark mode shadows */
+    --shadow-soft: 0 4px 16px -4px hsl(220 30% 5% / 0.4);
+    --shadow-card: 0 8px 24px -8px hsl(220 30% 5% / 0.5);
+    --shadow-elevated: 0 16px 48px -12px hsl(220 30% 5% / 0.6);
+    --shadow-neumorphic: 
+      6px 6px 12px hsl(220 25% 6% / 0.6),
+      -6px -6px 12px hsl(220 25% 18% / 0.3);
   }
 }
 
@@ -117,14 +191,52 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    /* Improve text rendering */
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     @apply bg-background text-foreground;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    line-height: 1.6;
+    letter-spacing: 0.01em;
+  }
+  
+  /* Improved heading styles */
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+  h4 { font-size: 1.125rem; }
+  
+  /* Better focus states for accessibility */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  
+  /* Smooth scrolling */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
 }
 
 @layer utilities {
-  /* Safe area utilities for mobile notch/home bar */
+  /* -------------------------------------------------------------------------
+     SAFE AREA UTILITIES - Mobile notch/home bar support
+     ------------------------------------------------------------------------- */
   .safe-top {
     padding-top: env(safe-area-inset-top);
   }
@@ -142,15 +254,123 @@ All colors MUST be HSL.
     padding-bottom: env(safe-area-inset-bottom);
   }
   
+  /* -------------------------------------------------------------------------
+     GRADIENT UTILITIES
+     ------------------------------------------------------------------------- */
   .bg-gradient-calm {
     background: linear-gradient(180deg, hsl(220 20% 97%), hsl(220 15% 94%));
   }
   
   .bg-gradient-ritual {
-    background: linear-gradient(135deg, hsl(175 65% 42%), hsl(270 55% 55%));
+    background: linear-gradient(135deg, hsl(174 58% 39%), hsl(270 55% 55%));
   }
   
   .bg-gradient-warm {
-    background: linear-gradient(135deg, hsl(270 40% 92%), hsl(40 60% 92%));
+    background: linear-gradient(135deg, hsl(270 40% 94%), hsl(40 60% 94%));
+  }
+  
+  .bg-gradient-glow {
+    background: radial-gradient(ellipse at center, hsl(174 65% 45% / 0.15), transparent 70%);
+  }
+  
+  /* Text gradient */
+  .text-gradient-ritual {
+    background: linear-gradient(135deg, hsl(174 58% 39%), hsl(270 55% 55%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  /* -------------------------------------------------------------------------
+     SHADOW UTILITIES
+     ------------------------------------------------------------------------- */
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .shadow-glow-purple {
+    box-shadow: var(--shadow-glow-purple);
+  }
+  
+  .shadow-neumorphic {
+    box-shadow: var(--shadow-neumorphic);
+  }
+  
+  .shadow-neumorphic-inset {
+    box-shadow: var(--shadow-neumorphic-inset);
+  }
+  
+  /* -------------------------------------------------------------------------
+     GLASS MORPHISM
+     ------------------------------------------------------------------------- */
+  .glass {
+    background: hsl(0 0% 100% / 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  
+  .glass-subtle {
+    background: hsl(0 0% 100% / 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  /* -------------------------------------------------------------------------
+     ANIMATION UTILITIES
+     ------------------------------------------------------------------------- */
+  .animate-in {
+    animation: animate-in var(--duration-normal) var(--ease-out-expo) forwards;
+  }
+  
+  .stagger-1 { animation-delay: 50ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 150ms; }
+  .stagger-4 { animation-delay: 200ms; }
+  .stagger-5 { animation-delay: 250ms; }
+  
+  /* Press state for tactile feedback */
+  .press-effect {
+    transition: transform var(--duration-fast) var(--ease-smooth);
+  }
+  
+  .press-effect:active {
+    transform: scale(0.97);
+  }
+  
+  /* Hover lift effect */
+  .hover-lift {
+    transition: transform var(--duration-normal) var(--ease-smooth),
+                box-shadow var(--duration-normal) var(--ease-smooth);
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevated);
+  }
+  
+  /* -------------------------------------------------------------------------
+     REDUCED MOTION SUPPORT
+     ------------------------------------------------------------------------- */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Keyframe for animate-in utility */
+@keyframes animate-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

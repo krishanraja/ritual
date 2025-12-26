@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Share2, CheckCircle2, Clock, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,23 @@ interface RitualCardProps {
   agreedTime?: string;
 }
 
-export const RitualCard = ({ 
+const heights = {
+  full: 'h-[520px]',
+  compact: 'h-[480px]',
+  sample: 'h-[480px]'
+};
+
+const getCategoryColor = (category?: string) => {
+  switch (category?.toLowerCase()) {
+    case 'connection': return 'bg-primary/20 text-primary-foreground border-primary/30';
+    case 'adventure': return 'bg-accent/20 text-accent-foreground border-accent/30';
+    case 'relaxation': return 'bg-muted/40 text-muted-foreground border-muted/50';
+    case 'creativity': return 'bg-secondary/20 text-secondary-foreground border-secondary/30';
+    default: return 'bg-card/50 text-card-foreground border-border';
+  }
+};
+
+export const RitualCard = memo(function RitualCard({ 
   ritual, 
   isComplete = false, 
   onComplete, 
@@ -35,27 +52,23 @@ export const RitualCard = ({
   showActions = true,
   agreedDate,
   agreedTime
-}: RitualCardProps) => {
-  const heights = {
-    full: 'h-[520px]',
-    compact: 'h-[480px]',
-    sample: 'h-[480px]'
-  };
-
-  const getCategoryColor = (category?: string) => {
-    switch (category?.toLowerCase()) {
-      case 'connection': return 'bg-primary/20 text-primary-foreground border-primary/30';
-      case 'adventure': return 'bg-accent/20 text-accent-foreground border-accent/30';
-      case 'relaxation': return 'bg-muted/40 text-muted-foreground border-muted/50';
-      case 'creativity': return 'bg-secondary/20 text-secondary-foreground border-secondary/30';
-      default: return 'bg-card/50 text-card-foreground border-border';
-    }
-  };
+}: RitualCardProps) {
+  const heightClass = heights[variant];
+  const categoryColorClass = useMemo(() => getCategoryColor(ritual.category), [ritual.category]);
+  
+  const handleShare = useCallback(() => {
+    shareToWhatsApp(ritual);
+  }, [ritual]);
+  
+  const handleCalendar = useCallback(() => {
+    const date = agreedDate ? new Date(agreedDate) : undefined;
+    downloadICS(ritual, date, agreedTime);
+  }, [ritual, agreedDate, agreedTime]);
 
   return (
     <motion.div
       className={cn(
-        heights[variant],
+        heightClass,
         "w-full rounded-2xl bg-card/90 backdrop-blur-md border shadow-card",
         "flex flex-col overflow-hidden"
       )}
@@ -92,7 +105,7 @@ export const RitualCard = ({
       <div className="px-5 pb-4 flex-none">
         <div className="flex flex-wrap items-center gap-2">
           {ritual.category && (
-            <Badge variant="outline" className={cn("text-xs", getCategoryColor(ritual.category))}>
+            <Badge variant="outline" className={cn("text-xs", categoryColorClass)}>
               {ritual.category}
             </Badge>
           )}
@@ -131,7 +144,7 @@ export const RitualCard = ({
                 variant="ghost"
                 size="sm"
                 className="flex-1 h-9 text-xs"
-                onClick={() => shareToWhatsApp(ritual)}
+                onClick={handleShare}
               >
                 <Share2 className="w-3 h-3 mr-1" />
                 Share
@@ -140,10 +153,7 @@ export const RitualCard = ({
                 variant="ghost"
                 size="sm"
                 className="flex-1 h-9 text-xs"
-                onClick={() => {
-                  const date = agreedDate ? new Date(agreedDate) : undefined;
-                  downloadICS(ritual, date, agreedTime);
-                }}
+                onClick={handleCalendar}
               >
                 <Calendar className="w-3 h-3 mr-1" />
                 Calendar
@@ -154,4 +164,4 @@ export const RitualCard = ({
       )}
     </motion.div>
   );
-};
+});

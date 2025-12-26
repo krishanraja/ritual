@@ -1,14 +1,14 @@
 /**
  * SplashScreen Component
  * 
- * Single branded loading experience. Shows until ALL critical data is ready.
+ * Premium branded loading experience with refined animations.
  * Follows Google UX principles:
  * - One loading state, one transition
  * - Content pre-renders invisibly underneath
  * - Atomic reveal with smooth crossfade
  * 
  * @created 2025-12-13
- * @updated 2025-12-24 - Simplified, removed diagnostic logs
+ * @updated 2025-12-26 - Premium animations, new tagline
  */
 
 import { useEffect, useState, useRef } from 'react';
@@ -35,11 +35,10 @@ export function SplashScreen({ children }: SplashScreenProps) {
     }
   }, []);
 
-  // Fallback timeout - max 4s to prevent infinite splash (runs once on mount)
+  // Fallback timeout - max 4s to prevent infinite splash
   useEffect(() => {
     const fallbackTimeout = setTimeout(() => {
       if (showSplashRef.current) {
-        console.warn('[SplashScreen] Fallback timeout (4s) - forcing reveal');
         showSplashRef.current = false;
         setContentReady(true);
         setShowSplash(false);
@@ -52,10 +51,8 @@ export function SplashScreen({ children }: SplashScreenProps) {
   // When loading completes, reveal content
   useEffect(() => {
     if (!loading) {
-      // Mark content ready immediately
       setContentReady(true);
       
-      // Brief delay for React to render, then fade out splash
       const timer = setTimeout(() => {
         showSplashRef.current = false;
         setShowSplash(false);
@@ -67,90 +64,151 @@ export function SplashScreen({ children }: SplashScreenProps) {
 
   return (
     <>
-      {/* Branded splash screen */}
+      {/* Premium branded splash screen */}
       <AnimatePresence>
         {showSplash && (
           <motion.div
             key="splash"
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
             style={{
-              background: 'linear-gradient(180deg, hsla(270, 40%, 92%, 0.95), hsla(220, 20%, 97%, 0.98))'
+              background: 'linear-gradient(180deg, hsl(270 40% 94%), hsl(220 20% 97%))'
             }}
           >
-            {/* Animated icon */}
-            <div className="relative flex items-center justify-center mb-4">
+            {/* Ambient gradient orbs */}
+            <div className="absolute inset-0 overflow-hidden">
               <motion.div
-                className="absolute w-28 h-28 rounded-full"
+                className="absolute -top-32 -right-32 w-80 h-80 rounded-full opacity-20"
+                style={{ background: 'radial-gradient(circle, hsl(174 58% 42%), transparent 70%)' }}
+                animate={{ 
+                  scale: [1, 1.2, 1],
+                  x: [0, 20, 0],
+                  y: [0, -10, 0],
+                }}
+                transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <motion.div
+                className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full opacity-15"
+                style={{ background: 'radial-gradient(circle, hsl(270 55% 55%), transparent 70%)' }}
+                animate={{ 
+                  scale: [1, 1.15, 1],
+                  x: [0, -15, 0],
+                  y: [0, 20, 0],
+                }}
+                transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            </div>
+            
+            {/* Logo container with glow animation */}
+            <div className="relative flex items-center justify-center mb-6">
+              {/* Rotating gradient ring */}
+              <motion.div
+                className="absolute w-32 h-32 rounded-full"
                 style={{
-                  background: 'conic-gradient(from 0deg, hsl(175 65% 42%), hsl(270 55% 55%), hsl(175 65% 42%))',
-                  opacity: 0.25,
+                  background: 'conic-gradient(from 0deg, hsl(174 58% 42% / 0.4), hsl(270 55% 55% / 0.4), hsl(174 58% 42% / 0.4))',
                 }}
                 animate={{ rotate: 360 }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
               />
               
+              {/* Inner glow circle */}
               <motion.div
-                className="relative w-24 h-24 rounded-full bg-gradient-to-br from-primary/10 to-purple-200/20 flex items-center justify-center"
+                className="absolute w-28 h-28 rounded-full"
+                style={{ background: 'hsl(0 0% 100% / 0.6)' }}
                 animate={{
                   boxShadow: [
-                    '0 0 0 0 hsl(175 65% 42% / 0)',
-                    '0 0 20px 8px hsl(175 65% 42% / 0.2)',
-                    '0 0 0 0 hsl(175 65% 42% / 0)',
+                    '0 0 0 0 hsl(174 58% 42% / 0)',
+                    '0 0 30px 10px hsl(174 58% 42% / 0.15)',
+                    '0 0 0 0 hsl(174 58% 42% / 0)',
                   ],
                 }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              
+              {/* Icon */}
+              <motion.div
+                className="relative w-24 h-24 rounded-full bg-white shadow-lg flex items-center justify-center"
+                animate={{ scale: [1, 1.03, 1] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <motion.img
+                <img
                   src={ritualIcon}
                   alt="Ritual"
-                  className="w-16 h-16 object-contain"
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                  className="w-14 h-14 object-contain"
                 />
               </motion.div>
             </div>
             
-            {/* Logo */}
-            <img 
+            {/* Logo image */}
+            <motion.img 
               src="/ritual-logo-full.png" 
               alt="Ritual" 
-              className="relative max-h-16 w-auto"
+              className="relative max-h-14 w-auto"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             />
             
-            {/* Tagline */}
-            <p 
-              className="relative mt-10 text-[15px] font-semibold italic tracking-wide"
+            {/* Tagline - Updated to more professional version */}
+            <motion.p 
+              className="relative mt-8 text-sm font-semibold tracking-wide"
               style={{
-                background: 'linear-gradient(135deg, hsl(175, 55%, 35%), hsl(270, 55%, 55%))',
+                background: 'linear-gradient(135deg, hsl(174 55% 35%), hsl(270 55% 50%))',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
               }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             >
-              Re-love your partner
-            </p>
+              Weekly moments, lasting connection
+            </motion.p>
             
-            {/* Loading text */}
-            <p className="relative mt-6 text-[13px] font-medium tracking-wide text-muted-foreground animate-pulse">
-              Loading your experience...
-            </p>
+            {/* Loading indicator */}
+            <motion.div 
+              className="relative mt-8 flex items-center gap-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.4 }}
+            >
+              <div className="flex gap-1">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full bg-primary/50"
+                    animate={{ 
+                      scale: [1, 1.3, 1],
+                      opacity: [0.5, 1, 0.5],
+                    }}
+                    transition={{ 
+                      duration: 1,
+                      repeat: Infinity,
+                      delay: i * 0.15,
+                      ease: 'easeInOut',
+                    }}
+                  />
+                ))}
+              </div>
+              <span className="text-xs font-medium text-muted-foreground/70">
+                Loading
+              </span>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Main content - renders invisibly, revealed atomically */}
-      <div 
-        className={contentReady && !showSplash ? 'opacity-100' : 'opacity-0'}
-        style={{ 
-          pointerEvents: showSplash ? 'none' : 'auto',
-          transition: 'opacity 0.2s ease-out',
-        }}
+      <motion.div 
+        initial={false}
+        animate={{ opacity: contentReady && !showSplash ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        style={{ pointerEvents: showSplash ? 'none' : 'auto' }}
       >
         {children}
-      </div>
+      </motion.div>
     </>
   );
 }

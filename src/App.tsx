@@ -67,10 +67,44 @@ const queryClient = new QueryClient({
   },
 });
 
-// Minimal loading fallback for lazy routes - matches app background
+// Skeleton loading fallback for lazy routes - provides better perceived performance
 const LazyFallback = () => (
-  <div className="h-full flex items-center justify-center bg-gradient-warm">
-    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+  <div className="h-full flex flex-col bg-gradient-warm">
+    {/* Header skeleton */}
+    <div className="flex-none h-14 px-4 flex items-center justify-between">
+      <div className="h-8 w-24 rounded-lg bg-muted/50 animate-pulse" />
+      <div className="h-8 w-8 rounded-full bg-muted/50 animate-pulse" />
+    </div>
+    
+    {/* Content skeleton */}
+    <div className="flex-1 px-4 py-6 space-y-4">
+      <div className="text-center space-y-2 mb-6">
+        <div className="h-6 w-48 mx-auto rounded-lg bg-muted/50 animate-pulse" />
+        <div className="h-4 w-32 mx-auto rounded-lg bg-muted/40 animate-pulse" />
+      </div>
+      
+      {/* Card skeletons */}
+      {[1, 2, 3].map((i) => (
+        <div 
+          key={i} 
+          className="rounded-2xl bg-white/60 p-4 space-y-3"
+          style={{ animationDelay: `${i * 100}ms` }}
+        >
+          <div className="flex items-start gap-3">
+            <div className="h-12 w-12 rounded-xl bg-muted/50 animate-pulse" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-3/4 rounded bg-muted/50 animate-pulse" />
+              <div className="h-3 w-1/2 rounded bg-muted/40 animate-pulse" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+    
+    {/* Bottom button skeleton */}
+    <div className="flex-none p-4 pb-safe">
+      <div className="h-12 w-full rounded-xl bg-muted/50 animate-pulse" />
+    </div>
   </div>
 );
 

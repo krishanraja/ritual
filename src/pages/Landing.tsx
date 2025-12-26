@@ -314,69 +314,105 @@ export default function Landing() {
 
   // ==========================================================================
   // RENDER: Marketing view - not logged in
-  // Google UX: Content appears instantly, no stagger animations
+  // Premium design with refined typography and spacing
   // ==========================================================================
   if (currentView === 'marketing') {
     return (
       <div className="h-full flex flex-col relative">
         <Background videoLoaded={videoLoaded} setVideoLoaded={setVideoLoaded} isMobile={isMobile} />
         
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 space-y-4 sm:space-y-6 relative z-10 overflow-y-auto min-h-0">
-          <div>
-            <RitualLogo size="2xl" variant="full" className="max-w-[560px] sm:max-w-[800px] md:max-w-[1120px] flex-shrink-0" />
-          </div>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 space-y-6 sm:space-y-8 relative z-10 overflow-y-auto min-h-0">
+          {/* Logo */}
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <RitualLogo size="2xl" variant="full" className="max-w-[480px] sm:max-w-[640px] flex-shrink-0" />
+          </motion.div>
           
-          <div className="text-center space-y-3 sm:space-y-4">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight leading-snug text-foreground">
-              Create Meaningful
-              <br className="sm:hidden" />
-              <span className="hidden sm:inline"> </span>
-              Weekly Rituals
+          {/* Hero content */}
+          <motion.div 
+            className="text-center space-y-4 sm:space-y-5"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-[1.15] text-foreground">
+              Build Meaningful
               <br />
-              <span className="text-primary">with Your Partner</span>
+              <span className="text-gradient-ritual">Weekly Rituals</span>
             </h1>
             
-            <p className="text-sm sm:text-base text-foreground/70 max-w-md mx-auto leading-relaxed font-medium">
-              Spend 2 minutes a week syncing, explore & schedule fresh, local ideas that will strengthen your bond with one another.
+            <p className="text-base sm:text-lg text-foreground/70 max-w-md mx-auto leading-relaxed">
+              Two minutes a week to explore fresh ideas that strengthen your connection.
             </p>
             
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-3 pt-2">
+            {/* Feature badges */}
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-3 pt-3">
               {[
                 { icon: Sparkles, label: 'AI-Powered' },
                 { icon: MapPin, label: 'Location-Aware' },
                 { icon: TrendingUp, label: 'Streak Tracking' },
                 { icon: Heart, label: 'Build Together' },
-              ].map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-1.5 text-xs bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{label}</span>
-                </div>
+              ].map(({ icon: Icon, label }, index) => (
+                <motion.div 
+                  key={label} 
+                  className="flex items-center gap-2 text-sm bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full shadow-xs border border-white/50"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.2 + index * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <Icon className="w-4 h-4 text-primary" />
+                  <span className="font-medium">{label}</span>
+                </motion.div>
               ))}
             </div>
-          </div>
+          </motion.div>
           
-          <div className="w-full max-w-sm space-y-3 flex-shrink-0">
+          {/* CTA buttons */}
+          <motion.div 
+            className="w-full max-w-sm space-y-3 flex-shrink-0"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          >
             <Button 
               onClick={() => navigate('/auth')} 
-              size="lg" 
-              className="w-full h-12 sm:h-14 text-base bg-gradient-ritual text-white"
+              variant="gradient"
+              size="xl" 
+              className="w-full"
             >
-              Start New Ritual
+              <Sparkles className="w-5 h-5" />
+              Start Your Ritual
             </Button>
             
             <Button 
               onClick={() => navigate('/auth?join=true')} 
               variant="outline" 
               size="lg" 
-              className="w-full h-12 sm:h-14 text-base"
+              className="w-full"
             >
+              <Heart className="w-4 h-4" />
               Join Your Partner
             </Button>
-          </div>
+          </motion.div>
           
-          <p className="text-xs text-muted-foreground flex-shrink-0">
-            Already have an account? <button onClick={() => navigate('/auth')} className="underline">Sign In</button>
-          </p>
+          {/* Sign in link */}
+          <motion.p 
+            className="text-sm text-muted-foreground flex-shrink-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+          >
+            Already have an account?{' '}
+            <button 
+              onClick={() => navigate('/auth')} 
+              className="font-medium text-primary hover:underline underline-offset-4 transition-colors"
+            >
+              Sign In
+            </button>
+          </motion.p>
         </div>
 
         <Footer />
@@ -386,55 +422,81 @@ export default function Landing() {
 
   // ==========================================================================
   // RENDER: Welcome view - logged in, no couple
-  // Google UX: Content appears instantly, no fade animations
+  // Premium design with refined typography
   // ==========================================================================
   if (currentView === 'welcome') {
     const welcomeMessage = userProfile?.name 
-      ? `Welcome back, ${userProfile.name}!` 
-      : 'Build connection, one ritual at a time';
+      ? `Welcome, ${userProfile.name}` 
+      : 'Welcome to Ritual';
     
     return (
       <div className="h-full flex flex-col relative">
         <Background videoLoaded={videoLoaded} setVideoLoaded={setVideoLoaded} isMobile={isMobile} />
         
         <div className="flex-1 flex flex-col items-center justify-center px-6 relative z-10">
-          <div className="text-center space-y-6 max-w-sm">
+          <motion.div 
+            className="text-center space-y-6 max-w-sm"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
             <RitualLogo size="xl" variant="full" className="mx-auto" />
             
-            <div>
-              <h1 className="text-xl font-bold mb-2">{welcomeMessage}</h1>
-              <p className="text-sm text-muted-foreground mb-4">
-                Weekly rituals designed for couples who want to grow together.
+            <div className="space-y-3">
+              <h1 className="text-2xl font-bold tracking-tight">{welcomeMessage}</h1>
+              <p className="text-muted-foreground leading-relaxed">
+                Build meaningful rituals with your partner, one week at a time.
               </p>
-              
-              <div className="space-y-2 text-left bg-white/60 backdrop-blur-sm rounded-xl p-4 mb-4">
-                {[
-                  { icon: Heart, color: 'pink', text: 'Pick weekly activities together' },
-                  { icon: Sparkles, color: 'purple', text: 'AI finds ideas you\'ll both love' },
-                  { icon: TrendingUp, color: 'teal', text: 'Track memories & build streaks' },
-                ].map(({ icon: Icon, color, text }) => (
-                  <div key={text} className="flex items-center gap-2 text-sm">
-                    <div className={`w-6 h-6 rounded-full bg-${color}-100 flex items-center justify-center flex-shrink-0`}>
-                      <Icon className={`w-3 h-3 text-${color}-600`} />
-                    </div>
-                    <span>{text}</span>
-                  </div>
-                ))}
-              </div>
             </div>
             
-            <div className="space-y-2">
-              <Button onClick={() => setCreateOpen(true)} className="w-full bg-gradient-ritual text-white h-12 rounded-xl">
-                <Heart className="w-4 h-4 mr-2" />Start a Ritual Space
+            {/* Feature list */}
+            <Card variant="glass" className="text-left p-5">
+              <div className="space-y-3">
+                {[
+                  { icon: Heart, text: 'Pick weekly activities together', color: 'text-pink-500' },
+                  { icon: Sparkles, text: 'AI finds ideas you\'ll both love', color: 'text-purple-500' },
+                  { icon: TrendingUp, text: 'Track memories & build streaks', color: 'text-primary' },
+                ].map(({ icon: Icon, text, color }, index) => (
+                  <motion.div 
+                    key={text} 
+                    className="flex items-center gap-3"
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 0.1 + index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-background shadow-xs flex items-center justify-center flex-shrink-0">
+                      <Icon className={`w-4 h-4 ${color}`} />
+                    </div>
+                    <span className="text-sm font-medium">{text}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </Card>
+            
+            {/* Action buttons */}
+            <div className="space-y-3 pt-2">
+              <Button 
+                onClick={() => setCreateOpen(true)} 
+                variant="gradient"
+                size="lg"
+                className="w-full"
+              >
+                <Heart className="w-4 h-4" />
+                Start a Ritual Space
               </Button>
-              <Button onClick={() => setJoinOpen(true)} variant="outline" className="w-full h-12 rounded-xl">
-                I Have a Code
+              <Button 
+                onClick={() => setJoinOpen(true)} 
+                variant="outline" 
+                size="lg"
+                className="w-full"
+              >
+                I Have a Partner Code
               </Button>
-              <p className="text-xs text-muted-foreground pt-2">
-                Has your partner already started? Ask them for the code!
+              <p className="text-xs text-muted-foreground pt-1">
+                Has your partner started? Ask them for the code!
               </p>
             </div>
-          </div>
+          </motion.div>
         </div>
         
         <CreateCoupleDialog open={createOpen} onOpenChange={setCreateOpen} />
