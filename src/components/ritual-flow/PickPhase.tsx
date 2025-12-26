@@ -71,16 +71,17 @@ export function PickPhase({
     return partnerSlots.some(s => myKeys.has(`${s.day_offset}-${s.time_slot}`));
   }, [mySlots, partnerSlots]);
   
-  // Auto-transition to availability when all picks are done
+  // Auto-transition to availability when all picks are done (only once)
   useEffect(() => {
-    if (hasAllPicks && activeSection === 'rituals') {
+    if (hasAllPicks && !hasAutoTransitioned.current) {
+      hasAutoTransitioned.current = true;
       // Small delay for smooth UX
       const timer = setTimeout(() => {
         setActiveSection('availability');
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [hasAllPicks, activeSection]);
+  }, [hasAllPicks]);
   
   const handleSubmit = async () => {
     setIsSubmitting(true);
