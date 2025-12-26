@@ -79,3 +79,4 @@ COMMENT ON COLUMN public.ritual_preferences.proposed_time_start IS
 COMMENT ON COLUMN public.ritual_preferences.proposed_time_end IS 
   'End of user''s proposed availability window';
 
+

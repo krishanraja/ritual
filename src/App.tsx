@@ -30,6 +30,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const QuickInput = lazy(() => import("./pages/QuickInput"));
 const RitualCards = lazy(() => import("./pages/RitualCards"));
 const RitualPicker = lazy(() => import("./pages/RitualPicker"));
+const RitualFlow = lazy(() => import("./pages/RitualFlow"));
 const Memories = lazy(() => import("./pages/Memories"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Contact = lazy(() => import("./pages/Contact"));
@@ -88,16 +89,14 @@ const AnimatedRoutes = memo(() => {
         } />
         
         {/* Protected routes - require authenticated couple with partner */}
-        <Route path="/input" element={
+        <Route path="/flow" element={
           <ProtectedRoute requires="paired">
-            <Suspense fallback={<LazyFallback />}><QuickInput /></Suspense>
+            <Suspense fallback={<LazyFallback />}><RitualFlow /></Suspense>
           </ProtectedRoute>
         } />
-        <Route path="/picker" element={
-          <ProtectedRoute requires="paired">
-            <Suspense fallback={<LazyFallback />}><RitualPicker /></Suspense>
-          </ProtectedRoute>
-        } />
+        {/* Legacy routes - redirect to unified flow */}
+        <Route path="/input" element={<Navigate to="/flow" replace />} />
+        <Route path="/picker" element={<Navigate to="/flow" replace />} />
         <Route path="/rituals" element={
           <ProtectedRoute requires="paired">
             <Suspense fallback={<LazyFallback />}><RitualCards /></Suspense>

@@ -756,62 +756,15 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
           }
         });
 
-      const cyclesChannelName = `cycles-${user.id}`;
-      const cyclesChannel = supabase
-        .channel(cyclesChannelName)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_cycles' }, async (payload: any) => {
-          console.log('[REALTIME] Cycles change:', payload.eventType, 'cycle id:', payload.new?.id);
-          const oldData = payload.old;
-          const newData = payload.new;
-          
-          const partnerOneInputChanged = newData?.partner_one_input && !oldData?.partner_one_input;
-          const partnerTwoInputChanged = newData?.partner_two_input && !oldData?.partner_two_input;
-          const synthesisReady = newData?.synthesized_output && !oldData?.synthesized_output;
-          const bothNowComplete = newData?.partner_one_input && newData?.partner_two_input;
-          
-          if (partnerOneInputChanged || partnerTwoInputChanged) {
-            // Fetch the cycle using the couple_id from the payload to avoid stale closure
-            if (newData?.couple_id) {
-              console.log('[REALTIME] Partner input changed, refreshing cycle for couple:', newData.couple_id);
-              await fetchCycle(newData.couple_id);
-              
-              // If both partners just completed and no output yet, trigger synthesis
-              if (bothNowComplete && !newData?.synthesized_output) {
-                console.log('[REALTIME] Both partners complete, triggering synthesis...');
-                // Trigger synthesis via the idempotent endpoint
-                supabase.functions.invoke('trigger-synthesis', {
-                  body: { cycleId: newData.id }
-                }).then(result => {
-                  console.log('[REALTIME] Synthesis trigger result:', result.data?.status);
-                }).catch(err => {
-                  console.error('[REALTIME] Synthesis trigger failed:', err);
-                });
-              }
-            }
-          }
-          
-          if (synthesisReady) {
-            console.log('[REALTIME] Synthesis ready! Refreshing cycle and navigating to /picker');
-            
-            // Refresh cycle first to ensure state is updated
-            if (newData?.couple_id) {
-              await fetchCycle(newData.couple_id);
-            }
-            // Small delay to let state settle
-            setTimeout(() => {
-              navigate('/picker');
-            }, 100);
-          }
-        })
-        .subscribe();
+      // Note: Weekly cycles realtime is now handled by useRitualFlow hook
+      // This context only subscribes to couples changes for partner join detection
 
       // Return cleanup function that handles both timeout and realtime subscriptions
       return () => {
         console.log('[DIAG] Cleaning up user data fetch effect');
         clearTimeout(coupleLoadingSafetyTimeout);
-        console.log('[REALTIME] Cleaning up channels');
+        console.log('[REALTIME] Cleaning up couples channel');
         supabase.removeChannel(couplesChannel);
-        supabase.removeChannel(cyclesChannel);
       };
     } else {
       // Clear userProfile when logged out

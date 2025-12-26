@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { MapPin, Heart, Sparkles, TrendingUp, Share2, X, Calendar, Clock, MessageSquare, Copy, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
+import { MapPin, Heart, Sparkles, TrendingUp, Share2, X, Calendar, Clock, MessageSquare, Copy } from 'lucide-react';
 import { RitualLogo } from '@/components/RitualLogo';
 import { RitualSpinner } from '@/components/RitualSpinner';
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -25,7 +25,7 @@ import { AnimatedGradientBackground } from '@/components/AnimatedGradientBackgro
 import { motion } from 'framer-motion';
 import { CreateCoupleDialog } from '@/components/CreateCoupleDialog';
 import { JoinDrawer } from '@/components/JoinDrawer';
-import { WaitingForPartner } from '@/components/WaitingForPartner';
+// WaitingForPartner moved to /flow
 import { EnhancedPostRitualCheckin } from '@/components/EnhancedPostRitualCheckin';
 import { SurpriseRitualCard } from '@/components/SurpriseRitualCard';
 import { StreakBadge } from '@/components/StreakBadge';
@@ -34,9 +34,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { format, isPast, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import ritualBackgroundVideo from '@/assets/ritual-background.mp4';
-import ritualIcon from '@/assets/ritual-icon.png';
+// ritualIcon used in /flow
 import { OnboardingModal } from '@/components/OnboardingModal';
-import { deriveCycleState, type CycleState } from '@/types/database';
+// CycleState moved to useRitualFlow
 
 
 
@@ -114,8 +114,7 @@ export default function Landing() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [postRitualChecked, setPostRitualChecked] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [isRetryingSynthesis, setIsRetryingSynthesis] = useState(false);
-  const [synthesisError, setSynthesisError] = useState<string | null>(null);
+  // Note: isRetryingSynthesis and synthesisError moved to /flow
   
   // Track if initial load is complete (for skeleton -> content transition)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -123,10 +122,7 @@ export default function Landing() {
   // Determine if user is partner one
   const isPartnerOne = couple?.partner_one === user?.id;
 
-  // Use the canonical state derivation function
-  const cycleState = useMemo((): CycleState => {
-    return deriveCycleState(currentCycle, user?.id, isPartnerOne);
-  }, [currentCycle, user?.id, isPartnerOne]);
+  // Note: cycleState derivation moved to useRitualFlow
 
   // Compute derived state for UI
   const derivedState = useMemo(() => {
@@ -149,33 +145,18 @@ export default function Landing() {
   }, [currentCycle, isPartnerOne]);
 
   // Single source of truth for current view
-  // NOTE: surpriseLoading is NOT included - it's non-critical and shouldn't block UI
-  // Surprise cards fade in progressively once ready
+  // NOTE: "generating" and "waiting-for-partner-input" are now handled by /flow
+  // Landing only handles marketing, welcome, waiting-for-partner-join, and dashboard
   const currentView = useMemo((): ViewType => {
     if (loading) return 'loading';
     if (!user) return 'marketing';
     if (!couple) return 'welcome';
     if (!couple.partner_two) return 'waiting-for-partner-join';
     
-    // Use the derived cycle state
-    let view: ViewType;
-    switch (cycleState) {
-      case 'waiting_for_partner':
-        view = 'waiting-for-partner-input';
-        break;
-      case 'both_complete':
-      case 'generating':
-        view = 'generating';
-        break;
-      case 'failed':
-        view = 'generating'; // Show generating UI with error state
-        break;
-      default:
-        view = 'dashboard';
-    }
-    
-    return view;
-  }, [loading, surpriseLoading, user, couple, cycleState, hasKnownSession, currentCycle]);
+    // For active flow states, redirect to unified flow
+    // Use dashboard for agreed rituals, needs-input for everything else
+    return 'dashboard';
+  }, [loading, user, couple]);
 
   // Retry synthesis handler
   const handleRetrySynthesis = useCallback(async () => {
@@ -200,7 +181,7 @@ export default function Landing() {
 
       if (data?.status === 'ready') {
         await refreshCycle();
-        navigate('/picker');
+        navigate('/flow');
       } else if (data?.status === 'generating') {
         await refreshCycle();
       } else if (data?.status === 'failed') {
@@ -230,97 +211,7 @@ export default function Landing() {
     }
   }, [couple?.id, loading]);
 
-  // Poll for synthesis completion when in generating state
-  // Also trigger synthesis immediately on mount to handle 'both_complete' state
-  useEffect(() => {
-    if (currentView !== 'generating' || !currentCycle?.id) return;
-
-    // CRITICAL FIX: Immediately trigger synthesis when entering generating view
-    // This handles the case where both partners submitted but synthesis never started
-    // (e.g., 'both_complete' state with no generated_at timestamp)
-    const triggerSynthesisOnMount = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('trigger-synthesis', {
-          body: { cycleId: currentCycle.id }
-        });
-        
-        if (error) {
-          console.error('[LANDING] Synthesis trigger error on mount:', error);
-        } else if (data?.status === 'ready') {
-          // Synthesis already complete! Refresh and navigate
-          await refreshCycle();
-          navigate('/picker');
-        }
-      } catch (err) {
-        console.error('[LANDING] Synthesis trigger exception on mount:', err);
-      }
-    };
-    
-    // Trigger immediately, then poll for completion
-    triggerSynthesisOnMount();
-
-    // FIX #1: Add timeout - max 40 attempts (2 minutes at 3s intervals)
-    let pollAttempts = 0;
-    const MAX_POLL_ATTEMPTS = 40; // 2 minutes total
-
-    const pollInterval = setInterval(async () => {
-      pollAttempts++;
-      
-      // FIX #1: Timeout after max attempts
-      if (pollAttempts >= MAX_POLL_ATTEMPTS) {
-        console.warn('[LANDING] Synthesis timeout after', MAX_POLL_ATTEMPTS, 'attempts');
-        clearInterval(pollInterval);
-        setSynthesisError('Synthesis is taking longer than expected. Please try again or check back later.');
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('weekly_cycles')
-          .select('synthesized_output')
-          .eq('id', currentCycle.id)
-          .single();
-
-        if (error) {
-          console.warn('[LANDING] Poll error:', error);
-          return;
-        }
-
-        if (data?.synthesized_output) {
-          await refreshCycle();
-          clearInterval(pollInterval);
-          // Navigation will happen automatically via view change
-        }
-      } catch (err) {
-        console.warn('[LANDING] Poll exception:', err);
-      }
-    }, 3000);
-
-    // Realtime subscription for synthesis completion (stable channel name)
-    const channel = supabase
-      .channel(`landing-synthesis-${currentCycle.id}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'weekly_cycles',
-        filter: `id=eq.${currentCycle.id}`
-      }, async (payload: any) => {
-        if (payload.new?.synthesized_output) {
-          await refreshCycle();
-          clearInterval(pollInterval);
-        }
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[LANDING] ✅ Realtime subscription active');
-        }
-      });
-
-    return () => {
-      clearInterval(pollInterval);
-      supabase.removeChannel(channel);
-    };
-  }, [currentView, currentCycle?.id, refreshCycle]);
+  // Note: Synthesis polling is now handled by /flow
 
   // Handle pending join action after auth
   useEffect(() => {
@@ -418,139 +309,7 @@ export default function Landing() {
     return null;
   }
 
-  // ==========================================================================
-  // RENDER: Generating state - synthesis in progress
-  // Uses same rotating icon as SplashScreen for brand consistency
-  // ==========================================================================
-  if (currentView === 'generating') {
-    const isFailed = cycleState === 'failed';
-    
-    return (
-      <div className="h-full flex flex-col relative">
-        <Background videoLoaded={videoLoaded} setVideoLoaded={setVideoLoaded} isMobile={isMobile} />
-        
-        <div className="flex-1 flex flex-col items-center justify-center px-6 relative z-10">
-          <div className="text-center space-y-6 max-w-sm">
-            
-            {!isFailed ? (
-              <>
-                {/* Same rotating icon as SplashScreen */}
-                <div className="relative flex items-center justify-center mb-2">
-                  <motion.div
-                    className="absolute w-28 h-28 rounded-full"
-                    style={{
-                      background: 'conic-gradient(from 0deg, hsl(175 65% 42%), hsl(270 55% 55%), hsl(175 65% 42%))',
-                      opacity: 0.25,
-                    }}
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-                  />
-                  
-                  <motion.div
-                    className="relative w-24 h-24 rounded-full bg-gradient-to-br from-primary/10 to-purple-200/20 flex items-center justify-center"
-                    animate={{
-                      boxShadow: [
-                        '0 0 0 0 hsl(175 65% 42% / 0)',
-                        '0 0 20px 8px hsl(175 65% 42% / 0.2)',
-                        '0 0 0 0 hsl(175 65% 42% / 0)',
-                      ],
-                    }}
-                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                  >
-                    <motion.img
-                      src={ritualIcon}
-                      alt="Generating"
-                      className="w-16 h-16 object-contain"
-                      animate={{ scale: [1, 1.05, 1] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                    />
-                  </motion.div>
-                </div>
-                
-                <div>
-                  <h1 className="text-2xl font-bold mb-2">Generating Your Rituals</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Crafting personalized experiences based on both your preferences...
-                  </p>
-                </div>
-                
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  <span>This usually takes 10-20 seconds</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-20 h-20 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
-                  <AlertCircle className="w-10 h-10 text-destructive" />
-                </div>
-                
-                <div>
-                  <h1 className="text-2xl font-bold mb-2">Taking Longer Than Expected</h1>
-                  <p className="text-sm text-muted-foreground">
-                    {synthesisError || "Your rituals are still being generated. Please try refreshing."}
-                  </p>
-                </div>
-              </>
-            )}
-            
-            <div className="space-y-3">
-              <Button
-                onClick={handleRetrySynthesis}
-                disabled={isRetryingSynthesis}
-                className="w-full bg-gradient-ritual text-white h-12 rounded-xl"
-              >
-                {isRetryingSynthesis ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Checking...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    {isFailed ? 'Try Again' : 'Refresh'}
-                  </>
-                )}
-              </Button>
-              
-              <p className="text-xs text-muted-foreground">
-                Rituals will appear automatically when ready.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ==========================================================================
-  // RENDER: Waiting for partner input
-  // ==========================================================================
-  if (currentView === 'waiting-for-partner-input' && currentCycle) {
-    const partnerName = partnerProfile?.name || 'your partner';
-    return (
-      <div className="h-full relative">
-        <AnimatedGradientBackground variant="calm" showVideoBackdrop />
-        <WaitingForPartner
-          partnerName={partnerName}
-          currentCycleId={currentCycle.id}
-          lastNudgedAt={currentCycle.nudged_at}
-        />
-        {showPostRitualCheckin && currentCycle?.agreed_ritual && user && (
-          <EnhancedPostRitualCheckin
-            coupleId={couple!.id}
-            cycleId={currentCycle.id}
-            userId={user.id}
-            ritualTitle={(currentCycle.agreed_ritual as any)?.title || 'Ritual'}
-            ritualDescription={(currentCycle.agreed_ritual as any)?.description}
-            agreedDate={currentCycle.agreed_date || ''}
-            onComplete={() => setShowPostRitualCheckin(false)}
-            onDismiss={() => setShowPostRitualCheckin(false)}
-          />
-        )}
-      </div>
-    );
-  }
+  // Note: "generating" and "waiting-for-partner-input" views are now handled by /flow
 
   // ==========================================================================
   // RENDER: Marketing view - not logged in
@@ -853,7 +612,7 @@ export default function Landing() {
               Answer a few quick questions to generate personalized rituals for you and your partner.
             </p>
             <Button 
-              onClick={() => navigate('/input')}
+              onClick={() => navigate('/flow')}
               className="w-full bg-gradient-ritual text-white h-12 rounded-xl"
             >
               <Sparkles className="w-4 h-4 mr-2" />
@@ -879,7 +638,7 @@ export default function Landing() {
               </div>
             </div>
             <Button 
-              onClick={() => navigate('/input')}
+              onClick={() => navigate('/flow')}
               className="w-full mt-3 bg-green-600 hover:bg-green-700 text-white h-10 rounded-xl"
             >
               Complete Your Input
@@ -895,7 +654,7 @@ export default function Landing() {
               Your personalized rituals are ready. Rank your favorites and agree with your partner.
             </p>
             <Button 
-              onClick={() => navigate('/picker')}
+              onClick={() => navigate('/flow')}
               className="w-full bg-gradient-ritual text-white h-12 rounded-xl"
             >
               Pick Your Rituals
