@@ -574,12 +574,49 @@ export function useRitualFlow(): UseRitualFlowReturn {
       return;
     }
     
+    if (!cycle?.id) {
+      setError('No active cycle found');
+      return;
+    }
+    
     setError(null);
     
-    // Picks and availability are already persisted
-    // Just need to refresh to trigger status update
+    // Determine new status based on whether partner has also picked
+    // Partner is considered "done" if they have 3+ picks AND any availability
+    const partnerHasPicks = partnerPicks.length >= 3;
+    const partnerHasSlots = partnerSlots.length > 0;
+    const partnerDone = partnerHasPicks && partnerHasSlots;
+    
+    const newStatus: CycleStatus = partnerDone
+      ? 'awaiting_agreement'
+      : isPartnerOne
+        ? 'awaiting_partner_two_pick'
+        : 'awaiting_partner_one_pick';
+    
+    console.log('[useRitualFlow] Submitting picks with status:', newStatus, {
+      partnerHasPicks,
+      partnerHasSlots,
+      partnerDone,
+      isPartnerOne
+    });
+    
+    // Update cycle status in database
+    const { error: updateError } = await supabase
+      .from('weekly_cycles')
+      .update({ status: newStatus })
+      .eq('id', cycle.id);
+    
+    if (updateError) {
+      console.error('[useRitualFlow] Failed to update cycle status:', updateError);
+      setError(updateError.message);
+      return;
+    }
+    
+    // Optimistically update local state
+    setCycle(prev => prev ? { ...prev, status: newStatus } as typeof prev : prev);
+    
     await refreshCycle();
-  }, [myPicks.length, mySlots.length, refreshCycle]);
+  }, [myPicks.length, mySlots.length, partnerPicks.length, partnerSlots.length, isPartnerOne, cycle?.id, refreshCycle]);
 
   // ============================================================================
   // Actions - Match Phase
