@@ -646,6 +646,21 @@ export default function Landing() {
           </Card>
         )}
 
+        {/* User submitted, waiting for partner to submit */}
+        {userSubmitted && !partnerSubmitted && !hasSynthesized && (
+          <Card className="p-5 bg-white/90 backdrop-blur-sm text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Clock className="w-6 h-6 text-primary animate-pulse" />
+              </div>
+              <h2 className="font-bold text-lg">Waiting for {partnerProfile?.name || 'partner'}</h2>
+              <p className="text-sm text-muted-foreground">
+                You've completed your input! Once {partnerProfile?.name || 'your partner'} submits, we'll generate your rituals.
+              </p>
+            </div>
+          </Card>
+        )}
+
         {/* Synthesized but not agreed */}
         {hasSynthesized && !hasAgreedRitual && (
           <Card className="p-5 bg-white/90 backdrop-blur-sm text-center">

@@ -27,26 +27,44 @@ import { cn } from '@/lib/utils';
 
 export default function RitualFlow() {
   const navigate = useNavigate();
-  const { user, couple, partnerProfile, loading: authLoading } = useCouple();
+  const { user, couple, partnerProfile, loading: authLoading, hasKnownSession } = useCouple();
   const flow = useRitualFlow();
   
   // Redirect if not authenticated or no couple
+  // CRITICAL: Use hasKnownSession to avoid premature redirects during initial load
+  // The authLoading state can briefly be false between auth completing and couple loading starting
   useEffect(() => {
-    if (!authLoading && !user) {
+    // Don't redirect while still loading
+    if (authLoading) {
+      return;
+    }
+    
+    // Not authenticated - go to auth
+    if (!user) {
       navigate('/auth');
       return;
     }
     
-    if (!authLoading && user && !couple) {
+    // If we have a known session but couple is still null, wait for it to load
+    // This prevents the race condition where authLoading becomes false before couple data arrives
+    if (hasKnownSession && !couple) {
+      // Still waiting for couple data to load - don't redirect yet
+      console.log('[RitualFlow] Waiting for couple data to load...');
+      return;
+    }
+    
+    // No couple exists - go to home to create/join one
+    if (!couple) {
       navigate('/');
       return;
     }
     
-    if (!authLoading && couple && !couple.partner_two) {
+    // Couple exists but no partner yet - go to home
+    if (!couple.partner_two) {
       navigate('/');
       return;
     }
-  }, [authLoading, user, couple, navigate]);
+  }, [authLoading, user, couple, navigate, hasKnownSession]);
   
   // Show loading while auth is resolving
   if (authLoading || flow.loading) {
