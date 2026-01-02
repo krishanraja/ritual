@@ -376,31 +376,43 @@ export function useRitualFlow(): UseRitualFlowReturn {
   }, []);
   
   const submitInput = useCallback(async () => {
-    console.log('[useRitualFlow] submitInput called', {
+    const submitStartTime = performance.now();
+    console.log('[useRitualFlow] ===== submitInput called =====', {
       cycleId: cycle?.id,
       userId: user?.id,
       selectedCardsCount: selectedCards.length,
+      selectedCards: selectedCards,
+      desire: desire,
       hasCycle: !!cycle,
       hasUser: !!user,
+      isPartnerOne,
+      timestamp: new Date().toISOString(),
     });
     
     // Separate validation checks with specific error messages
     if (!cycle?.id) {
-      console.error('[useRitualFlow] Submit failed: No cycle ID');
-      setError('Failed to initialize. Please refresh the page.');
+      const errorMsg = 'Failed to initialize. Please refresh the page.';
+      console.error('[useRitualFlow] ❌ Submit failed: No cycle ID');
+      setError(errorMsg);
       return;
     }
     if (!user?.id) {
-      console.error('[useRitualFlow] Submit failed: No user ID');
-      setError('Session expired. Please sign in again.');
+      const errorMsg = 'Session expired. Please sign in again.';
+      console.error('[useRitualFlow] ❌ Submit failed: No user ID');
+      setError(errorMsg);
       return;
     }
     if (selectedCards.length < 3) {
-      console.error('[useRitualFlow] Submit failed: Not enough cards selected');
-      setError('Please select at least 3 mood cards');
+      const errorMsg = 'Please select at least 3 mood cards';
+      console.error('[useRitualFlow] ❌ Submit failed: Not enough cards selected', {
+        selectedCount: selectedCards.length,
+        required: 3,
+      });
+      setError(errorMsg);
       return;
     }
     
+    // Clear any previous errors
     setError(null);
     
     const inputData = {
@@ -412,16 +424,42 @@ export function useRitualFlow(): UseRitualFlowReturn {
     const updateField = isPartnerOne ? 'partner_one_input' : 'partner_two_input';
     const submittedField = isPartnerOne ? 'partner_one_submitted_at' : 'partner_two_submitted_at';
     
+    console.log('[useRitualFlow] Preparing to update database', {
+      cycleId: cycle.id,
+      updateField,
+      submittedField,
+      inputData,
+    });
+    
     try {
-      const { error: updateError } = await supabase
+      const updateStartTime = performance.now();
+      const { data, error: updateError } = await supabase
         .from('weekly_cycles')
         .update({
           [updateField]: inputData,
           [submittedField]: new Date().toISOString()
         })
-        .eq('id', cycle.id);
+        .eq('id', cycle.id)
+        .select();
       
-      if (updateError) throw updateError;
+      const updateDuration = performance.now() - updateStartTime;
+      
+      if (updateError) {
+        console.error('[useRitualFlow] ❌ Database update failed', {
+          error: updateError,
+          code: updateError.code,
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint,
+          duration: `${updateDuration.toFixed(2)}ms`,
+        });
+        throw updateError;
+      }
+      
+      console.log('[useRitualFlow] ✅ Database update successful', {
+        duration: `${updateDuration.toFixed(2)}ms`,
+        updatedData: data,
+      });
       
       // CRITICAL: Optimistically update local state so UI transitions immediately
       const now = new Date().toISOString();
@@ -431,22 +469,38 @@ export function useRitualFlow(): UseRitualFlowReturn {
         [submittedField]: now
       } as typeof prev : prev);
       
-      console.log('[useRitualFlow] Submit successful, local state updated');
+      console.log('[useRitualFlow] ✅ Local state updated optimistically');
       
       // Trigger synthesis if both are now complete
       const updatedCycle = { ...cycle, [updateField]: inputData };
       const bothComplete = updatedCycle.partner_one_input && updatedCycle.partner_two_input;
       
       if (bothComplete) {
+        console.log('[useRitualFlow] Both partners complete, triggering synthesis');
         // Fire and forget - trigger will handle idempotency
         supabase.functions.invoke('trigger-synthesis', {
           body: { cycleId: cycle.id }
-        }).catch(err => console.warn('[useRitualFlow] Synthesis trigger failed:', err));
+        }).catch(err => {
+          console.warn('[useRitualFlow] ⚠️ Synthesis trigger failed (non-blocking):', err);
+        });
       }
       
+      const totalDuration = performance.now() - submitStartTime;
+      console.log('[useRitualFlow] ===== submitInput completed successfully =====', {
+        totalDuration: `${totalDuration.toFixed(2)}ms`,
+      });
+      
     } catch (err) {
-      console.error('[useRitualFlow] Submit input error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to submit');
+      const totalDuration = performance.now() - submitStartTime;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit';
+      console.error('[useRitualFlow] ===== submitInput FAILED =====', {
+        error: err,
+        errorMessage,
+        totalDuration: `${totalDuration.toFixed(2)}ms`,
+      });
+      setError(errorMessage);
+      // Re-throw to allow parent component to handle if needed
+      throw err;
     }
   }, [cycle, user?.id, selectedCards, desire, isPartnerOne]);
 

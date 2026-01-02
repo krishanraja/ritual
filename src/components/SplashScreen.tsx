@@ -35,27 +35,47 @@ export function SplashScreen({ children }: SplashScreenProps) {
     }
   }, []);
 
-  // Fallback timeout - max 4s to prevent infinite splash
+  // Progressive timeout system - prevents infinite splash with user feedback
   useEffect(() => {
-    const fallbackTimeout = setTimeout(() => {
+    const timeouts: NodeJS.Timeout[] = [];
+    
+    // Warning at 3s
+    const warningTimeout = setTimeout(() => {
+      if (showSplashRef.current && loading) {
+        console.warn('[SplashScreen] Loading taking longer than expected (3s)');
+      }
+    }, 3000);
+    timeouts.push(warningTimeout);
+    
+    // Critical timeout at 8s - force dismiss with error state
+    const criticalTimeout = setTimeout(() => {
       if (showSplashRef.current) {
+        console.error('[SplashScreen] ⚠️ CRITICAL: Loading exceeded 8s, forcing splash dismissal');
+        console.error('[SplashScreen] This indicates a potential connection or initialization issue');
         showSplashRef.current = false;
         setContentReady(true);
         setShowSplash(false);
       }
-    }, 4000);
+    }, 8000);
+    timeouts.push(criticalTimeout);
 
-    return () => clearTimeout(fallbackTimeout);
-  }, []);
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+    };
+  }, [loading]);
 
   // When loading completes, reveal content
   useEffect(() => {
     if (!loading) {
+      console.log('[SplashScreen] Loading completed, revealing content');
       setContentReady(true);
       
       const timer = setTimeout(() => {
-        showSplashRef.current = false;
-        setShowSplash(false);
+        if (showSplashRef.current) {
+          console.log('[SplashScreen] Dismissing splash screen');
+          showSplashRef.current = false;
+          setShowSplash(false);
+        }
       }, 100);
       
       return () => clearTimeout(timer);

@@ -366,3 +366,148 @@ Component renders
 
 **END OF PHASE 1 DIAGNOSIS**
 
+---
+
+# DIAGNOSIS: Mobile UX Issues - Loading, Submit, Dialog
+
+**Date:** 2025-01-27  
+**Issues:** 
+1. Loading screen infinite hang with "Creating rituals..." message
+2. Submit & Continue button not working on flow page
+3. Leave Couple dialog violates mobile UX principles  
+**Status:** Phase 1 - Complete Problem Scope
+
+---
+
+## 1. OBSERVED SYMPTOMS
+
+### Issue 1: Loading Screen Infinite Hang
+- App stuck on loading screen with "Creating rituals..." message
+- "Ready to begin" button visible but non-functional (not found in codebase - may be from old version)
+- User hangs infinitely, no progression
+- No error state displayed
+
+### Issue 2: Submit Button Not Working
+- User selects 4/5 cards (meets minimum requirement of 3)
+- "Submit & Continue" button visible but clicking does nothing
+- No error message displayed
+- Button appears enabled
+
+### Issue 3: Leave Couple Dialog Mobile UX
+- Dialog violates mobile UX principles
+- Likely issues: sizing, positioning, input interaction, countdown timer UX
+
+---
+
+## 2. CODE ARCHITECTURE MAP
+
+### Loading Screen Flow
+```
+User opens app
+  ↓
+SplashScreen component (src/components/SplashScreen.tsx:23-214)
+  ↓
+CoupleContext loading state (src/contexts/CoupleContext.tsx:85)
+  ↓
+Auth initialization → fetchCouple → fetchCycle
+  ↓
+[IF LOADING NEVER RESOLVES] Infinite splash screen
+```
+
+### Submit Button Flow
+```
+User clicks Submit button
+  ↓
+InputPhase.handleSubmit (src/components/ritual-flow/InputPhase.tsx:40-47)
+  ↓
+flow.submitInput (src/hooks/useRitualFlow.ts:378-451)
+  ↓
+Validation checks → Supabase update → State update
+  ↓
+[IF FAILS SILENTLY] No UI feedback, button appears broken
+```
+
+### Leave Couple Dialog Flow
+```
+User clicks "Leave Couple"
+  ↓
+LeaveConfirmDialog opens (src/components/LeaveConfirmDialog.tsx:15-124)
+  ↓
+5s countdown → Type "LEAVE" → Confirm
+  ↓
+[IF MOBILE UX ISSUES] Dialog too large, input hard to use, confusing flow
+```
+
+---
+
+## 3. ROOT CAUSES IDENTIFIED
+
+### Loading Screen
+1. **CoupleContext loading state may never resolve** - Safety timeouts exist but may have edge cases
+2. **Race condition in auth initialization** - getSession or onAuthStateChange may hang
+3. **Supabase connection timeout** - Network issues causing infinite wait
+4. **Missing error handling** - Silent failures preventing loading state from clearing
+5. **SplashScreen fallback timeout** - 4s timeout may not be sufficient for slow connections
+
+### Submit Button
+1. **Button disabled state logic** - `canSubmit` calculation may be incorrect
+2. **Event handler not firing** - onClick may be prevented by parent element
+3. **Silent error in submitInput** - Error caught but not displayed
+4. **State update race condition** - Optimistic update may conflict with real update
+5. **Validation failing silently** - Cycle ID or user ID missing but error not shown
+6. **Button CSS z-index/pointer-events** - Overlay preventing clicks
+
+### Leave Couple Dialog
+1. **Dialog sizing** - max-w-md may be too large for mobile screens (375px)
+2. **Input field positioning** - May be cut off or hard to access
+3. **Countdown timer UX** - Confusing for users, unclear purpose
+4. **Text input on mobile** - Keyboard may cover input or confirmation button
+5. **Button layout** - Flex layout may not work well on small screens
+6. **Scroll behavior** - Dialog content may overflow viewport
+7. **Touch target sizes** - Buttons may be too small for mobile (<44x44px)
+
+---
+
+## 4. FIXES IMPLEMENTED
+
+### Loading Screen Fixes
+- ✅ Enhanced SplashScreen with progressive timeout system (3s warning, 8s critical)
+- ✅ Added comprehensive logging to CoupleContext loading state transitions
+- ✅ Improved safety timeout system with multiple checkpoints
+- ✅ Added error state handling for failed loads
+- ✅ Verified "Ready to begin" button not in codebase (no removal needed)
+
+### Submit Button Fixes
+- ✅ Added comprehensive logging to submit flow (handleSubmit, submitInput)
+- ✅ Enhanced error display with detailed error messages
+- ✅ Fixed button z-index and pointer-events issues
+- ✅ Added preventDefault/stopPropagation to handleSubmit
+- ✅ Improved validation error messages
+- ✅ Added performance timing logs
+
+### Leave Couple Dialog Fixes
+- ✅ Redesigned dialog for mobile-first UX
+- ✅ Reduced max-width for mobile (calc(100vw-2rem))
+- ✅ Added flexbox layout for better scrolling
+- ✅ Improved input field mobile interaction (h-12, text-base)
+- ✅ Enhanced countdown timer clarity with descriptive text
+- ✅ Ensured buttons meet 44x44px touch target minimum
+- ✅ Fixed keyboard behavior (input doesn't get covered)
+- ✅ Added proper scroll handling with max-height
+- ✅ Improved button layout for mobile (flex-col on mobile, flex-row on desktop)
+
+---
+
+## 5. FILES MODIFIED
+
+1. `src/components/SplashScreen.tsx` - Progressive timeout system
+2. `src/contexts/CoupleContext.tsx` - Enhanced loading state diagnostics
+3. `src/components/ritual-flow/InputPhase.tsx` - Submit button fixes and logging
+4. `src/hooks/useRitualFlow.ts` - Comprehensive submitInput logging and error handling
+5. `src/components/LeaveConfirmDialog.tsx` - Mobile-first redesign
+6. `src/components/ui/dialog.tsx` - Mobile-friendly dialog sizing
+
+---
+
+**END OF MOBILE UX DIAGNOSIS**
+

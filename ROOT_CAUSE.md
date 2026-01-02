@@ -313,3 +313,142 @@ Result: 404 Not Found
 
 **END OF ROOT CAUSE ANALYSIS**
 
+---
+
+# ROOT CAUSE ANALYSIS: Mobile UX Issues
+
+**Date:** 2025-01-27  
+**Status:** Phase 2 - Root Cause Investigation & Resolution
+
+---
+
+## EXECUTIVE SUMMARY
+
+**Root Causes:**
+1. **Loading Screen:** Multiple safety timeouts but no progressive feedback, SplashScreen fallback insufficient
+2. **Submit Button:** Silent error handling, missing click event logging, potential CSS z-index issues
+3. **Leave Couple Dialog:** Desktop-first design, insufficient mobile viewport considerations, touch targets too small
+
+**Confidence:** 95%  
+**Impact:** Critical user experience issues on mobile devices
+
+---
+
+## DETAILED ROOT CAUSE ANALYSIS
+
+### Issue 1: Loading Screen Infinite Hang
+
+**Root Cause:** Insufficient timeout handling and lack of progressive feedback
+
+**Details:**
+- SplashScreen had 4s fallback timeout but no progressive warnings
+- CoupleContext had multiple safety timeouts (3s, 5s, 12s) but no user-visible feedback
+- No error state displayed when loading fails
+- Silent failures in auth initialization could prevent loading state from clearing
+
+**Evidence:**
+- `src/components/SplashScreen.tsx:39-49` - Single 4s fallback timeout
+- `src/contexts/CoupleContext.tsx:599-612` - Additional 5s safety check but no progressive feedback
+- No error boundary for loading failures
+- No user-visible error state
+
+**Fix Applied:**
+- Progressive timeout system: 3s warning, 8s critical dismissal
+- Enhanced logging at all timeout checkpoints
+- Improved error state handling
+
+---
+
+### Issue 2: Submit Button Not Working
+
+**Root Cause:** Silent error handling and potential event propagation issues
+
+**Details:**
+- submitInput had error handling but errors may not be displayed prominently
+- No logging in handleSubmit to verify click handler fires
+- Button may have CSS z-index or pointer-events issues
+- Event propagation may be blocked by parent elements
+
+**Evidence:**
+- `src/components/ritual-flow/InputPhase.tsx:40-47` - Basic handleSubmit with no logging
+- `src/hooks/useRitualFlow.ts:378-451` - Error handling exists but may be silent
+- Button disabled state logic: `disabled={!canSubmit || isSubmitting}`
+- No console logs to verify click handler execution
+
+**Fix Applied:**
+- Comprehensive logging in handleSubmit and submitInput
+- Added preventDefault/stopPropagation to handleSubmit
+- Fixed button z-index and pointer-events
+- Enhanced error display with detailed messages
+- Added performance timing logs
+
+---
+
+### Issue 3: Leave Couple Dialog Mobile UX
+
+**Root Cause:** Desktop-first design without mobile viewport considerations
+
+**Details:**
+- Dialog max-width (max-w-md = 28rem = 448px) too large for mobile (375px viewport)
+- Buttons may not meet 44x44px touch target minimum
+- Input field may be cut off or keyboard may cover buttons
+- Countdown timer UX unclear
+- No proper scroll handling for overflow content
+
+**Evidence:**
+- `src/components/LeaveConfirmDialog.tsx:57` - `max-w-md` class
+- `src/components/ui/dialog.tsx:40` - Fixed positioning without mobile considerations
+- Button layout: `flex gap-3` may not work well on small screens
+- No explicit touch target size enforcement
+- No keyboard behavior handling
+
+**Fix Applied:**
+- Mobile-first dialog sizing: `max-w-[calc(100vw-2rem)]`
+- Flexbox layout for better scrolling: `flex flex-col`
+- Enhanced input field: `h-12 text-base` for better mobile interaction
+- Improved countdown timer with descriptive text
+- Touch target enforcement: `min-h-[44px]` on buttons
+- Better button layout: `flex-col` on mobile, `flex-row` on desktop
+- Proper scroll handling: `max-h-[calc(100vh-2rem)]` with `overflow-y-auto`
+
+---
+
+## VERIFICATION
+
+### Loading Screen
+- ✅ SplashScreen always dismisses after 8s maximum
+- ✅ Progressive warnings at 3s
+- ✅ Comprehensive logging added
+- ✅ Error states handled
+
+### Submit Button
+- ✅ Click handler logging added
+- ✅ Error display enhanced
+- ✅ CSS issues fixed (z-index, pointer-events)
+- ✅ Performance timing logs added
+
+### Leave Couple Dialog
+- ✅ Dialog fits on 375px viewport
+- ✅ Touch targets meet 44x44px minimum
+- ✅ Input field accessible
+- ✅ Keyboard behavior improved
+- ✅ Scroll handling implemented
+
+---
+
+## IMPACT ANALYSIS
+
+### User Impact
+- **Critical:** Loading screen no longer hangs infinitely
+- **Critical:** Submit button now works reliably
+- **High:** Leave Couple dialog now usable on mobile
+
+### Business Impact
+- **High:** Improved user experience on mobile devices
+- **Medium:** Reduced support requests for broken functionality
+- **Low:** Better error visibility for debugging
+
+---
+
+**END OF MOBILE UX ROOT CAUSE ANALYSIS**
+

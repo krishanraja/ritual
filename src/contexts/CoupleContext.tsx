@@ -596,20 +596,42 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }
 
-    // Additional safety check: if loading is still true after 5s, force it false
-    const additionalSafetyTimeout = setTimeout(() => {
+    // Progressive safety checks with detailed logging
+    const safetyTimeouts: NodeJS.Timeout[] = [];
+    
+    // Warning at 2s
+    const warningTimeout = setTimeout(() => {
       if (isMounted && loadingRef.current) {
-        const totalDuration = performance.now() - authInitStartTime;
-        console.warn(`[AUTH] ⚠️ Additional safety check (5s, elapsed: ${totalDuration.toFixed(2)}ms) - loading is still true, forcing to false`);
-        console.warn('[AUTH] Status at safety check:', {
+        const elapsed = performance.now() - authInitStartTime;
+        console.warn(`[AUTH] ⚠️ Loading still active after 2s (elapsed: ${elapsed.toFixed(2)}ms)`);
+        console.warn('[AUTH] Status check:', {
           authListenerSetup,
           getSessionCompleted,
           loading: loadingRef.current,
         });
-        console.warn('[AUTH] This indicates a critical issue - loading state did not resolve properly');
+      }
+    }, 2000);
+    safetyTimeouts.push(warningTimeout);
+    
+    // Critical timeout at 5s - force loading to false
+    const criticalTimeout = setTimeout(() => {
+      if (isMounted && loadingRef.current) {
+        const totalDuration = performance.now() - authInitStartTime;
+        console.error(`[AUTH] ⚠️ CRITICAL: Loading exceeded 5s (elapsed: ${totalDuration.toFixed(2)}ms) - forcing loading=false`);
+        console.error('[AUTH] Status at critical timeout:', {
+          authListenerSetup,
+          getSessionCompleted,
+          loading: loadingRef.current,
+        });
+        console.error('[AUTH] This indicates a critical issue - loading state did not resolve properly');
+        console.error('[AUTH] Possible causes:');
+        console.error('[AUTH]   1. Supabase connection timeout');
+        console.error('[AUTH]   2. Network issues');
+        console.error('[AUTH]   3. Environment variable misconfiguration');
         setLoading(false);
       }
     }, 5000);
+    safetyTimeouts.push(criticalTimeout);
 
     return () => {
       console.log('[DIAG] Cleaning up auth initialization effect');
@@ -618,9 +640,9 @@ export const CoupleProvider = ({ children }: { children: ReactNode }) => {
         console.log('[DIAG] Unsubscribing from auth state changes');
         subscription.unsubscribe();
       }
-      console.log('[DIAG] Clearing safety timeout in cleanup');
+      console.log('[DIAG] Clearing all safety timeouts in cleanup');
       clearTimeout(safetyTimeout);
-      clearTimeout(additionalSafetyTimeout);
+      safetyTimeouts.forEach(timeout => clearTimeout(timeout));
     };
   }, []);
 

@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import type React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Sparkles, AlertCircle, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -37,10 +38,41 @@ export function InputPhase({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDesireInput, setShowDesireInput] = useState(false);
   
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent any default behavior
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    console.log('[InputPhase] handleSubmit called', {
+      canSubmit,
+      selectedCardsCount: selectedCards.length,
+      isSubmitting,
+      timestamp: new Date().toISOString(),
+    });
+    
+    if (!canSubmit) {
+      console.warn('[InputPhase] Submit blocked - canSubmit is false', {
+        selectedCardsCount: selectedCards.length,
+        minimumRequired: 3,
+      });
+      return;
+    }
+    
+    if (isSubmitting) {
+      console.warn('[InputPhase] Submit blocked - already submitting');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
+      console.log('[InputPhase] Calling onSubmit...');
       await onSubmit();
+      console.log('[InputPhase] onSubmit completed successfully');
+    } catch (error) {
+      console.error('[InputPhase] Error in handleSubmit:', error);
+      // Error should be handled by parent component via error prop
     } finally {
       setIsSubmitting(false);
     }
@@ -146,11 +178,12 @@ export function InputPhase({
       </div>
 
       {/* Submit button */}
-      <div className="flex-none px-4 py-3 pb-safe bg-background/95 backdrop-blur-sm border-t">
+      <div className="flex-none px-4 py-3 pb-safe bg-background/95 backdrop-blur-sm border-t relative z-10">
         <Button
           onClick={handleSubmit}
           disabled={!canSubmit || isSubmitting}
-          className="w-full h-12 bg-gradient-to-r from-primary to-purple-500 text-white"
+          className="w-full h-12 bg-gradient-to-r from-primary to-purple-500 text-white relative z-10"
+          type="button"
         >
           {isSubmitting ? (
             <span className="flex items-center gap-2">
