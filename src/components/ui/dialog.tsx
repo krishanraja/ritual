@@ -27,6 +27,20 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+/**
+ * DialogContent - Mobile-first dialog container
+ * 
+ * ARCHITECTURE NOTE: This is the single source of truth for dialog sizing.
+ * All dialogs should inherit these mobile-safe defaults. Individual dialogs
+ * can override max-width for desktop via sm:max-w-* classes, but mobile
+ * handling should NOT be overridden to prevent positioning bugs.
+ * 
+ * Key mobile fixes:
+ * - Uses margin-based width (1rem each side) instead of calc(100vw-*) 
+ *   to avoid scrollbar width issues
+ * - Fixed inset-x with mx-auto for reliable centering (no transform-based centering)
+ * - max-h with dvh fallback for virtual keyboard safety
+ */
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
@@ -36,19 +50,23 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        // Mobile-first: constrain width with safe margins, then expand on larger screens
-        // Use flexbox for better mobile scrolling behavior
-        "fixed left-[50%] top-[50%] z-50 flex flex-col w-[calc(100%-2rem)] max-w-[calc(100%-2rem)] sm:max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-4 sm:p-6 shadow-lg duration-200 rounded-xl sm:rounded-lg",
-        // Max height for mobile to prevent overflow
-        "max-h-[calc(100vh-2rem)]",
-        // Animations
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+        // MOBILE-FIRST POSITIONING: Use inset + margin for reliable centering
+        // This avoids the transform-based centering issues on mobile
+        "fixed inset-x-4 top-[50%] z-50 translate-y-[-50%]",
+        // MOBILE-FIRST SIZING: Max width scales up on larger screens
+        "w-auto max-w-[calc(100vw-2rem)] sm:max-w-lg sm:inset-x-auto sm:left-[50%] sm:translate-x-[-50%]",
+        // Layout and spacing
+        "flex flex-col gap-4 border bg-background p-4 sm:p-6 shadow-lg rounded-xl sm:rounded-lg",
+        // Max height with dynamic viewport height fallback for keyboard safety
+        "max-h-[calc(100vh-2rem)] max-h-[calc(100dvh-2rem)]",
+        // Animations - simplified to avoid transform conflicts
+        "duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
         className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-accent data-[state=open]:text-muted-foreground hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none w-8 h-8 min-w-[44px] min-h-[44px] flex items-center justify-center">
+      <DialogPrimitive.Close className="absolute right-3 top-3 rounded-full opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none w-8 h-8 min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

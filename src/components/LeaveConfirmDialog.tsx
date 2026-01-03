@@ -54,7 +54,8 @@ export function LeaveConfirmDialog({ open, onOpenChange, onConfirm, partnerName 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md max-h-[calc(100vh-2rem)] flex flex-col">
+      {/* Uses base DialogContent mobile handling - do NOT add custom width classes */}
+      <DialogContent className="sm:max-w-md">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-destructive text-lg sm:text-xl">
             <AlertTriangle className="w-5 h-5 flex-shrink-0" />

@@ -65,15 +65,16 @@ export function DeleteAccountDialog({ open, onOpenChange, userEmail }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      {/* Uses base DialogContent mobile handling - do NOT add custom width classes */}
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
-            <Trash2 className="w-5 h-5" />
+          <DialogTitle className="flex items-center gap-2 text-destructive text-lg sm:text-xl">
+            <Trash2 className="w-5 h-5 flex-shrink-0" />
             Delete Account
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto min-h-0 space-y-4">
           <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 space-y-2">
             <div className="flex items-start gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
@@ -107,30 +108,33 @@ export function DeleteAccountDialog({ open, onOpenChange, userEmail }: Props) {
           {error && (
             <p className="text-sm text-destructive">{error}</p>
           )}
+        </div>
 
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={!isValid || loading}
-              className="flex-1"
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : countdown > 0 ? (
-                `Wait ${countdown}s...`
-              ) : (
-                'Delete Account'
-              )}
-            </Button>
-          </div>
+        {/* Button row - mobile-first: column on small screens, row on larger */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t flex-shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="flex-1 h-12 min-h-[44px] text-base"
+            type="button"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={!isValid || loading}
+            className="flex-1 h-12 min-h-[44px] text-base"
+            type="button"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : countdown > 0 ? (
+              `Wait ${countdown}s...`
+            ) : (
+              'Delete Account'
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
