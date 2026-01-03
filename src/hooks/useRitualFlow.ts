@@ -4,7 +4,13 @@
  * Single source of truth for the entire ritual flow.
  * Manages state, realtime sync, and all user actions.
  * 
+ * CRITICAL FIX (2026-01-03):
+ * - Added 30s synthesis timeout with auto-retry
+ * - Added polling fallback when realtime fails
+ * - Shows visible error when synthesis appears stuck
+ * 
  * @created 2025-12-26
+ * @updated 2026-01-03 - Added synthesis timeout and polling
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -27,6 +33,10 @@ import {
   getSlotTimeRange,
 } from '@/types/database';
 import type { City } from '@/utils/timezoneUtils';
+
+// Synthesis timeout configuration
+const SYNTHESIS_TIMEOUT_MS = 30000; // 30 seconds before showing error
+const SYNTHESIS_POLL_INTERVAL_MS = 5000; // Poll every 5 seconds as fallback
 
 interface UseRitualFlowReturn {
   // Core state
@@ -52,6 +62,10 @@ interface UseRitualFlowReturn {
   // Local input state (for cards phase)
   selectedCards: string[];
   desire: string;
+  
+  // Synthesis state (for timeout handling)
+  synthesisTimedOut: boolean;
+  isRetrying: boolean;
   
   // Actions - Input phase
   selectCard: (cardId: string) => void;
@@ -79,6 +93,12 @@ export function useRitualFlow(): UseRitualFlowReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cycle, setCycle] = useState<WeeklyCycle | null>(null);
+  
+  // Synthesis timeout state
+  const [synthesisTimedOut, setSynthesisTimedOut] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const synthesisStartTimeRef = useRef<number | null>(null);
+  const hasAutoRetriedRef = useRef(false);
   
   // Input phase state
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
@@ -353,6 +373,121 @@ export function useRitualFlow(): UseRitualFlowReturn {
   useEffect(() => {
     loadCycleData();
   }, [loadCycleData]);
+
+  // ============================================================================
+  // Synthesis Timeout & Polling Fallback
+  // ============================================================================
+  
+  // Track when synthesis starts and handle timeout
+  useEffect(() => {
+    const isGenerating = status === 'generating' || 
+      (cycle?.partner_one_input && cycle?.partner_two_input && !cycle?.synthesized_output);
+    
+    if (isGenerating) {
+      // Mark when synthesis started
+      if (!synthesisStartTimeRef.current) {
+        synthesisStartTimeRef.current = Date.now();
+        console.log('[useRitualFlow] Synthesis started, tracking timeout');
+      }
+      
+      // Check if we've exceeded timeout
+      const elapsed = Date.now() - synthesisStartTimeRef.current;
+      if (elapsed >= SYNTHESIS_TIMEOUT_MS && !synthesisTimedOut) {
+        console.warn('[useRitualFlow] ⚠️ Synthesis timeout exceeded', {
+          elapsed: `${(elapsed / 1000).toFixed(1)}s`,
+          hasAutoRetried: hasAutoRetriedRef.current,
+        });
+        
+        // Auto-retry once
+        if (!hasAutoRetriedRef.current && cycle?.id) {
+          hasAutoRetriedRef.current = true;
+          console.log('[useRitualFlow] Attempting auto-retry...');
+          supabase.functions.invoke('trigger-synthesis', {
+            body: { cycleId: cycle.id, forceRetry: true }
+          }).catch(err => {
+            console.error('[useRitualFlow] Auto-retry failed:', err);
+          });
+          // Reset start time to give retry a chance
+          synthesisStartTimeRef.current = Date.now();
+        } else {
+          // Already retried, show timeout error
+          setSynthesisTimedOut(true);
+          setError('Ritual generation is taking longer than expected. Please try again.');
+        }
+      }
+    } else {
+      // Reset timeout tracking when not generating
+      if (synthesisStartTimeRef.current) {
+        console.log('[useRitualFlow] Synthesis complete or not generating, resetting timeout tracking');
+        synthesisStartTimeRef.current = null;
+        hasAutoRetriedRef.current = false;
+        setSynthesisTimedOut(false);
+      }
+    }
+  }, [status, cycle?.partner_one_input, cycle?.partner_two_input, cycle?.synthesized_output, cycle?.id, synthesisTimedOut]);
+
+  // Polling fallback when in generating status (in case realtime fails)
+  useEffect(() => {
+    const isGenerating = status === 'generating' || 
+      (cycle?.partner_one_input && cycle?.partner_two_input && !cycle?.synthesized_output);
+    
+    if (!isGenerating || !cycle?.id) return;
+    
+    console.log('[useRitualFlow] Starting polling fallback for synthesis');
+    
+    const pollForCompletion = async () => {
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('weekly_cycles')
+          .select('synthesized_output, status')
+          .eq('id', cycle.id)
+          .single();
+        
+        if (fetchError) {
+          console.warn('[useRitualFlow] Polling error:', fetchError);
+          return;
+        }
+        
+        if (data?.synthesized_output) {
+          console.log('[useRitualFlow] ✅ Polling detected synthesis completion');
+          setCycle(prev => prev ? { ...prev, ...data } as typeof prev : prev);
+        }
+      } catch (err) {
+        console.warn('[useRitualFlow] Polling exception:', err);
+      }
+    };
+    
+    // Poll immediately, then every SYNTHESIS_POLL_INTERVAL_MS
+    pollForCompletion();
+    const pollInterval = setInterval(pollForCompletion, SYNTHESIS_POLL_INTERVAL_MS);
+    
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [status, cycle?.id, cycle?.partner_one_input, cycle?.partner_two_input, cycle?.synthesized_output]);
+
+  // Timeout check interval
+  useEffect(() => {
+    const isGenerating = status === 'generating' || 
+      (cycle?.partner_one_input && cycle?.partner_two_input && !cycle?.synthesized_output);
+    
+    if (!isGenerating) return;
+    
+    // Check timeout every second
+    const timeoutInterval = setInterval(() => {
+      if (!synthesisStartTimeRef.current) return;
+      
+      const elapsed = Date.now() - synthesisStartTimeRef.current;
+      if (elapsed >= SYNTHESIS_TIMEOUT_MS && !synthesisTimedOut && hasAutoRetriedRef.current) {
+        setSynthesisTimedOut(true);
+        setError('Ritual generation is taking longer than expected. Please try again.');
+      }
+    }, 1000);
+    
+    return () => {
+      clearInterval(timeoutInterval);
+    };
+  }, [status, cycle?.partner_one_input, cycle?.partner_two_input, cycle?.synthesized_output, synthesisTimedOut]);
 
   // ============================================================================
   // Actions - Input Phase
@@ -733,7 +868,14 @@ export function useRitualFlow(): UseRitualFlowReturn {
   const retryGeneration = useCallback(async () => {
     if (!cycle?.id) return;
     
+    console.log('[useRitualFlow] Manual retry generation triggered');
     setError(null);
+    setSynthesisTimedOut(false);
+    setIsRetrying(true);
+    
+    // Reset timeout tracking for fresh retry
+    synthesisStartTimeRef.current = Date.now();
+    hasAutoRetriedRef.current = false;
     
     try {
       const { data, error: fnError } = await supabase.functions.invoke('trigger-synthesis', {
@@ -743,13 +885,19 @@ export function useRitualFlow(): UseRitualFlowReturn {
       if (fnError) throw fnError;
       
       if (data?.status === 'ready') {
+        console.log('[useRitualFlow] ✅ Retry successful, rituals ready');
         await loadCycleData();
+      } else if (data?.status === 'generating') {
+        console.log('[useRitualFlow] Retry triggered, generation in progress');
+        // Will be picked up by polling
       } else if (data?.status === 'failed') {
-        setError(data.error || 'Generation failed');
+        setError(data.error || 'Generation failed. Please try again.');
       }
     } catch (err) {
       console.error('[useRitualFlow] Retry generation error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to retry');
+      setError(err instanceof Error ? err.message : 'Failed to retry. Please try again.');
+    } finally {
+      setIsRetrying(false);
     }
   }, [cycle?.id, loadCycleData]);
   
@@ -770,6 +918,10 @@ export function useRitualFlow(): UseRitualFlowReturn {
     statusMessage,
     selectedCards,
     desire,
+    // Synthesis timeout state
+    synthesisTimedOut,
+    isRetrying,
+    // Actions
     selectCard,
     setDesire,
     submitInput,

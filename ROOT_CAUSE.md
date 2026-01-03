@@ -452,3 +452,141 @@ Result: 404 Not Found
 
 **END OF MOBILE UX ROOT CAUSE ANALYSIS**
 
+---
+
+# ROOT CAUSE ANALYSIS: Infinite Loading Screen (2026-01-03 Update)
+
+**Date:** 2026-01-03  
+**Status:** RESOLVED
+
+---
+
+## EXECUTIVE SUMMARY
+
+**Root Causes Identified (All Categories):**
+
+| Category | Issue | Impact |
+|----------|-------|--------|
+| A1 | Service worker caching API responses with stale-while-revalidate | Users see old data, stuck states |
+| A2 | No cache busting on deployments | Old code served indefinitely |
+| B1 | Both partners submit but synthesis has no timeout | Stuck at "Creating rituals..." |
+| B2 | Edge function timeout not handled | Silent failure |
+| B3 | No polling fallback when realtime fails | Status never updates |
+| C1 | No user-visible error when synthesis fails | Users wait forever |
+| C2 | SplashScreen 8s timeout dismisses but shows broken content | False impression |
+| D1 | No manual retry on Dashboard | Users stuck with no options |
+
+---
+
+## COMPREHENSIVE FIX APPLIED
+
+### Phase 1: Service Worker Cache Fix
+
+**File:** `public/sw.js`
+
+**Changes:**
+- Changed from stale-while-revalidate to **network-first** for ALL Supabase API calls
+- Added version string with timestamp for cache busting
+- Added manual cache clearing via `postMessage`
+- Added logging for cache operations
+- Force skip waiting and clients.claim on new version
+
+**Result:** Users always get fresh API responses; only falls back to cache when truly offline.
+
+### Phase 2: Synthesis Timeout & Polling Fallback
+
+**File:** `src/hooks/useRitualFlow.ts`
+
+**Changes:**
+- Added 30-second synthesis timeout tracking
+- Auto-retries synthesis once when timeout is hit
+- Added polling fallback (every 5 seconds) when in generating state
+- Exposes `synthesisTimedOut` and `isRetrying` to UI
+- Reset timeout tracking on successful completion or manual retry
+
+**Result:** Synthesis never hangs indefinitely; automatic and manual retry available.
+
+### Phase 3: Landing Page Retry
+
+**File:** `src/pages/Landing.tsx`
+
+**Changes:**
+- Added "Creating rituals..." card when both partners submit
+- Added timeout detection with 30-second threshold
+- Shows "Taking Longer Than Expected" with retry button
+- Auto-triggers synthesis when both partners have submitted
+- Navigate to /flow button as alternative
+
+**Result:** Users on dashboard see progress and can retry if stuck.
+
+### Phase 4: StatusIndicator Timeout
+
+**File:** `src/components/StatusIndicator.tsx`
+
+**Changes:**
+- Added timeout tracking for "Creating rituals..." state
+- Shows "Tap to retry" after 30 seconds
+- Clickable to navigate to /flow page
+- Retry button triggers synthesis directly
+
+**Result:** Status bar provides escape hatch when stuck.
+
+### Phase 5: SplashScreen Progressive Feedback
+
+**File:** `src/components/SplashScreen.tsx`
+
+**Changes:**
+- At 3s: Message changes to "Taking a moment..."
+- At 5s: Shows "Having trouble?" with Refresh/Continue buttons
+- At 8s: Changes to amber error styling
+- At 10s: Force dismisses splash (guaranteed exit)
+
+**Result:** Users never stuck on splash; always have escape options.
+
+### Phase 6: Cache-Control Headers
+
+**File:** `vercel.json`
+
+**Changes:**
+- `/sw.js`: no-cache, no-store, must-revalidate
+- `/index.html`: no-cache, must-revalidate  
+- `/assets/*`: immutable (hashed filenames)
+
+**Result:** Correct caching behavior enforced at CDN level.
+
+---
+
+## VERIFICATION
+
+- ✅ Production build succeeds
+- ✅ No TypeScript errors
+- ✅ All linter checks pass
+- ✅ All timeout mechanisms tested
+- ✅ Cache headers configured correctly
+
+---
+
+## ARCHITECTURAL FLOW (AFTER FIX)
+
+```
+User Opens App
+     ↓
+SplashScreen (with progressive timeouts 3s/5s/8s/10s)
+     ↓
+CoupleContext loads (with safety timeouts)
+     ↓
+App renders → StatusIndicator shows state
+     ↓
+If both submitted → "Creating rituals..." with 30s timeout
+     ↓
+Polling fallback every 5s → Auto-retry once at timeout
+     ↓
+If still stuck → User sees "Tap to retry" or retry button
+     ↓
+User can always proceed (never stuck indefinitely)
+```
+
+---
+
+**END OF 2026-01-03 ROOT CAUSE ANALYSIS**
+

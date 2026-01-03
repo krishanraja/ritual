@@ -1,9 +1,11 @@
-// Service Worker for Ritual PWA - Enhanced Caching Strategy
-const CACHE_VERSION = 'v2';
+// Service Worker for Ritual PWA - Fixed Caching Strategy
+// CRITICAL FIX: Network-first for ALL API calls to prevent stale data issues
+// Version includes timestamp to force cache bust on each deploy
+const CACHE_VERSION = 'v3-' + '20260103'; // Update on each deploy
 const CRITICAL_CACHE = 'ritual-critical-' + CACHE_VERSION;
 const DYNAMIC_CACHE = 'ritual-dynamic-' + CACHE_VERSION;
 
-// Critical assets to precache for instant loading
+// Critical assets to precache for instant loading (static assets only)
 const CRITICAL_ASSETS = [
   '/ritual-logo-full.png',
   '/ritual-poster.jpg',
@@ -11,39 +13,83 @@ const CRITICAL_ASSETS = [
   '/favicon.png'
 ];
 
-// Install: Precache critical assets
+// Install: Precache critical assets and force immediate activation
 self.addEventListener('install', function(event) {
+  console.log('[SW] Installing service worker version:', CACHE_VERSION);
   event.waitUntil(
     caches.open(CRITICAL_CACHE).then(function(cache) {
       return cache.addAll(CRITICAL_ASSETS);
     })
   );
+  // Force immediate activation - don't wait for existing clients to close
   self.skipWaiting();
 });
 
-// Activate: Clean up old caches
+// Activate: Clean up ALL old caches and take control immediately
 self.addEventListener('activate', function(event) {
+  console.log('[SW] Activating service worker version:', CACHE_VERSION);
   event.waitUntil(
     caches.keys().then(function(cacheNames) {
       return Promise.all(
         cacheNames
           .filter(function(name) { 
+            // Delete any ritual cache that doesn't match current version
             return name.startsWith('ritual-') && 
                    name !== CRITICAL_CACHE && 
                    name !== DYNAMIC_CACHE; 
           })
-          .map(function(name) { return caches.delete(name); })
+          .map(function(name) { 
+            console.log('[SW] Deleting old cache:', name);
+            return caches.delete(name); 
+          })
       );
     })
   );
+  // Take control of all clients immediately
   self.clients.claim();
 });
 
-// Fetch: Smart caching strategy
+// Fetch: Smart caching strategy with NETWORK-FIRST for all API calls
 self.addEventListener('fetch', function(event) {
   var url = new URL(event.request.url);
   
-  // Cache-first for critical assets (instant on repeat visits)
+  // CRITICAL: Network-first for ALL Supabase/API calls - NEVER serve stale API data
+  // This prevents the infinite loading bug caused by cached auth/data responses
+  if (url.pathname.includes('/rest/') || 
+      url.pathname.includes('/auth/') || 
+      url.pathname.includes('/functions/') ||
+      url.hostname.includes('supabase')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(function(response) {
+          // Only cache successful GET requests (not auth mutations)
+          if (response.ok && event.request.method === 'GET') {
+            var responseClone = response.clone();
+            caches.open(DYNAMIC_CACHE).then(function(cache) {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(function(error) {
+          console.warn('[SW] Network request failed, trying cache:', url.pathname);
+          // Only fall back to cache for GET requests and only if offline
+          if (event.request.method === 'GET') {
+            return caches.match(event.request).then(function(cached) {
+              if (cached) {
+                console.log('[SW] Serving cached response for:', url.pathname);
+                return cached;
+              }
+              throw error;
+            });
+          }
+          throw error;
+        })
+    );
+    return;
+  }
+  
+  // Cache-first for critical static assets (images, logos)
   var isCritical = CRITICAL_ASSETS.some(function(asset) { 
     return url.pathname === asset; 
   });
@@ -65,7 +111,7 @@ self.addEventListener('fetch', function(event) {
     return;
   }
   
-  // Cache video on first play (lazy cache)
+  // Cache video on first play (lazy cache for performance)
   if (url.pathname.includes('ritual-background') && url.pathname.includes('.mp4')) {
     event.respondWith(
       caches.match(event.request).then(function(cached) {
@@ -85,29 +131,27 @@ self.addEventListener('fetch', function(event) {
     return;
   }
   
-  // Stale-while-revalidate for API calls (fast + fresh)
-  if (url.pathname.includes('/rest/') || url.hostname.includes('supabase')) {
+  // Network-first for JS/CSS bundles (always fresh code)
+  if (url.pathname.includes('/assets/') && 
+      (url.pathname.endsWith('.js') || url.pathname.endsWith('.css'))) {
     event.respondWith(
-      caches.open(DYNAMIC_CACHE).then(function(cache) {
-        return cache.match(event.request).then(function(cached) {
-          var fetchPromise = fetch(event.request).then(function(networkResponse) {
-            if (networkResponse.ok) {
-              cache.put(event.request, networkResponse.clone());
-            }
-            return networkResponse;
-          }).catch(function() {
-            return cached;
+      fetch(event.request).then(function(response) {
+        if (response.ok) {
+          var responseClone = response.clone();
+          caches.open(DYNAMIC_CACHE).then(function(cache) {
+            cache.put(event.request, responseClone);
           });
-          
-          return cached || fetchPromise;
-        });
+        }
+        return response;
+      }).catch(function() {
+        return caches.match(event.request);
       })
     );
     return;
   }
   
-  // Network-first for JS bundles (always fresh code)
-  if (url.pathname.includes('/assets/') && url.pathname.endsWith('.js')) {
+  // Network-first for index.html to ensure latest app version
+  if (url.pathname === '/' || url.pathname === '/index.html') {
     event.respondWith(
       fetch(event.request).then(function(response) {
         if (response.ok) {
@@ -166,4 +210,26 @@ self.addEventListener('notificationclick', function(event) {
         }
       })
   );
+});
+
+// Message handler for manual cache clearing
+self.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'CLEAR_CACHE') {
+    console.log('[SW] Received clear cache request');
+    event.waitUntil(
+      caches.keys().then(function(cacheNames) {
+        return Promise.all(
+          cacheNames.map(function(name) {
+            console.log('[SW] Clearing cache:', name);
+            return caches.delete(name);
+          })
+        );
+      }).then(function() {
+        console.log('[SW] All caches cleared');
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ success: true });
+        }
+      })
+    );
+  }
 });

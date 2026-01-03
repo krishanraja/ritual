@@ -7,8 +7,13 @@
  * - Content pre-renders invisibly underneath
  * - Atomic reveal with smooth crossfade
  * 
+ * CRITICAL FIX (2026-01-03):
+ * - Added visible progress feedback at 3s, 5s, 8s
+ * - Shows user-facing messages when loading takes long
+ * - Guaranteed dismissal at 10s max
+ * 
  * @created 2025-12-13
- * @updated 2025-12-26 - Premium animations, new tagline
+ * @updated 2026-01-03 - Progressive loading feedback
  */
 
 import { useEffect, useState, useRef } from 'react';
@@ -20,11 +25,22 @@ interface SplashScreenProps {
   children: React.ReactNode;
 }
 
+// Timeout thresholds
+const WARNING_TIMEOUT_MS = 3000;    // Show "taking longer than expected"
+const HELP_TIMEOUT_MS = 5000;       // Show "having trouble?" message
+const CRITICAL_TIMEOUT_MS = 8000;   // Show error state
+const FORCE_DISMISS_MS = 10000;     // Force dismiss no matter what
+
 export function SplashScreen({ children }: SplashScreenProps) {
   const { loading } = useCouple();
   const [showSplash, setShowSplash] = useState(true);
   const [contentReady, setContentReady] = useState(false);
   const showSplashRef = useRef(true);
+  
+  // Progressive feedback states
+  const [loadingMessage, setLoadingMessage] = useState('Loading');
+  const [showTroubleshoot, setShowTroubleshoot] = useState(false);
+  const [isError, setIsError] = useState(false);
 
   // Remove native HTML splash immediately
   useEffect(() => {
@@ -35,29 +51,51 @@ export function SplashScreen({ children }: SplashScreenProps) {
     }
   }, []);
 
-  // Progressive timeout system - prevents infinite splash with user feedback
+  // Progressive timeout system with user feedback
   useEffect(() => {
-    const timeouts: NodeJS.Timeout[] = [];
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    const startTime = Date.now();
     
-    // Warning at 3s
+    // Warning at 3s - show message
     const warningTimeout = setTimeout(() => {
       if (showSplashRef.current && loading) {
         console.warn('[SplashScreen] Loading taking longer than expected (3s)');
+        setLoadingMessage('Taking a moment...');
       }
-    }, 3000);
+    }, WARNING_TIMEOUT_MS);
     timeouts.push(warningTimeout);
     
-    // Critical timeout at 8s - force dismiss with error state
+    // Help at 5s - show troubleshooting option
+    const helpTimeout = setTimeout(() => {
+      if (showSplashRef.current && loading) {
+        console.warn('[SplashScreen] Loading exceeded 5s, showing help option');
+        setLoadingMessage('Still loading...');
+        setShowTroubleshoot(true);
+      }
+    }, HELP_TIMEOUT_MS);
+    timeouts.push(helpTimeout);
+    
+    // Critical at 8s - show error state but keep trying
     const criticalTimeout = setTimeout(() => {
+      if (showSplashRef.current && loading) {
+        console.error('[SplashScreen] ⚠️ CRITICAL: Loading exceeded 8s');
+        setLoadingMessage('Connection slow');
+        setIsError(true);
+      }
+    }, CRITICAL_TIMEOUT_MS);
+    timeouts.push(criticalTimeout);
+    
+    // Force dismiss at 10s - guaranteed exit
+    const forceDismissTimeout = setTimeout(() => {
       if (showSplashRef.current) {
-        console.error('[SplashScreen] ⚠️ CRITICAL: Loading exceeded 8s, forcing splash dismissal');
-        console.error('[SplashScreen] This indicates a potential connection or initialization issue');
+        const elapsed = Date.now() - startTime;
+        console.error(`[SplashScreen] ⚠️ FORCE DISMISS after ${elapsed}ms - app may not be fully loaded`);
         showSplashRef.current = false;
         setContentReady(true);
         setShowSplash(false);
       }
-    }, 8000);
-    timeouts.push(criticalTimeout);
+    }, FORCE_DISMISS_MS);
+    timeouts.push(forceDismissTimeout);
 
     return () => {
       timeouts.forEach(timeout => clearTimeout(timeout));
@@ -81,6 +119,20 @@ export function SplashScreen({ children }: SplashScreenProps) {
       return () => clearTimeout(timer);
     }
   }, [loading]);
+
+  // Handle refresh button click
+  const handleRefresh = () => {
+    console.log('[SplashScreen] User triggered refresh');
+    window.location.reload();
+  };
+
+  // Handle skip button click
+  const handleSkip = () => {
+    console.log('[SplashScreen] User skipped splash');
+    showSplashRef.current = false;
+    setContentReady(true);
+    setShowSplash(false);
+  };
 
   return (
     <>
@@ -127,10 +179,12 @@ export function SplashScreen({ children }: SplashScreenProps) {
               <motion.div
                 className="absolute w-32 h-32 rounded-full"
                 style={{
-                  background: 'conic-gradient(from 0deg, hsl(174 58% 42% / 0.4), hsl(270 55% 55% / 0.4), hsl(174 58% 42% / 0.4))',
+                  background: isError 
+                    ? 'conic-gradient(from 0deg, hsl(30 80% 50% / 0.4), hsl(0 70% 50% / 0.4), hsl(30 80% 50% / 0.4))'
+                    : 'conic-gradient(from 0deg, hsl(174 58% 42% / 0.4), hsl(270 55% 55% / 0.4), hsl(174 58% 42% / 0.4))',
                 }}
                 animate={{ rotate: 360 }}
-                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+                transition={{ duration: isError ? 2 : 4, repeat: Infinity, ease: 'linear' }}
               />
               
               {/* Inner glow circle */}
@@ -138,11 +192,17 @@ export function SplashScreen({ children }: SplashScreenProps) {
                 className="absolute w-28 h-28 rounded-full"
                 style={{ background: 'hsl(0 0% 100% / 0.6)' }}
                 animate={{
-                  boxShadow: [
-                    '0 0 0 0 hsl(174 58% 42% / 0)',
-                    '0 0 30px 10px hsl(174 58% 42% / 0.15)',
-                    '0 0 0 0 hsl(174 58% 42% / 0)',
-                  ],
+                  boxShadow: isError
+                    ? [
+                        '0 0 0 0 hsl(30 80% 50% / 0)',
+                        '0 0 30px 10px hsl(30 80% 50% / 0.2)',
+                        '0 0 0 0 hsl(30 80% 50% / 0)',
+                      ]
+                    : [
+                        '0 0 0 0 hsl(174 58% 42% / 0)',
+                        '0 0 30px 10px hsl(174 58% 42% / 0.15)',
+                        '0 0 0 0 hsl(174 58% 42% / 0)',
+                      ],
                 }}
                 transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
               />
@@ -171,7 +231,7 @@ export function SplashScreen({ children }: SplashScreenProps) {
               transition={{ delay: 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             />
             
-            {/* Tagline - Updated to more professional version */}
+            {/* Tagline */}
             <motion.p 
               className="relative mt-8 text-sm font-semibold tracking-wide"
               style={{
@@ -187,34 +247,66 @@ export function SplashScreen({ children }: SplashScreenProps) {
               Weekly moments, lasting connection
             </motion.p>
             
-            {/* Loading indicator */}
+            {/* Loading indicator with dynamic message */}
             <motion.div 
-              className="relative mt-8 flex items-center gap-2"
+              className="relative mt-8 flex flex-col items-center gap-3"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5, duration: 0.4 }}
             >
-              <div className="flex gap-1">
-                {[0, 1, 2].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="w-1.5 h-1.5 rounded-full bg-primary/50"
-                    animate={{ 
-                      scale: [1, 1.3, 1],
-                      opacity: [0.5, 1, 0.5],
-                    }}
-                    transition={{ 
-                      duration: 1,
-                      repeat: Infinity,
-                      delay: i * 0.15,
-                      ease: 'easeInOut',
-                    }}
-                  />
-                ))}
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className={`w-1.5 h-1.5 rounded-full ${isError ? 'bg-amber-500/50' : 'bg-primary/50'}`}
+                      animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [0.5, 1, 0.5],
+                      }}
+                      transition={{ 
+                        duration: 1,
+                        repeat: Infinity,
+                        delay: i * 0.15,
+                        ease: 'easeInOut',
+                      }}
+                    />
+                  ))}
+                </div>
+                <span className={`text-xs font-medium ${isError ? 'text-amber-600/70' : 'text-muted-foreground/70'}`}>
+                  {loadingMessage}
+                </span>
               </div>
-              <span className="text-xs font-medium text-muted-foreground/70">
-                Loading
-              </span>
+              
+              {/* Troubleshooting options */}
+              <AnimatePresence>
+                {showTroubleshoot && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex flex-col items-center gap-2 mt-2"
+                  >
+                    <p className="text-xs text-muted-foreground/60">
+                      Having trouble loading?
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleRefresh}
+                        className="text-xs font-medium text-primary hover:text-primary/80 underline underline-offset-2"
+                      >
+                        Refresh
+                      </button>
+                      <button
+                        onClick={handleSkip}
+                        className="text-xs font-medium text-muted-foreground hover:text-foreground underline underline-offset-2"
+                      >
+                        Continue anyway
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           </motion.div>
         )}

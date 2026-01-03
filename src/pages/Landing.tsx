@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCouple } from '@/contexts/CoupleContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { MapPin, Heart, Sparkles, TrendingUp, Share2, X, Calendar, Clock, MessageSquare, Copy } from 'lucide-react';
+import { MapPin, Heart, Sparkles, TrendingUp, Share2, X, Calendar, Clock, MessageSquare, Copy, RefreshCw, AlertCircle } from 'lucide-react';
 import { RitualLogo } from '@/components/RitualLogo';
 import { RitualSpinner } from '@/components/RitualSpinner';
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -114,7 +114,12 @@ export default function Landing() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [postRitualChecked, setPostRitualChecked] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  // Note: isRetryingSynthesis and synthesisError moved to /flow
+  
+  // Synthesis retry state - needed for stuck synthesis recovery on dashboard
+  const [isRetryingSynthesis, setIsRetryingSynthesis] = useState(false);
+  const [synthesisError, setSynthesisError] = useState<string | null>(null);
+  const [synthesisStartTime, setSynthesisStartTime] = useState<number | null>(null);
+  const [synthesisTimedOut, setSynthesisTimedOut] = useState(false);
   
   // Track if initial load is complete (for skeleton -> content transition)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -211,6 +216,57 @@ export default function Landing() {
       refreshCycle();
     }
   }, [couple?.id, loading]);
+
+  // Track synthesis timeout on dashboard (when both submitted but no output yet)
+  useEffect(() => {
+    const { userSubmitted, partnerSubmitted, hasSynthesized } = derivedState;
+    const isGenerating = userSubmitted && partnerSubmitted && !hasSynthesized;
+    
+    if (isGenerating && !synthesisStartTime) {
+      console.log('[Landing] Tracking synthesis start time');
+      setSynthesisStartTime(Date.now());
+      setSynthesisTimedOut(false);
+    } else if (!isGenerating && synthesisStartTime) {
+      // Synthesis complete or not generating anymore
+      setSynthesisStartTime(null);
+      setSynthesisTimedOut(false);
+    }
+  }, [derivedState, synthesisStartTime]);
+
+  // Check for synthesis timeout (30 seconds)
+  useEffect(() => {
+    if (!synthesisStartTime) return;
+    
+    const checkTimeout = () => {
+      const elapsed = Date.now() - synthesisStartTime;
+      if (elapsed >= 30000 && !synthesisTimedOut) {
+        console.warn('[Landing] Synthesis timeout - showing retry option');
+        setSynthesisTimedOut(true);
+      }
+    };
+    
+    // Check immediately and every second
+    checkTimeout();
+    const interval = setInterval(checkTimeout, 1000);
+    
+    return () => clearInterval(interval);
+  }, [synthesisStartTime, synthesisTimedOut]);
+
+  // Auto-trigger synthesis when both have submitted (in case edge function didn't fire)
+  useEffect(() => {
+    const { userSubmitted, partnerSubmitted, hasSynthesized } = derivedState;
+    const shouldTrigger = userSubmitted && partnerSubmitted && !hasSynthesized && currentCycle?.id;
+    
+    if (shouldTrigger) {
+      console.log('[Landing] Both submitted, ensuring synthesis is triggered');
+      // Fire and forget - this is idempotent
+      supabase.functions.invoke('trigger-synthesis', {
+        body: { cycleId: currentCycle.id }
+      }).catch(err => {
+        console.warn('[Landing] Synthesis trigger failed (non-blocking):', err);
+      });
+    }
+  }, [derivedState, currentCycle?.id]);
 
   // Note: Synthesis polling is now handled by /flow
 
@@ -720,6 +776,70 @@ export default function Landing() {
               <p className="text-sm text-muted-foreground">
                 You've completed your input! Once {partnerProfile?.name || 'your partner'} submits, we'll generate your rituals.
               </p>
+            </div>
+          </Card>
+        )}
+
+        {/* Both submitted, generating rituals - normal state */}
+        {userSubmitted && partnerSubmitted && !hasSynthesized && !synthesisTimedOut && (
+          <Card className="p-5 bg-white/90 backdrop-blur-sm text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center animate-pulse">
+                <Sparkles className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h2 className="font-bold text-lg mb-1">Creating Your Rituals...</h2>
+                <p className="text-sm text-muted-foreground">
+                  Both of you have submitted! We're crafting personalized rituals just for you.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                <span>This usually takes 15-20 seconds</span>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Both submitted, but synthesis is stuck - show retry */}
+        {userSubmitted && partnerSubmitted && !hasSynthesized && synthesisTimedOut && (
+          <Card className="p-5 bg-white/90 backdrop-blur-sm text-center border-amber-200">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
+                <AlertCircle className="w-8 h-8 text-amber-600" />
+              </div>
+              <div>
+                <h2 className="font-bold text-lg mb-1">Taking Longer Than Expected</h2>
+                <p className="text-sm text-muted-foreground mb-2">
+                  {synthesisError || "Ritual generation is taking longer than usual. Please try again."}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 w-full">
+                <Button 
+                  onClick={handleRetrySynthesis}
+                  disabled={isRetryingSynthesis}
+                  className="w-full bg-gradient-ritual text-white h-12 rounded-xl"
+                >
+                  {isRetryingSynthesis ? (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Retrying...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4" />
+                      Try Again
+                    </span>
+                  )}
+                </Button>
+                <Button 
+                  onClick={() => navigate('/flow')}
+                  variant="outline"
+                  className="w-full h-10 rounded-xl"
+                >
+                  Go to Flow Page
+                </Button>
+              </div>
             </div>
           </Card>
         )}
