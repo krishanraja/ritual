@@ -1,73 +1,163 @@
-# Welcome to your Lovable project
+# Ritual 💕
 
-## Project info
+A beautifully designed couple's ritual planning app that helps partners stay connected through meaningful weekly rituals.
 
-**URL**: https://lovable.dev/projects/ffff9b7c-abdd-4249-9e94-85745c09df97
+## Overview
 
-## How can I edit this code?
+Ritual helps couples maintain strong relationships through consistent, personalized rituals. Each week, both partners submit their preferences, and AI synthesizes them into thoughtful ritual suggestions that work for both.
 
-There are several ways of editing your application.
+**Live App:** [ritual.lovable.app](https://ritual.lovable.app)
 
-**Use Lovable**
+## Features
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ffff9b7c-abdd-4249-9e94-85745c09df97) and start prompting.
+- **🎴 Card-Based Input** - Tap mood cards to express what you're craving (Adventure, Cozy, Romantic, etc.)
+- **🤖 AI Synthesis** - Gemini 2.5 generates personalized rituals based on both partners' inputs
+- **🗳️ Agreement System** - Vote on your favorites and reach consensus
+- **📸 Photo Memories** - Capture and save moments from completed rituals
+- **💕 Partner Reactions** - React to your partner's memory photos with emojis
+- **🔥 Streak Tracking** - Build consistency with weekly streak badges
+- **🔔 Push Notifications** - Get notified when your partner completes a ritual
+- **📍 Location-Aware** - Rituals tailored to your city and current season
 
-Changes made via Lovable will be committed automatically to this repo.
+## Tech Stack
 
-**Use your preferred IDE**
+### Frontend
+- **Framework:** React 18 + TypeScript
+- **Build:** Vite 5
+- **Styling:** Tailwind CSS + shadcn/ui components
+- **Animations:** Framer Motion
+- **State:** React Context + React Query
+- **Routing:** React Router v6
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Backend (Supabase)
+- **Database:** PostgreSQL with Row Level Security
+- **Auth:** Supabase Auth (email/password)
+- **Realtime:** Supabase Realtime subscriptions
+- **Storage:** Supabase Storage for photos
+- **Edge Functions:** 14 Deno functions for backend logic
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### AI
+- **Provider:** Google Gemini via Lovable AI Gateway
+- **Models:** Gemini 2.5 Pro (synthesis), Gemini 2.5 Flash (swap)
 
-Follow these steps:
+### Deployment
+- **Platform:** Vercel / Lovable Cloud
+- **CI/CD:** Automatic on push
+- **CDN:** Global edge distribution
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Quick Start
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Prerequisites
+- Node.js 18+ or Bun
+- Git
 
-# Step 3: Install the necessary dependencies.
-npm i
+### Local Development
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+# Clone the repository
+git clone <repository-url>
+cd ritual
+
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Visit http://localhost:5173
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Variables
 
-**Use GitHub Codespaces**
+Create a `.env` file in the root directory:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+VITE_SUPABASE_PROJECT_ID=your-project-id
+```
 
-## What technologies are used for this project?
+## Project Structure
 
-This project is built with:
+```
+ritual/
+├── docs/                    # Comprehensive documentation
+├── public/                  # Static assets, PWA files
+├── src/
+│   ├── components/          # React components
+│   │   ├── ui/              # shadcn/ui base components
+│   │   └── ...              # Feature components
+│   ├── contexts/            # React contexts (CoupleContext)
+│   ├── hooks/               # Custom hooks
+│   ├── pages/               # Route pages
+│   ├── utils/               # Utility functions
+│   └── integrations/        # Supabase client
+├── supabase/
+│   ├── functions/           # Edge functions
+│   └── migrations/          # Database migrations
+└── package.json
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Documentation
 
-## How can I deploy this project?
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture, patterns, tech decisions |
+| [HANDOFF.md](docs/HANDOFF.md) | Developer onboarding guide |
+| [DATABASE.md](docs/DATABASE.md) | Database schema, RLS policies |
+| [API.md](docs/API.md) | Edge function API reference |
+| [USER-FLOWS.md](docs/USER-FLOWS.md) | User journey and state machines |
+| [AGENT_HISTORY.md](docs/AGENT_HISTORY.md) | AI agent session history and fixes |
+| [CHANGELOG.md](CHANGELOG.md) | Version history and changes |
 
-Simply open [Lovable](https://lovable.dev/projects/ffff9b7c-abdd-4249-9e94-85745c09df97) and click on Share -> Publish.
+## Version History
 
-## Can I connect a custom domain to my Lovable project?
+- **v1.6.4** (2025-12-14) - Branded loading, viewport fixes
+- **v1.6.3** (2025-12-13) - SEO, FAQ page, coordinated loading
+- **v1.6.0** (2025-12-11) - Card input, photo memories, reactions
+- **v1.5.0** (2025-12-09) - Loading improvements, onboarding
+- See [CHANGELOG.md](CHANGELOG.md) for full history
 
-Yes, you can!
+## Recent Fixes (Jan 2026)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Infinite Loading Screen Fix (2026-01-03)
+Comprehensive fix for users getting stuck on loading screens:
+- Service worker now uses network-first for API calls
+- 30-second synthesis timeout with auto-retry
+- Progressive splash screen timeouts (3s/5s/8s/10s)
+- Polling fallback when realtime fails
+- Retry buttons throughout the UI
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Authentication & Mobile UX (2025-01-27)
+- Fixed Supabase key configuration issues
+- Enhanced splash screen with progressive feedback
+- Mobile-first dialog redesigns
+- Submit button reliability improvements
+
+See [docs/AGENT_HISTORY.md](docs/AGENT_HISTORY.md) for complete fix history.
+
+## Scripts
+
+```bash
+npm run dev        # Start development server
+npm run build      # Production build
+npm run preview    # Preview production build
+npm run lint       # Run ESLint
+npm run test       # Run tests
+```
+
+## Contributing
+
+1. Create a feature branch: `git checkout -b feature/my-feature`
+2. Make changes and commit: `git commit -m "feat: add feature"`
+3. Push and create PR: `git push origin feature/my-feature`
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
+
+## License
+
+Private - All rights reserved.
+
+---
+
+Built with ❤️ for couples everywhere.

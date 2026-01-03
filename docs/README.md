@@ -61,11 +61,14 @@ The app learns from:
 
 ## Tech Stack
 
-- **Frontend:** React + Vite + TypeScript + Tailwind CSS
-- **Backend:** Lovable Cloud (Supabase)
-- **AI:** Lovable AI (Gemini 2.5 Pro/Flash)
-- **Realtime:** Supabase Realtime
-- **Animations:** Framer Motion
+- **Frontend:** React 18 + Vite 5 + TypeScript + Tailwind CSS
+- **Backend:** Supabase (PostgreSQL, Auth, Realtime, Storage)
+- **AI:** Google Gemini 2.5 Pro/Flash via Lovable AI Gateway
+- **Realtime:** Supabase Realtime subscriptions
+- **Animations:** Framer Motion 12
+- **Deployment:** Vercel / Lovable Cloud
+
+**Current Version:** v1.7.0 (January 2026)
 
 ## Quick Start
 
@@ -96,22 +99,38 @@ ritual/
 
 ## Documentation
 
-### Core Standards
-- [Master Instructions](./MASTER-INSTRUCTIONS.md) - Engineering standards and principles
-- [Project Notes](./PROJECT_NOTES.md) - Running decisions and technical debt
-- [Compliance Checklist](./COMPLIANCE-CHECKLIST.md) - Standards compliance tracking
+### Core Documentation
+| Document | Description |
+|----------|-------------|
+| [Architecture](./ARCHITECTURE.md) | System architecture, patterns, tech decisions |
+| [Handoff](./HANDOFF.md) | Developer onboarding and setup guide |
+| [Database](./DATABASE.md) | Schema, RLS policies, functions |
+| [API](./API.md) | Edge function API reference |
+| [User Flows](./USER-FLOWS.md) | User journey and state machines |
 
-### Technical Documentation
-- [Architecture](./ARCHITECTURE.md) - Technical architecture and stack
-- [User Flows](./USER-FLOWS.md) - User journey documentation
-- [Design System](./DESIGN-SYSTEM.md) - Design guidelines
-- [Database](./DATABASE.md) - Database schema
-- [API](./API.md) - Edge function documentation
-- [Error Patterns](./ERROR-PATTERNS.md) - Lessons learned
-- [Security](./SECURITY.md) - Security documentation
-- [Handoff](./HANDOFF.md) - Developer setup guide
-- [Changelog](./CHANGELOG.md) - Version history
-- [Roadmap](./ROADMAP.md) - Future features
+### History & Planning
+| Document | Description |
+|----------|-------------|
+| [Changelog](./CHANGELOG.md) | Version history and changes |
+| [Agent History](./AGENT_HISTORY.md) | AI agent session logs and fixes |
+| [Project Notes](./PROJECT_NOTES.md) | Architecture decisions and tech debt |
+| [Roadmap](./ROADMAP.md) | Feature roadmap and future plans |
+
+### Standards & Security
+| Document | Description |
+|----------|-------------|
+| [Master Instructions](./MASTER-INSTRUCTIONS.md) | Engineering standards and principles |
+| [Compliance Checklist](./COMPLIANCE-CHECKLIST.md) | Standards compliance tracking |
+| [Security](./SECURITY.md) | Security policies and practices |
+| [Design System](./DESIGN-SYSTEM.md) | Design guidelines and tokens |
+| [Error Patterns](./ERROR-PATTERNS.md) | Common issues and solutions |
+
+### Troubleshooting
+| Document | Description |
+|----------|-------------|
+| [Diagnosis](./DIAGNOSIS.md) | Issue diagnosis templates |
+| [Root Cause](./ROOT_CAUSE.md) | Root cause analysis docs |
+| [Fixes Implemented](./FIXES-IMPLEMENTED.md) | Documented fix history |
 
 ## Core Principles
 

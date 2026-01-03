@@ -4,24 +4,20 @@
 
 ### Frontend
 - **Framework:** React 18.3.1
-- **Build Tool:** Vite
-- **Language:** TypeScript
+- **Build Tool:** Vite 5.x
+- **Language:** TypeScript 5.x
 - **Styling:** Tailwind CSS 3.x with custom design system
 - **Animations:** Framer Motion 12.x
 - **Routing:** React Router v6
 - **State Management:** React Context API + React Query
 - **UI Components:** Radix UI primitives + custom shadcn/ui components
 
-### Backend (Lovable Cloud - Supabase)
-- **Database:** PostgreSQL
+### Backend (Supabase)
+- **Database:** PostgreSQL with Row Level Security
 - **Authentication:** Supabase Auth (email/password)
-- **Realtime:** Supabase Realtime (presence & database changes)
+- **Realtime:** Supabase Realtime (database changes + presence)
 - **Storage:** Supabase Storage (`ritual-photos` bucket)
-- **Edge Functions:** Deno runtime
-  - `synthesize-rituals` - AI ritual generation
-  - `nudge-partner` - Partner reminder system
-  - `send-push` - Web push notifications
-  - `notify-partner-completion` - Completion notifications
+- **Edge Functions:** Deno runtime (14 functions)
 
 ### AI Integration
 - **Provider:** Lovable AI Gateway
@@ -30,10 +26,13 @@
   - `google/gemini-2.5-flash` - Swap ritual generation
 
 ### Deployment
-- **Platform:** Lovable Cloud
-- **Domain:** Custom domain support available
-- **CI/CD:** Automatic deployment on code changes
-- **Edge:** Global CDN distribution
+- **Platform:** Vercel / Lovable Cloud
+- **Domain:** Custom domain support
+- **CI/CD:** Automatic deployment on push
+- **CDN:** Global edge distribution
+- **Caching:** Network-first service worker + immutable assets
+
+---
 
 ## Architecture Patterns
 
@@ -44,7 +43,7 @@
 │         CoupleContext (Global)          │
 │  - user, session                        │
 │  - couple, partnerProfile               │
-│  - currentCycle                         │
+│  - currentCycle, cycleState             │
 │  - loading state                        │
 │  - refreshCouple(), refreshCycle()      │
 └────────────┬────────────────────────────┘
@@ -53,7 +52,7 @@
              ▼
 ┌─────────────────────────────────────────┐
 │        Page Components                   │
-│  - Home, QuickInput, RitualPicker       │
+│  - Landing, QuickInput, RitualPicker    │
 │  - RitualCards, Memories, Profile       │
 └─────────────────────────────────────────┘
 ```
@@ -70,7 +69,6 @@ auth.users (Supabase managed)
     │      └──→ couples (partner_one, partner_two)
     │             │
     │             ├──→ weekly_cycles
-    │             │     │
     │             │     ├──→ completions
     │             │     ├──→ ritual_feedback
     │             │     └──→ ritual_preferences
@@ -92,40 +90,43 @@ auth.users (Supabase managed)
 - 1 couple has many memories, 1 streak record, many suggestions
 - 1 memory has many reactions (one per partner)
 
+---
+
 ## Component Architecture
 
 ### Component Hierarchy
 
 ```
 App
-└── AppShell
-    ├── Header (logo, status, join button)
-    ├── Main Content (Route)
-    │   ├── Landing
-    │   ├── Auth
-    │   ├── Home
-    │   │   ├── WaitingForPartner
-    │   │   ├── SynthesisAnimation
-    │   │   └── EnhancedPostRitualCheckin
-    │   │       ├── PhotoCapture
-    │   │       └── MemoryReactions
-    │   ├── QuickInput
-    │   │   └── CardDrawInput
-    │   ├── RitualPicker
-    │   │   ├── RitualCarousel
-    │   │   └── AgreementGame
-    │   ├── RitualCards
-    │   │   └── CelebrationScreen
-    │   ├── Memories
-    │   │   ├── MemoryCard
-    │   │   └── MemoryReactions
-    │   └── Profile
-    └── Bottom Nav
+└── SplashScreen (coordinated loading)
+    └── AppShell
+        ├── Header (logo, status, join button)
+        ├── Main Content (Route)
+        │   ├── Landing (dashboard)
+        │   │   ├── WaitingForPartner
+        │   │   └── SynthesisAnimation
+        │   ├── Auth (sign in/up)
+        │   ├── QuickInput
+        │   │   └── CardDrawInput
+        │   ├── RitualPicker
+        │   │   ├── RitualCarousel
+        │   │   └── AgreementGame
+        │   ├── RitualCards
+        │   │   ├── RitualCard
+        │   │   └── EnhancedPostRitualCheckin
+        │   │       ├── PhotoCapture
+        │   │       └── RatingStars
+        │   ├── Memories
+        │   │   ├── MemoryCard
+        │   │   └── MemoryReactions
+        │   └── Profile
+        └── Bottom Nav
 ```
 
 ### Key Component Patterns
 
 **1. No-Cutoff Layout Principle (CRITICAL)**
+
 **NEVER** use fixed viewport heights (`h-screen`, `h-[100dvh]`) inside page components. AppShell handles viewport constraints. Pages MUST use proper flex layouts:
 
 ```tsx
@@ -159,16 +160,36 @@ App
 - **NEVER** use `pb-24` or similar padding hacks
 - **NEVER** use `h-screen` or `h-[100dvh]` inside pages
 
-**2. Loading States**
-Every async operation shows loading state with timeout-based "slow loading" indicator.
+**2. Progressive Timeout Pattern**
 
-**3. Optimistic Updates**
+All loading states must have progressive feedback:
+
+```tsx
+// ✅ CORRECT: Progressive timeouts
+useEffect(() => {
+  const t1 = setTimeout(() => setMessage("Taking a moment..."), 3000);
+  const t2 = setTimeout(() => setShowActions(true), 5000);
+  const t3 = setTimeout(() => setWarning(true), 8000);
+  const t4 = setTimeout(() => forceComplete(), 10000);
+  return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+}, []);
+```
+
+**3. Loading States**
+
+Every async operation shows loading state with timeout-based feedback.
+
+**4. Optimistic Updates**
+
 UI updates immediately, with rollback on error.
 
-## Edge Functions
+---
 
-### synthesize-rituals
+## Edge Functions (14 total)
 
+### Core Functions
+
+#### synthesize-rituals
 **Purpose:** Generate personalized rituals using Lovable AI
 
 **Input (Card-based v1.6+):**
@@ -197,9 +218,14 @@ UI updates immediately, with rollback on error.
 }
 ```
 
-### send-push
+#### trigger-synthesis
+**Purpose:** Auto-trigger synthesis when both partners submit
+**Triggered:** Database trigger on weekly_cycles update
+**Idempotent:** Yes (uses lock mechanism)
 
-**Purpose:** Send web push notifications to users
+#### send-push
+**Purpose:** Send web push notifications
+**Security:** Requires `x-internal-secret` header (function-to-function only)
 
 **Input:**
 ```typescript
@@ -212,36 +238,34 @@ UI updates immediately, with rollback on error.
 }
 ```
 
-**Security:** Requires `x-internal-secret` header (function-to-function only)
-
-**Output:**
-```typescript
-{
-  success: boolean,
-  sent: number,
-  failed: number,
-  total: number
-}
-```
-
-### notify-partner-completion
-
+#### notify-partner-completion
 **Purpose:** Notify partner when ritual is completed
-
-**Input:**
-```typescript
-{
-  coupleId: string,
-  ritualTitle: string,
-  memoryId?: string
-}
-```
-
 **Flow:**
 1. Get current user's name
 2. Determine partner's user_id
 3. Call send-push with completion notification
 4. Partner receives: "💕 {name} completed '{ritual}' - tap to see!"
+
+### Utility Functions
+
+- **nudge-partner** - Send reminder to partner
+- **cleanup-orphaned-cycles** - Clean stale cycles
+- **delete-account** - Full account deletion
+- **send-contact-email** - Contact form
+
+### Premium Functions
+
+- **create-checkout** - Stripe checkout session
+- **stripe-webhook** - Handle Stripe events
+- **customer-portal** - Stripe billing portal
+- **check-subscription** - Verify premium status
+
+### Content Functions
+
+- **deliver-surprise-ritual** - Surprise ritual delivery
+- **parse-bucket-list** - Parse bucket list input
+
+---
 
 ## Security Model
 
@@ -266,19 +290,90 @@ UI updates immediately, with rollback on error.
 - `send-push` requires internal secret header
 - All other functions require valid JWT
 - Service role key used only for admin operations
+- Input sanitization for AI prompts (prompt injection protection)
 
-## Routing Notes
+### Content Security Policy
+Configured in `vercel.json`:
+- Scripts: self + inline (required for Vite)
+- Styles: self + Google Fonts
+- Images: self + Supabase
+- Connect: Supabase + Stripe
+
+---
+
+## Caching Strategy
+
+### Service Worker (`public/sw.js`)
+
+**Network-First for API Calls:**
+```javascript
+// All Supabase API calls use network-first
+if (event.request.url.includes('supabase.co')) {
+  // Try network, fall back to cache only if offline
+  event.respondWith(networkFirst(event.request));
+}
+```
+
+**Cache-First for Static Assets:**
+- Hashed filenames in `/assets/*` are cached immutably
+- Fonts and images cached with stale-while-revalidate
+
+### CDN Headers (`vercel.json`)
+
+| Path | Cache-Control |
+|------|---------------|
+| `/sw.js` | no-cache, no-store, must-revalidate |
+| `/index.html` | no-cache, must-revalidate |
+| `/assets/*` | public, max-age=31536000, immutable |
+
+### React Query
+
+```typescript
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000,   // 10 minutes
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+```
+
+---
+
+## Routing
+
+### Route Map
+
+| Path | Component | Access |
+|------|-----------|--------|
+| `/` | Landing | Public (unauthenticated) or Dashboard (authenticated) |
+| `/auth` | Auth | Public |
+| `/input` | QuickInput | Authenticated + Couple |
+| `/picker` | RitualPicker | Authenticated + Couple |
+| `/rituals` | RitualCards | Authenticated + Couple |
+| `/memories` | Memories | Authenticated + Couple |
+| `/profile` | Profile | Authenticated |
+| `/faq` | FAQ | Public |
+| `/blog` | Blog | Public |
+| `/blog/:slug` | BlogPost | Public |
 
 **IMPORTANT:** The home route is `/`, NOT `/home`. Always use `navigate('/')` when redirecting to the home/landing page.
 
-**Route Map:**
-- `/` - Landing (unauthenticated) or Home (authenticated)
-- `/auth` - Sign in / Sign up
-- `/input` - Weekly card draw input
-- `/picker` - Ritual voting carousel
-- `/rituals` - Scheduled ritual view
-- `/memories` - Photo memory gallery
-- `/profile` - User settings
+### SPA Routing
+
+Configured in `vercel.json`:
+```json
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+---
 
 ## Performance Considerations
 
@@ -286,12 +381,127 @@ UI updates immediately, with rollback on error.
 
 1. **Lazy Loading:** Routes code-split automatically by Vite
 2. **Memoization:** Heavy computations memoized with useMemo
-3. **Debouncing:** Input handlers debounced
-4. **Realtime Throttling:** Realtime updates batched to prevent UI thrashing
-5. **Query Caching:** React Query caches with smart invalidation
-6. **Image Compression:** Client-side compression before upload (~500KB target)
+3. **Component Memoization:** MemoryCard and nav items memoized
+4. **Debouncing:** Input handlers debounced
+5. **Realtime Throttling:** Realtime updates batched
+6. **Query Caching:** React Query caches with smart invalidation
+7. **Image Compression:** Client-side compression before upload (~500KB target)
+8. **Chunk Splitting:** Vendor chunks split for better caching
 
 ### Bundle Size
-- Main bundle: ~150KB gzipped
-- Lazy routes: 10-30KB each
-- Total initial load: <200KB
+
+| Chunk | Size (gzipped) |
+|-------|----------------|
+| Main bundle | ~140-180KB |
+| react-vendor | ~40KB |
+| radix-vendor | ~25KB |
+| framer-vendor | ~30KB |
+| Other vendors | ~30KB |
+
+### Performance Targets
+
+- Time to Interactive: < 2.5s
+- First Contentful Paint: < 1.3s
+- Cumulative Layout Shift: < 0.1
+
+---
+
+## Error Handling
+
+### Error Boundary
+
+```tsx
+// Wraps entire app
+<ErrorBoundary>
+  <App />
+</ErrorBoundary>
+
+// Shows friendly error UI with:
+// - Error message
+// - "Try Again" button
+// - "Go Home" button
+```
+
+### Timeout Handling
+
+All async operations have timeouts:
+- Supabase requests: 10 seconds
+- Auth initialization: 3 seconds safety
+- Splash screen: 10 seconds force dismiss
+- Synthesis: 30 seconds with retry
+
+### Error Recovery
+
+```typescript
+// Pattern used throughout
+try {
+  const result = await operation();
+} catch (error) {
+  console.error('[Context] Operation failed:', error);
+  toast({ title: "Error", description: getUserFriendlyError(error) });
+  // Retry logic or fallback
+}
+```
+
+---
+
+## Realtime Architecture
+
+### Subscription Pattern
+
+```typescript
+// Stable channel names (no timestamp suffix)
+const channel = supabase
+  .channel(`couples-${user.id}`)
+  .on('postgres_changes', { ... }, handleChange)
+  .subscribe();
+
+// Always cleanup
+return () => supabase.removeChannel(channel);
+```
+
+### Channels Used
+
+| Channel | Purpose |
+|---------|---------|
+| `couples-{userId}` | Couple updates (partner join/leave) |
+| `cycles-{userId}` | Cycle updates (partner submit, synthesis) |
+| `synthesis-{cycleId}` | Synthesis completion |
+
+---
+
+## File Structure
+
+```
+ritual/
+├── docs/                    # Documentation
+│   ├── ARCHITECTURE.md      # This file
+│   ├── AGENT_HISTORY.md     # AI agent session log
+│   ├── DATABASE.md          # Schema documentation
+│   ├── API.md               # Edge function API
+│   ├── HANDOFF.md           # Developer onboarding
+│   ├── USER-FLOWS.md        # User journey maps
+│   └── ...
+├── public/
+│   ├── sw.js                # Service worker
+│   ├── manifest.json        # PWA manifest
+│   └── ...
+├── src/
+│   ├── components/          # React components
+│   │   ├── ui/              # shadcn/ui base
+│   │   └── ...              # Feature components
+│   ├── contexts/            # React contexts
+│   ├── hooks/               # Custom hooks
+│   ├── pages/               # Route pages
+│   ├── utils/               # Utilities
+│   └── integrations/        # Supabase client
+├── supabase/
+│   ├── functions/           # 14 edge functions
+│   └── migrations/          # Database migrations
+├── vercel.json              # Deployment config
+└── package.json
+```
+
+---
+
+*Last updated: January 2026*

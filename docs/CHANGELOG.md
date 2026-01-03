@@ -4,6 +4,93 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+> **Note:** For a consolidated changelog, see [../CHANGELOG.md](../CHANGELOG.md).
+> For detailed agent session history, see [AGENT_HISTORY.md](./AGENT_HISTORY.md).
+
+---
+
+## v1.7.0 (Infinite Loading Screen Fix)
+**Date**: 2026-01-03
+
+### 🐛 Critical Bug Fixes
+
+#### Infinite Loading Screen - Comprehensive Fix
+Users were getting stuck on loading screens with "Creating rituals..." that never completed.
+
+**Root Causes Identified:**
+- Service worker caching API responses (stale-while-revalidate)
+- No timeout on synthesis pipeline
+- No polling fallback when realtime fails
+- No user-visible error recovery
+
+**Fixes Applied:**
+
+1. **Service Worker - Network-First for All API Calls** (`public/sw.js`)
+   - Changed from stale-while-revalidate to network-first for ALL Supabase API calls
+   - Added version-based cache invalidation (cache busts on each deploy)
+   - Ensures users always get fresh data, with offline fallback
+
+2. **Synthesis Timeout with Auto-Retry** (`src/hooks/useRitualFlow.ts`)
+   - Added 30-second synthesis timeout
+   - Auto-retries once when timeout is hit
+   - Added polling fallback (every 5s) when realtime might be disconnected
+
+3. **Landing Page Retry Button** (`src/pages/Landing.tsx`)
+   - Added "Creating rituals..." card when both partners submit
+   - Added timeout detection (30s) with "Taking Longer Than Expected" error state
+   - Retry button allows users to manually trigger synthesis
+
+4. **SplashScreen Progressive Feedback** (`src/components/SplashScreen.tsx`)
+   - At 3s: Changes message to "Taking a moment..."
+   - At 5s: Shows "Having trouble?" with Refresh/Continue buttons
+   - At 8s: Shows error state with amber styling
+   - At 10s: Force dismisses splash (guaranteed exit)
+
+5. **Cache-Control Headers** (`vercel.json`)
+   - `/sw.js`: no-cache, no-store, must-revalidate
+   - `/index.html`: no-cache, must-revalidate
+   - `/assets/*`: immutable caching (hashed filenames)
+
+### 📝 Files Changed
+- `public/sw.js`
+- `src/hooks/useRitualFlow.ts`
+- `src/pages/Landing.tsx`
+- `src/components/StatusIndicator.tsx`
+- `src/components/SplashScreen.tsx`
+- `vercel.json`
+
+---
+
+## v1.6.7 (Mobile UX & Authentication Fixes)
+**Date**: 2025-01-27
+
+### 🐛 Bug Fixes
+
+#### Authentication System
+- Enhanced Supabase client initialization with error handling
+- Added 10-second timeout to all fetch requests
+- Added connection test utility for debugging
+- Fixed Supabase key configuration issues
+
+#### Submit Button Reliability
+- Added comprehensive logging to submit flow
+- Fixed button z-index and pointer-events issues
+- Enhanced error display with detailed error messages
+- Added preventDefault/stopPropagation
+
+#### Leave Couple Dialog Mobile UX
+- Redesigned dialog for mobile-first UX
+- Reduced max-width for mobile viewports
+- Ensured buttons meet 44x44px touch target minimum
+- Fixed keyboard behavior
+
+### 📝 Files Changed
+- `src/integrations/supabase/client.ts`
+- `src/contexts/CoupleContext.tsx`
+- `src/components/ritual-flow/InputPhase.tsx`
+- `src/hooks/useRitualFlow.ts`
+- `src/components/LeaveConfirmDialog.tsx`
+
 ---
 
 ## v1.6.6 (Critical Bug Fixes - Leave Couple, Memories Crash, Demo Rituals)

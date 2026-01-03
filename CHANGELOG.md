@@ -5,21 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
 ## [Unreleased]
 
-### Fixed - 2026-01-03
+### Planned
+- React Query deeper integration
+- Presence tracking (partner online status)
+- Offline support with IndexedDB
+- Performance monitoring
 
-#### Infinite Loading Screen - Comprehensive Fix
+---
+
+## [1.7.0] - 2026-01-03
+
+### Fixed - Infinite Loading Screen Comprehensive Fix
 
 This release permanently fixes the recurring issue where users get stuck on loading screens with "Creating rituals..." that never completes.
 
-**Root Causes Identified:**
+#### Root Causes Identified
 - Service worker caching API responses (stale-while-revalidate)
 - No timeout on synthesis pipeline
 - No polling fallback when realtime fails
 - No user-visible error recovery
 
-**Fixes Applied:**
+#### Fixes Applied
 
 1. **Service Worker - Network-First for All API Calls** (`public/sw.js`)
    - Changed from stale-while-revalidate to network-first for ALL Supabase API calls
@@ -56,7 +66,7 @@ This release permanently fixes the recurring issue where users get stuck on load
    - `/index.html`: no-cache, must-revalidate
    - `/assets/*`: immutable caching (hashed filenames)
 
-**Files Modified:**
+#### Files Modified
 - `public/sw.js`
 - `src/hooks/useRitualFlow.ts`
 - `src/pages/Landing.tsx`
@@ -64,47 +74,40 @@ This release permanently fixes the recurring issue where users get stuck on load
 - `src/components/SplashScreen.tsx`
 - `vercel.json`
 
-**Verification:**
-- Production build succeeds with no TypeScript errors
-- All linter checks pass
-- Progressive timeout system tested
-
 ---
 
-### Fixed - 2025-01-27
+## [1.6.6] - 2025-01-27
 
-#### Mobile UX Fixes
-- **Loading Screen Infinite Hang**
-  - Added progressive timeout system to SplashScreen (3s warning, 8s critical dismissal)
-  - Enhanced CoupleContext loading state diagnostics with multiple safety checkpoints
-  - Improved error state handling for failed loads
-  - Added comprehensive logging to track loading state transitions
-  - Fixed issue where app could hang indefinitely on loading screen
+### Fixed - Mobile UX & Authentication Issues
 
-- **Submit & Continue Button Not Working**
-  - Added comprehensive logging to submit flow (handleSubmit and submitInput)
-  - Fixed button z-index and pointer-events issues
-  - Enhanced error display with detailed error messages
-  - Added preventDefault/stopPropagation to prevent event propagation issues
-  - Improved validation error messages
-  - Added performance timing logs for debugging
+#### Infinite Loading Screen
+- Added progressive timeout system to SplashScreen (3s warning, 8s critical dismissal)
+- Enhanced CoupleContext loading state diagnostics with multiple safety checkpoints
+- Improved error state handling for failed loads
+- Added comprehensive logging to track loading state transitions
 
-- **Leave Couple Dialog Mobile UX**
-  - Redesigned dialog for mobile-first UX
-  - Reduced max-width for mobile viewports (calc(100vw-2rem))
-  - Added flexbox layout for better scrolling behavior
-  - Improved input field mobile interaction (h-12, text-base)
-  - Enhanced countdown timer clarity with descriptive text
-  - Ensured buttons meet 44x44px touch target minimum
-  - Fixed keyboard behavior (input doesn't get covered)
-  - Added proper scroll handling with max-height constraints
-  - Improved button layout (flex-col on mobile, flex-row on desktop)
+#### Submit & Continue Button Not Working
+- Added comprehensive logging to submit flow (handleSubmit and submitInput)
+- Fixed button z-index and pointer-events issues
+- Enhanced error display with detailed error messages
+- Added preventDefault/stopPropagation to prevent event propagation issues
+- Improved validation error messages
 
-#### Technical Improvements
-- Enhanced error logging throughout the application
-- Improved timeout handling with progressive feedback
-- Better mobile viewport handling in dialogs
-- Improved touch target sizes for accessibility
+#### Leave Couple Dialog Mobile UX
+- Redesigned dialog for mobile-first UX
+- Reduced max-width for mobile viewports (calc(100vw-2rem))
+- Added flexbox layout for better scrolling behavior
+- Improved input field mobile interaction (h-12, text-base)
+- Enhanced countdown timer clarity with descriptive text
+- Ensured buttons meet 44x44px touch target minimum
+- Fixed keyboard behavior (input doesn't get covered)
+
+#### Authentication System Audit
+- Enhanced Supabase client initialization with error handling
+- Added 10-second timeout to all fetch requests
+- Improved CoupleContext error handling
+- Added connection test utility for debugging
+- Fixed Supabase key configuration issues
 
 ### Changed
 - SplashScreen timeout increased from 4s to 8s with progressive warnings
@@ -118,10 +121,177 @@ This release permanently fixes the recurring issue where users get stuck on load
 - `src/hooks/useRitualFlow.ts`
 - `src/components/LeaveConfirmDialog.tsx`
 - `src/components/ui/dialog.tsx`
+- `src/integrations/supabase/client.ts`
 
 ---
 
-## Previous Changes
+## [1.6.5] - 2025-01-XX
 
-[Previous changelog entries would go here]
+### Fixed - Adversarial Audit Response
 
+All fixes from the adversarial audit implemented:
+
+1. **Synthesis Timeout** - Added MAX_POLL_ATTEMPTS = 40 (2 minutes at 3s intervals)
+2. **Abandoned Input Detection** - Warning after 24+ hours, cleanup edge function
+3. **Timezone Handling** - Week boundaries now use couple's timezone
+4. **AI Failure Fallback** - "Browse Sample Rituals Instead" after 2+ retries
+5. **Orphaned State Cleanup** - New edge function for stale cycle cleanup
+6. **Prompt Injection Protection** - Sanitizes user input before AI
+7. **Sample Rituals Bug** - Fixed to show real rituals when available
+8. **Session Recovery** - Critical state saved to localStorage
+9. **Stale Cycle Cleanup** - Detects cycles older than 7 days
+10. **Error Boundaries** - React Error Boundary wraps app
+
+### Added
+- `src/components/ErrorBoundary.tsx`
+- `supabase/functions/cleanup-orphaned-cycles/index.ts`
+
+---
+
+## [1.6.4] - 2025-12-14
+
+### Changed - Branded Loading & Viewport Fixes
+
+#### Branded Loading Experience
+- Created `RitualSpinner` component with branded icon and animations
+- Fixed favicon inconsistency across browsers with multi-format icon set
+- Added `manifest.json` for PWA support
+- Replaced all generic Loader2/Sparkles icons with branded spinner
+- Updated SplashScreen, SynthesisAnimation, WaitingForPartner
+
+#### Viewport Fixes
+- Fixed Memories page viewport issue - empty state fits without scrolling
+
+---
+
+## [1.6.3] - 2025-12-13
+
+### Added - SEO & Content Strategy
+
+#### SEO Implementation
+- FAQ Page (`/faq`) with 20+ questions and FAQ Schema for rich snippets
+- Blog System (`/blog`, `/blog/:slug`) with Article Schema
+- Enhanced `robots.txt` for AI crawlers and social bots
+- Complete `sitemap.xml` with all pages
+
+#### Coordinated Loading Experience
+- React-controlled splash screen that waits for data before revealing
+- Eliminated layout shift on page load
+- Removed entry animations from AppShell (prevents shift)
+
+### Changed
+- SplashScreen now coordinates with CoupleContext.loading
+
+---
+
+## [1.6.2] - 2025-12-12
+
+### Fixed - Production Readiness Audit
+
+- Fixed navigation inconsistencies (using React Router consistently)
+- Fixed NotFound page with proper branding and navigation
+- Fixed Memories page with auth redirect and empty states
+- Fixed null safety issues in realtime subscriptions
+- Simplified EnhancedPostRitualCheckin button UX
+
+---
+
+## [1.6.1] - 2025-12-11
+
+### Added - Photo Memories & Reactions
+
+#### Photo Upload
+- Client-side compression before upload (~500KB target)
+- Supabase Storage integration (`ritual-photos` bucket)
+- Photo preview in memory cards
+
+#### Partner Reactions
+- Single reaction per user per memory (❤️ 🔥 😍 🥹 👏)
+- Realtime reaction updates
+- Emotional feedback loop between partners
+
+#### Push Notifications
+- Web Push implementation with VAPID
+- `notify-partner-completion` edge function
+- Partner notified when ritual completed
+
+---
+
+## [1.6.0] - 2025-12-11
+
+### Changed - Ritual Experience Redesign
+
+**Major version: Input system completely redesigned**
+
+#### Card-Based Input
+- Replaced MagneticCanvas with CardDrawInput (tap-based mood cards)
+- 12 mood cards: Adventure, Cozy, Deep Talk, Playful, Romantic, etc.
+- Max 5 cards selected, optional desire text
+- Faster input (~30s vs previous 60s+)
+
+#### Memories Gallery
+- Replaced History page with Memories gallery
+- Photo grid with memory cards
+- Rating, notes, and photo display
+- Partner reactions visible
+
+#### Files Removed
+- `src/pages/MagneticInput.tsx`
+- `src/components/MagneticCanvas.tsx`
+- `src/components/EmotionalToken.tsx`
+- `src/components/PartnerGhost.tsx`
+- `src/hooks/useMagneticSync.ts`
+- `src/types/magneticCanvas.ts`
+- `src/pages/History.tsx`
+
+---
+
+## [1.5.0] - 2025-12-09
+
+### Added - Loading & Onboarding
+
+- Top loading bar during page transitions
+- Master Instructions integration (MASTER-INSTRUCTIONS.md)
+- Compliance tracking (COMPLIANCE-CHECKLIST.md)
+- PROJECT_NOTES.md for running decisions
+
+---
+
+## [1.4.0] - 2025-12-XX
+
+### Fixed - Stability Improvements
+
+- Week boundary bug fixes with unique constraints
+- Navigation logic simplification
+- Loading skeletons throughout app
+- Mobile performance improvements
+
+---
+
+## [1.3.0] - Initial Tracked Version
+
+### Features
+- Core weekly ritual cycle
+- AI-powered ritual generation (Gemini)
+- Partner synchronization via Supabase Realtime
+- Historical learning from past rituals
+- Post-ritual feedback and ratings
+- Streak tracking
+- Location-aware rituals (city, season, time)
+
+---
+
+## Migration Notes
+
+### From v1.5.x to v1.6.x
+- MagneticCanvas removed - no migration needed (was experimental)
+- History page replaced with Memories - data preserved in `ritual_memories` table
+- Canvas state fields deprecated (`canvas_state_one`, `canvas_state_two`)
+
+### From v1.6.x to v1.7.x
+- Service worker updated - users may need hard refresh
+- New `vercel.json` cache headers - automatic on deploy
+
+---
+
+*For detailed implementation notes, see [docs/AGENT_HISTORY.md](docs/AGENT_HISTORY.md)*

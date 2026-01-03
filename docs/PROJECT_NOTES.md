@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Project Name** | Ritual |
-| **Version** | 1.6.4 |
-| **Last Updated** | 2025-12-14 |
-| **Status** | Production Ready + SEO + Branded UX |
+| **Version** | 1.7.0 |
+| **Last Updated** | 2026-01-03 |
+| **Status** | Production - Infinite Loading Fix Deployed |
 
 ---
 
@@ -62,61 +62,54 @@
 ### AD-008: Partner Reactions
 - **Decision**: Single reaction per user per memory, emoji-based
 - **Date**: 2025-12-11
-- **Rationale**: Creates emotional feedback loop without complexity. Partner completes → other sees → reacts → original user sees reaction.
+- **Rationale**: Creates emotional feedback loop without complexity.
 - **Status**: ✅ Implemented
 
 ### AD-009: Coordinated Loading Experience
 - **Decision**: React-controlled splash screen that waits for data before revealing content
 - **Date**: 2025-12-13
-- **Rationale**: Eliminates layout shift and provides Google-esque loading experience. Elements appear all at once instead of popping in haphazardly.
-- **Key Changes**:
-  - New `SplashScreen.tsx` component wraps app and coordinates with `CoupleContext.loading`
-  - Removed entry animations from `AppShell` header/nav to prevent shift
-  - Removed scale animations from `StreakBadge` - uses CSS hover only
-  - Native HTML splash removed by React on mount, then React splash fades out when data ready
-- **Status**: ✅ Implemented
-
-### AD-011: Branded Loading Experience
-- **Decision**: Use branded Ritual icon for all loading states instead of generic icons
-- **Date**: 2025-12-14
-- **Rationale**: Reinforces brand identity, creates cohesive UX, eliminates generic AI-wheel/sparkle icons
-- **Key Components**:
-  - **RitualSpinner**: Animated branded spinner with pulse, scale, and rotating gradient effects
-  - **Favicon**: Multi-format icon set with manifest.json for PWA support
-- **Usage Rules**:
-  - Use `<RitualSpinner />` for all loading states
-  - Never use Loader2, generic Sparkles, or CSS border spinners
-  - Empty states should use static ritual icon, not generic icons
+- **Rationale**: Eliminates layout shift and provides Google-esque loading experience.
 - **Status**: ✅ Implemented
 
 ### AD-010: SEO Content Strategy
 - **Decision**: Implement comprehensive SEO with FAQ page and blog system
 - **Date**: 2025-12-13
-- **Rationale**: Drive organic traffic through content marketing. FAQ targets featured snippets, Blog targets long-tail relationship keywords.
-- **Key Components**:
-  - **FAQ Page** (`/faq`): 20+ questions with FAQ Schema for rich snippets
-  - **Blog System** (`/blog`, `/blog/:slug`): Article pages with Article Schema
-  - **Target Keywords**: "weekly rituals for couples", "date ideas [city]", "relationship traditions", "keep relationship exciting"
-  - **Structured Data**: Organization, WebApplication, SoftwareApplication, WebSite schemas
-  - **robots.txt**: Enhanced for AI crawlers, social bots
-  - **sitemap.xml**: All pages including individual blog articles
-- **Content Strategy**:
-  - City-specific date guides (London, Sydney - more to come)
-  - Evergreen relationship advice
-  - Research-backed content for authority
-  - Internal linking to app conversion points
+- **Rationale**: Drive organic traffic through content marketing.
 - **Status**: ✅ Implemented (6 initial articles, 20+ FAQs)
+
+### AD-011: Branded Loading Experience
+- **Decision**: Use branded Ritual icon for all loading states instead of generic icons
+- **Date**: 2025-12-14
+- **Rationale**: Reinforces brand identity, creates cohesive UX.
+- **Status**: ✅ Implemented
+
+### AD-012: Network-First Service Worker
+- **Decision**: Use network-first caching for all API calls
+- **Date**: 2026-01-03
+- **Rationale**: Stale-while-revalidate caused infinite loading when cache was stale. Network-first ensures fresh data.
+- **Status**: ✅ Implemented
+
+### AD-013: Progressive Timeout System
+- **Decision**: Multi-stage timeouts with user feedback at each stage
+- **Date**: 2026-01-03
+- **Rationale**: Users should never wait indefinitely. Progressive feedback builds trust.
+- **Key Thresholds**:
+  - 3s: Message change
+  - 5s: Action buttons appear
+  - 8s: Warning state
+  - 10s: Force continue
+  - 30s: Synthesis timeout with retry
+- **Status**: ✅ Implemented
 
 ---
 
 ## Technical Debt
 
 ### TD-001: Missing Error Boundaries
-- **Priority**: High
+- **Priority**: ~~High~~ Resolved
 - **Description**: No React error boundaries wrapping routes
-- **Impact**: Single component error can crash entire app
-- **Action**: Add ErrorBoundary component to wrap routes
-- **Status**: 🔴 Open
+- **Action**: Added ErrorBoundary component to wrap routes
+- **Status**: ✅ Resolved (2025-01-XX)
 
 ### TD-002: No Testing Infrastructure
 - **Priority**: Medium
@@ -126,18 +119,16 @@
 - **Status**: 🔴 Open
 
 ### TD-003: Inconsistent Logging
-- **Priority**: Medium
+- **Priority**: ~~Medium~~ Resolved
 - **Description**: Some edge functions have structured logging, others don't
-- **Impact**: Debugging is harder in production
 - **Action**: All edge functions now use structured JSON logging
 - **Status**: ✅ Resolved (2025-12-11)
 
 ### TD-004: Missing Loading Skeletons
-- **Priority**: Low
+- **Priority**: ~~Low~~ Resolved
 - **Description**: Some data-fetching states show nothing during load
-- **Impact**: Poor perceived performance
-- **Action**: Add skeleton components for key loading states
-- **Status**: ✅ Resolved (2025-12-13) - Added to Landing, Memories, and other pages
+- **Action**: Added skeleton components for key loading states
+- **Status**: ✅ Resolved (2025-12-13)
 
 ### TD-005: No Reduced Motion Support
 - **Priority**: Low
@@ -153,48 +144,51 @@
 - **Action**: Migration to remove columns (low priority, no harm keeping)
 - **Status**: 🟡 Documented as deprecated
 
+### TD-007: Duplicate Documentation Files
+- **Priority**: Low
+- **Description**: Root-level .md files duplicated docs/ contents
+- **Action**: Consolidated into docs/AGENT_HISTORY.md
+- **Status**: ✅ Resolved (2026-01-03)
+
 ---
 
 ## Key Decisions Log
 
+### 2026-01-03: v1.7.0 Infinite Loading Fix
+- Created comprehensive fix for infinite loading screens
+- Implemented network-first service worker caching
+- Added 30-second synthesis timeout with auto-retry
+- Enhanced SplashScreen with progressive timeouts
+- Added polling fallback for realtime failures
+- Updated vercel.json with cache-control headers
+- Consolidated all documentation into comprehensive guides
+
+### 2025-01-27: v1.6.6 Mobile UX & Auth Fixes
+- Fixed SplashScreen with progressive timeouts (3s/8s)
+- Enhanced submit button with logging and error display
+- Redesigned LeaveConfirmDialog for mobile-first
+- Fixed Supabase key configuration issues
+- Added connection test utility
+
 ### 2025-12-14: v1.6.4 Branded Loading & Viewport Fixes
 - Created `RitualSpinner` component with branded icon and animations
-- Fixed favicon inconsistency across browsers with multi-format icon set
+- Fixed favicon inconsistency with multi-format icon set
 - Added `manifest.json` for PWA support
 - Replaced all generic Loader2/Sparkles icons with branded spinner
-- Fixed Memories page viewport issue - empty state now fits without scrolling
-- Updated SplashScreen, SynthesisAnimation, WaitingForPartner with branded icons
+- Fixed Memories page viewport issue
 
-### 2025-12-13: v1.6.1 Production Readiness Audit
+### 2025-12-13: v1.6.3 SEO & Coordinated Loading
 - Full audit of all pages, components, hooks, and edge functions
-- Fixed navigation inconsistencies (using React Router consistently)
-- Fixed NotFound page with proper branding and navigation
-- Fixed Memories page with auth redirect and empty states
-- Fixed null safety issues in realtime subscriptions
-- Simplified EnhancedPostRitualCheckin button UX
-- Updated all documentation with audit findings
-- Verified all 12 edge functions for security compliance
-- Build passes without TypeScript errors
+- Implemented FAQ page with schema.org markup
+- Created blog system with article pages
+- Implemented coordinated splash screen loading
 
-### 2025-12-11: v1.6 Ritual Experience Redesign
-- Replaced MagneticCanvas with CardDrawInput (tap-based mood cards)
+### 2025-12-11: v1.6.0 Ritual Experience Redesign
+- Replaced MagneticCanvas with CardDrawInput
 - Added photo upload with client-side compression
 - Created Memories gallery to replace History page
 - Added partner reactions on memories
-- Implemented actual web push notifications
-- Created notify-partner-completion edge function
-- Added streak badge visual evolution
-- Deleted 6 dead code files (MagneticCanvas and related)
-
-### 2024-12-09: Master Instructions Integration
-- Added comprehensive engineering standards via MASTER-INSTRUCTIONS.md
-- Created compliance tracking via COMPLIANCE-CHECKLIST.md
-- Established this PROJECT_NOTES.md for running decisions
-
-### 2024-12-09: Loading Indicator Enhancement
-- Added subtle top loading bar during page transitions
-- Uses Framer Motion for smooth scaleX animation
-- Primary color at 60% opacity for subtlety
+- Implemented web push notifications
 
 ---
 
@@ -211,16 +205,21 @@
 ### Storage
 - `ritual-photos` - Photo uploads for memories (public bucket, 5MB limit)
 
-### Premium/Subscription
-- `couples.premium_expires_at` - Premium status tracking
-- `couples.stripe_customer_id` - Stripe integration
-
-### Push Notifications
-- `push_subscriptions` - Web push subscription data
-
-### Analytics
-- `user_analytics_events` - Session-based event tracking
-- `user_feedback` - Contextual feedback collection
+### Edge Functions (14 total)
+- `synthesize-rituals` - AI ritual generation
+- `trigger-synthesis` - Auto-trigger on both submit
+- `nudge-partner` - Partner reminders
+- `send-push` - Web push notifications
+- `notify-partner-completion` - Completion notifications
+- `cleanup-orphaned-cycles` - Stale cycle cleanup
+- `create-checkout` - Stripe checkout
+- `stripe-webhook` - Stripe events
+- `customer-portal` - Stripe portal
+- `check-subscription` - Premium status
+- `delete-account` - Account deletion
+- `send-contact-email` - Contact form
+- `deliver-surprise-ritual` - Surprise rituals
+- `parse-bucket-list` - Bucket list parsing
 
 ---
 
@@ -249,15 +248,16 @@
 - Images optimized for mobile-first
 - Edge functions deployed to edge for low latency
 - Photos compressed client-side to ~500KB before upload
+- Service worker uses network-first for API calls
 
 ---
 
 ## Known Issues
 
 1. **Safari iOS**: Some animations may jitter on older devices
-2. **PWA**: Service worker needs update for offline ritual viewing
+2. **PWA**: Service worker may need hard refresh after updates
 3. **Email**: Some transactional emails may hit spam filters
-4. **Push Notifications**: VAPID auth implementation may need refinement for all browsers
+4. **Push Notifications**: Requires HTTPS in production
 
 ---
 

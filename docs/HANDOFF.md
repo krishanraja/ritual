@@ -737,6 +737,15 @@ console.log(JSON.stringify({
 - User Flows: `/docs/USER-FLOWS.md`
 - API: `/docs/API.md`
 - Database: `/docs/DATABASE.md`
+- **Agent History**: `/docs/AGENT_HISTORY.md` - Comprehensive log of all AI agent fixes and decisions
+- Changelog: `/CHANGELOG.md`
+
+### Debugging Issues
+If you encounter a bug that seems familiar:
+
+1. Check `/docs/AGENT_HISTORY.md` - May have been fixed before
+2. Check `/docs/ROOT_CAUSE.md` - Root cause analysis templates
+3. Check `/docs/FIXES-IMPLEMENTED.md` - Documented fix implementations
 
 ### Resources
 - Supabase Docs: https://supabase.com/docs

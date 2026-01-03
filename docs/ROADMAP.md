@@ -6,109 +6,94 @@ Become the #1 app for couples to maintain strong relationships through consisten
 
 ---
 
-## Current Status (v1.3)
+## Current Status (v1.7.0) - January 2026
 
-✅ Core weekly ritual cycle
-✅ AI-powered ritual generation
-✅ Partner synchronization
-✅ Historical learning
-✅ Post-ritual feedback
-✅ Streak tracking
-✅ Location-aware rituals
+### ✅ Completed Features
+
+#### Core Experience
+- ✅ Weekly ritual cycle with card-based input
+- ✅ AI-powered ritual generation (Gemini 2.5)
+- ✅ Partner synchronization via realtime
+- ✅ Historical learning from past rituals
+- ✅ Post-ritual feedback and ratings
+- ✅ Streak tracking with visual badges
+- ✅ Location-aware rituals (city, season, time)
+
+#### Photo Memories (v1.6)
+- ✅ Photo upload in post-ritual check-in
+- ✅ Client-side compression (~500KB)
+- ✅ Photo gallery in Memories page
+- ✅ Partner emoji reactions on memories
+
+#### Push Notifications (v1.6)
+- ✅ "Partner completed ritual" notification
+- ✅ Web Push API implementation
+- ✅ VAPID authentication
+
+#### SEO & Content (v1.6.3)
+- ✅ FAQ page with schema markup
+- ✅ Blog system with articles
+- ✅ Comprehensive sitemap
+- ✅ Structured data (Organization, WebApplication)
+
+#### Reliability (v1.7.0)
+- ✅ Network-first service worker
+- ✅ Progressive timeout system
+- ✅ Synthesis auto-retry
+- ✅ Polling fallback for realtime
+- ✅ Error boundaries
+- ✅ Session recovery
 
 ---
 
-## Q1 2025 - Foundation & Stability
+## Q1 2026 - Stability & Growth
 
-### v1.4 - UX Overhaul
-**Goal:** Fix critical bugs and improve core flows
+### v1.7.x - Reliability Hardening
+**Goal:** Zero infinite loaders, zero dead ends
 
-**Features:**
-- [ ] Fix week boundary bug permanently
-- [ ] Add database unique constraints
-- [ ] Replace toasts with in-context notifications
-- [ ] Add loading skeletons everywhere
-- [ ] Simplify navigation logic
-- [ ] Add error boundaries
-- [ ] Improve mobile performance
+**Completed:**
+- ✅ Service worker network-first strategy
+- ✅ 30-second synthesis timeout
+- ✅ Progressive splash screen timeouts
+- ✅ Retry mechanisms throughout
+
+**Remaining:**
+- [ ] Comprehensive test suite (Vitest)
+- [ ] E2E tests with Playwright
+- [ ] Performance monitoring (Web Vitals)
+- [ ] Error tracking (Sentry integration)
 
 **Metrics:**
-- Reduce error rate by 50%
-- Improve perceived load time
-- Increase weekly completion rate
+- Error rate < 0.1%
+- Synthesis success rate > 99%
+- No user-reported infinite loaders
 
-### v1.5 - Onboarding & Education
-**Goal:** Help new users understand the app
+### v1.8 - Onboarding Optimization
+**Goal:** Reduce time from signup to first ritual
 
 **Features:**
 - [ ] Interactive onboarding tutorial
 - [ ] Explainer animation on landing
-- [ ] "How it works" tooltips
 - [ ] Sample ritual preview (before signup)
 - [ ] Partner invitation flow improvements
-- [ ] Email reminders to join
+- [ ] Email reminders to complete setup
 
 **Metrics:**
-- Increase signup → input completion rate
-- Reduce time to first ritual
-- Improve partner join rate
+- Signup → First input: < 3 minutes
+- Partner join rate > 70%
 
 ---
 
-## Q2 2025 - Rich Experiences
+## Q2 2026 - Engagement & Retention
 
-### v1.6 - Photo Memories
-**Goal:** Make rituals more memorable
-
-**Features:**
-- [ ] Photo upload in post-ritual check-in
-- [ ] Photo gallery in History
-- [ ] Automatic photo slideshow
-- [ ] Share memories externally (optional)
-- [ ] Anniversary photo reminders
-
-**Technical:**
-- Supabase Storage integration
-- Image optimization (WebP)
-- CDN for fast loading
-
-**Metrics:**
-- % of rituals with photos
-- Engagement with History page
-- Sharing rate
-
-### v1.7 - Push Notifications
-**Goal:** Timely reminders and partner updates
-
-**Features:**
-- [ ] "Time to plan this week!" (Monday morning)
-- [ ] "Partner submitted!" notification
-- [ ] "Ritual starts soon" reminder
-- [ ] "How was it?" check-in prompt
-- [ ] Nudge via push (not just in-app)
-
-**Technical:**
-- Firebase Cloud Messaging
-- Notification preferences
-- Timezone-aware scheduling
-
-**Metrics:**
-- Increase weekly input completion
-- Reduce time between partner submissions
-- Improve ritual completion rate
-
----
-
-## Q3 2025 - Intelligence & Insights
-
-### v2.0 - Smart Suggestions
+### v1.9 - Smart Suggestions
 **Goal:** Proactive ritual ideas based on patterns
 
 **Features:**
 - [ ] AI suggestions on Home page
 - [ ] "Based on your history..." recommendations
 - [ ] Seasonal ritual ideas
-- [ ] Anniversary suggestions
+- [ ] Anniversary/special date suggestions
 - [ ] "Try something new" prompts
 
 **Algorithm:**
@@ -118,64 +103,57 @@ Become the #1 app for couples to maintain strong relationships through consisten
 - Surface underused categories
 
 **Metrics:**
-- Suggestion acceptance rate
+- Suggestion acceptance rate > 30%
 - Diversity of ritual categories
-- User satisfaction scores
 
-### v2.1 - Insights Dashboard
+### v2.0 - Insights Dashboard
 **Goal:** Help couples understand their patterns
 
 **Features:**
-- [ ] Ritual category breakdown
-- [ ] Completion heatmap
-- [ ] Favorite activities
+- [ ] Ritual category breakdown chart
+- [ ] Completion heatmap calendar
+- [ ] Favorite activities ranking
 - [ ] Mood trends over time
-- [ ] Comparison to other couples (anonymized)
-
-**Visualizations:**
-- Charts (recharts library)
-- Streak calendar
-- Category pie chart
-- Rating trends
+- [ ] Streak history visualization
 
 **Metrics:**
-- Engagement with Insights page
+- Insights page engagement > 50%
 - Retention lift from data visibility
 
 ---
 
-## Q4 2025 - Scale & Monetization
+## Q3 2026 - Monetization
 
-### v2.2 - Premium Features
+### v2.1 - Premium Features
 **Goal:** Sustainable business model
 
 **Free Tier:**
-- 4 rituals per week
+- 4 ritual options per week
 - Basic history
 - Standard AI generation
 
 **Premium ($9.99/month):**
-- Unlimited ritual options
-- Advanced AI (longer, more detailed)
-- Priority synthesis
-- Photo storage (unlimited)
-- Insights dashboard
-- Anniversary reminders
-- Export data
-- Custom ritual templates
+- [ ] Unlimited ritual options
+- [ ] Advanced AI (longer, more detailed)
+- [ ] Priority synthesis (faster queue)
+- [ ] Unlimited photo storage
+- [ ] Insights dashboard
+- [ ] Anniversary reminders
+- [ ] Export data (PDF/CSV)
+- [ ] Custom ritual templates
 
 **Metrics:**
-- Conversion rate to premium
-- Churn rate
-- Lifetime value (LTV)
+- Conversion rate > 5%
+- Churn rate < 3%/month
+- LTV > $60
 
-### v2.3 - Ritual Templates
+### v2.2 - Ritual Templates
 **Goal:** Faster planning with proven formats
 
 **Features:**
 - [ ] Save custom templates
 - [ ] Share templates with partner
-- [ ] Community templates (curated)
+- [ ] Curated community templates
 - [ ] Ritual series (multi-week plans)
 - [ ] Seasonal bundles
 
@@ -183,109 +161,95 @@ Become the #1 app for couples to maintain strong relationships through consisten
 - "Date Night Formula"
 - "Weekend Adventure Template"
 - "Cozy Night In"
-
-**Metrics:**
-- Template usage rate
-- Time saved in input flow
-- Completion rate (template vs custom)
+- "Anniversary Special"
 
 ---
 
-## 2026 - Expansion
+## Q4 2026 - Platform Expansion
 
-### v3.0 - Social Features (Optional)
+### v2.3 - Mobile Apps
+**Goal:** Native iOS and Android apps
+
+**Features:**
+- [ ] React Native or Flutter app
+- [ ] Native push notifications
+- [ ] Offline support
+- [ ] Camera integration
+- [ ] Calendar integration (native)
+- [ ] Widgets
+
+**Metrics:**
+- App store ratings > 4.5
+- Mobile engagement > web
+
+### v2.4 - Integrations
+**Goal:** Fit into couples' existing workflows
+
+**Features:**
+- [ ] Native calendar sync (Google, Apple)
+- [ ] Spotify playlist integration
+- [ ] Restaurant booking (OpenTable)
+- [ ] Ticket booking (Eventbrite)
+- [ ] Weather-aware suggestions
+
+---
+
+## 2027 - Social & Scale
+
+### v3.0 - Community Features (Optional)
 **Goal:** Build community without compromising intimacy
 
 **Features:**
 - [ ] Anonymous ritual sharing
 - [ ] City-specific ritual boards
 - [ ] Rate/comment on others' ideas
-- [ ] Follow favorite ritual creators
 - [ ] Private couple groups (friends)
 
-**Privacy:**
+**Privacy-First:**
 - All sharing opt-in
-- No real names unless user chooses
+- No real names unless chosen
 - No photos shared without consent
 
-**Metrics:**
-- Engagement with social features
-- Viral coefficient
-- User acquisition from shared content
-
-### v3.1 - Integrations
-**Goal:** Fit into couples' existing workflows
-
-**Features:**
-- [ ] Native calendar sync (not just ICS)
-- [ ] Spotify playlist integration
-- [ ] Restaurant booking (OpenTable)
-- [ ] Ticket booking (Eventbrite)
-- [ ] Transportation (Uber/Lyft)
-- [ ] Weather-aware suggestions
-
-**Metrics:**
-- Booking conversion rate
-- Time from plan to book
-- Friction reduction
-
-### v3.2 - Advanced AI
+### v3.1 - Advanced AI
 **Goal:** Truly personalized, evolving suggestions
 
 **Features:**
-- [ ] Natural language input (voice or text)
-- [ ] Multi-turn conversation with AI
+- [ ] Natural language input
+- [ ] Multi-turn conversation
 - [ ] Personality profiling
-- [ ] Mood detection
 - [ ] Conflict-aware suggestions
 - [ ] Long-term goal tracking
 
-**Technical:**
-- Fine-tuned model on Ritual data
-- RAG (Retrieval-Augmented Generation)
-- Conversational UI
-
-**Metrics:**
-- Input time reduction
-- User satisfaction with AI
-- Ritual quality perception
-
 ---
 
-## Future Ideas (Backlog)
+## Backlog Ideas
 
 ### Gamification
-- [ ] Badges for milestones
-- [ ] Leaderboards (couples, cities)
-- [ ] Challenges (try all categories)
-- [ ] Surprise rewards
+- Badges for milestones
+- Leaderboards (opt-in)
+- Challenges (try all categories)
+- Surprise rewards
 
 ### Therapy Integration
-- [ ] Licensed therapist rituals
-- [ ] Relationship check-in prompts
-- [ ] Conflict resolution rituals
-- [ ] Couples therapy recommendations
+- Licensed therapist rituals
+- Relationship check-in prompts
+- Conflict resolution rituals
 
 ### Gift Ideas
-- [ ] Generate gift ideas from ritual history
-- [ ] Anniversary gift suggestions
-- [ ] Affiliate partnerships
+- Generate gift ideas from history
+- Anniversary suggestions
+- Affiliate partnerships
 
 ### Long-Distance Mode
-- [ ] Virtual ritual options
-- [ ] Video call integration
-- [ ] Async ritual completion
-- [ ] Countdown to next visit
+- Virtual ritual options
+- Video call integration
+- Async ritual completion
+- Countdown to next visit
 
 ### Group Rituals
-- [ ] Double dates
-- [ ] Family rituals
-- [ ] Friend group activities
-
-### Corporate Partnerships
-- [ ] Team-building rituals
-- [ ] Employee wellness programs
-- [] B2B pricing
+- Double dates
+- Family rituals
+- Friend group activities
 
 ---
 
@@ -302,19 +266,19 @@ Become the #1 app for couples to maintain strong relationships through consisten
 - Average rating of completed rituals
 
 **Retention:**
-- 7-day retention
-- 30-day retention
-- 90-day retention
+- 7-day retention > 60%
+- 30-day retention > 40%
+- 90-day retention > 25%
 
 **Growth:**
 - New couple signups per week
-- Partner join rate
-- Viral coefficient
+- Partner join rate > 70%
+- Viral coefficient > 1.0
 
 **Revenue (future):**
-- Free → Premium conversion
-- Churn rate
-- LTV:CAC ratio
+- Free → Premium conversion > 5%
+- Churn rate < 3%/month
+- LTV:CAC ratio > 3:1
 
 ---
 
@@ -342,6 +306,9 @@ Become the #1 app for couples to maintain strong relationships through consisten
 Have ideas for future features? Reach out:
 - **Email:** feedback@ritual.app
 - **Twitter:** @ritual_app
-- **Discord:** [link]
 
 We'd love to hear from you!
+
+---
+
+*Last updated: January 2026*
