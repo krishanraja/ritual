@@ -1,62 +1,50 @@
 /**
- * FIX #10: Error Boundary Component
- * 
- * Catches React errors and shows recovery UI instead of crashing the app.
+ * ErrorBoundary Component
+ *
+ * Catches errors in child components and shows fallback UI.
+ * Prevents full page crashes from breaking the entire app.
+ *
+ * @created 2026-01-22
  */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
-import { AlertCircle, RefreshCw, Home } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
-  errorInfo: ErrorInfo | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
       hasError: false,
       error: null,
-      errorInfo: null,
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return {
       hasError: true,
       error,
-      errorInfo: null,
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Use centralized error logging
-    import('@/utils/errorHandling').then(({ logError }) => {
-      logError(error, 'ErrorBoundary');
-    });
-    
-    this.setState({
-      error,
-      errorInfo,
-    });
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+    this.props.onError?.(error, errorInfo);
   }
 
   handleReset = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    });
+    this.setState({ hasError: false, error: null });
   };
 
   render() {
@@ -65,63 +53,53 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      return <ErrorFallback error={this.state.error} onReset={this.handleReset} />;
+      return (
+        <div className="h-full flex items-center justify-center px-6 bg-gradient-warm">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="w-20 h-20 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
+              <AlertCircle className="w-10 h-10 text-destructive" />
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Something went wrong</h2>
+              <p className="text-muted-foreground text-sm">
+                We encountered an unexpected error. Please try refreshing the page.
+              </p>
+            </div>
+
+            {import.meta.env.DEV && this.state.error && (
+              <details className="text-left text-xs text-muted-foreground bg-muted p-3 rounded-lg">
+                <summary className="cursor-pointer font-medium mb-2">
+                  Error details (development only)
+                </summary>
+                <pre className="whitespace-pre-wrap break-words">
+                  {this.state.error.toString()}
+                </pre>
+              </details>
+            )}
+
+            <div className="flex gap-3 justify-center">
+              <Button
+                onClick={this.handleReset}
+                variant="outline"
+                className="gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Try Again
+              </Button>
+
+              <Button
+                onClick={() => window.location.reload()}
+                className="gap-2 bg-gradient-to-r from-primary to-purple-500"
+              >
+                Refresh Page
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     return this.props.children;
   }
-}
-
-function ErrorFallback({ error, onReset }: { error: Error | null; onReset: () => void }) {
-  const navigate = useNavigate();
-
-  return (
-    <div className="h-full bg-gradient-warm flex items-center justify-center px-4">
-      <Card className="max-w-md w-full p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-            <AlertCircle className="w-6 h-6 text-destructive" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold">Something went wrong</h2>
-            <p className="text-sm text-muted-foreground">
-              The app encountered an unexpected error
-            </p>
-          </div>
-        </div>
-
-        {error && (
-          <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono overflow-auto max-h-32">
-            <p className="text-destructive font-semibold mb-1">{error.name}</p>
-            <p className="text-muted-foreground">{error.message}</p>
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <Button
-            onClick={onReset}
-            variant="outline"
-            className="flex-1"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Try Again
-          </Button>
-          <Button
-            onClick={() => {
-              onReset();
-              navigate('/');
-            }}
-            className="flex-1 bg-gradient-ritual"
-          >
-            <Home className="w-4 h-4 mr-2" />
-            Go Home
-          </Button>
-        </div>
-
-        <p className="text-xs text-muted-foreground text-center">
-          If this problem persists, please contact support
-        </p>
-      </Card>
-    </div>
-  );
 }
