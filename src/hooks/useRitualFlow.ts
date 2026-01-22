@@ -33,6 +33,7 @@ import {
   getSlotTimeRange,
 } from '@/types/database';
 import type { City } from '@/utils/timezoneUtils';
+import { mapSynthesisError, mapEdgeFunctionError } from '@/utils/errorHandling';
 
 // Synthesis timeout configuration
 const SYNTHESIS_TIMEOUT_MS = 30000; // 30 seconds before showing error
@@ -67,6 +68,7 @@ interface UseRitualFlowReturn {
   // Synthesis state (for timeout handling)
   synthesisTimedOut: boolean;
   isRetrying: boolean;
+  autoRetryInProgress: boolean;
   
   // Overlapping time slots for MatchPhase
   overlappingSlots: Array<{ dayOffset: number; timeSlot: TimeSlot }>;
@@ -105,6 +107,7 @@ export function useRitualFlow(): UseRitualFlowReturn {
   // Synthesis timeout state
   const [synthesisTimedOut, setSynthesisTimedOut] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [autoRetryInProgress, setAutoRetryInProgress] = useState(false);
   const synthesisStartTimeRef = useRef<number | null>(null);
   const hasAutoRetriedRef = useRef(false);
   
@@ -431,12 +434,35 @@ export function useRitualFlow(): UseRitualFlowReturn {
         // Auto-retry once
         if (!hasAutoRetriedRef.current && cycle?.id) {
           hasAutoRetriedRef.current = true;
+          setAutoRetryInProgress(true);
           console.log('[useRitualFlow] Attempting auto-retry...');
+
+          // Trigger auto-retry and handle errors
           supabase.functions.invoke('trigger-synthesis', {
             body: { cycleId: cycle.id, forceRetry: true }
+          }).then(({ data: synthesisData, error: invokeError }) => {
+            setAutoRetryInProgress(false);
+
+            if (invokeError) {
+              const errorContext = mapEdgeFunctionError(invokeError);
+              console.error('[useRitualFlow] Auto-retry failed:', errorContext);
+              setError(errorContext.message);
+              setSynthesisTimedOut(true);
+            } else if (synthesisData?.status === 'failed') {
+              setError(synthesisData.error || 'Ritual generation failed. Please try again.');
+              setSynthesisTimedOut(true);
+            } else {
+              console.log('[useRitualFlow] Auto-retry triggered successfully');
+            }
           }).catch(err => {
-            console.error('[useRitualFlow] Auto-retry failed:', err);
+            setAutoRetryInProgress(false);
+
+            const errorContext = mapSynthesisError(err);
+            console.error('[useRitualFlow] Auto-retry exception:', errorContext);
+            setError(errorContext.message);
+            setSynthesisTimedOut(true);
           });
+
           // Reset start time to give retry a chance
           synthesisStartTimeRef.current = Date.now();
         } else {
@@ -452,6 +478,7 @@ export function useRitualFlow(): UseRitualFlowReturn {
         synthesisStartTimeRef.current = null;
         hasAutoRetriedRef.current = false;
         setSynthesisTimedOut(false);
+        setAutoRetryInProgress(false);
       }
     }
   }, [status, cycle?.partner_one_input, cycle?.partner_two_input, cycle?.synthesized_output, cycle?.id, synthesisTimedOut]);
@@ -746,12 +773,24 @@ export function useRitualFlow(): UseRitualFlowReturn {
       // Trigger synthesis if both are now complete
       if (bothComplete) {
         console.log('[useRitualFlow] Both partners complete, triggering synthesis');
-        // Fire and forget - trigger will handle idempotency
-        supabase.functions.invoke('trigger-synthesis', {
-          body: { cycleId: cycle.id }
-        }).catch(err => {
-          console.warn('[useRitualFlow] ⚠️ Synthesis trigger failed (non-blocking):', err);
-        });
+        // Trigger synthesis and handle errors
+        try {
+          const { data: synthesisData, error: invokeError } = await supabase.functions.invoke('trigger-synthesis', {
+            body: { cycleId: cycle.id }
+          });
+
+          if (invokeError) {
+            const errorContext = mapEdgeFunctionError(invokeError);
+            console.error('[useRitualFlow] Synthesis trigger failed:', errorContext);
+            setError(errorContext.message);
+          } else if (synthesisData?.status === 'failed') {
+            setError(synthesisData.error || 'Failed to start ritual generation');
+          }
+        } catch (err) {
+          const errorContext = mapSynthesisError(err);
+          console.error('[useRitualFlow] Synthesis trigger exception:', errorContext);
+          setError(errorContext.message);
+        }
       }
       
       const totalDuration = performance.now() - submitStartTime;
@@ -1041,9 +1080,14 @@ export function useRitualFlow(): UseRitualFlowReturn {
       const { data, error: fnError } = await supabase.functions.invoke('trigger-synthesis', {
         body: { cycleId: cycle.id, forceRetry: true }
       });
-      
-      if (fnError) throw fnError;
-      
+
+      if (fnError) {
+        const errorContext = mapEdgeFunctionError(fnError);
+        console.error('[useRitualFlow] Manual retry failed:', errorContext);
+        setError(errorContext.message);
+        return;
+      }
+
       if (data?.status === 'ready') {
         console.log('[useRitualFlow] ✅ Retry successful, rituals ready');
         await loadCycleData();
@@ -1054,8 +1098,9 @@ export function useRitualFlow(): UseRitualFlowReturn {
         setError(data.error || 'Generation failed. Please try again.');
       }
     } catch (err) {
-      console.error('[useRitualFlow] Retry generation error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to retry. Please try again.');
+      const errorContext = mapSynthesisError(err);
+      console.error('[useRitualFlow] Retry generation exception:', errorContext);
+      setError(errorContext.message);
     } finally {
       setIsRetrying(false);
     }
@@ -1132,6 +1177,7 @@ export function useRitualFlow(): UseRitualFlowReturn {
     // Synthesis timeout state
     synthesisTimedOut,
     isRetrying,
+    autoRetryInProgress,
     // Overlapping slots for MatchPhase
     overlappingSlots,
     // Slot picker rotation

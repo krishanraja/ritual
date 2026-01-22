@@ -1,11 +1,251 @@
 /**
- * Error Handling Utilities
+ * Error Handling Utility
  * 
- * Provides user-friendly error messages and retry mechanisms
+ * Centralized error mapping and user-friendly messaging for ritual flow.
+ * Maps technical errors to actionable user messages.
+ * 
+ * @created 2026-01-22
  */
 
+export interface ErrorContext {
+  type: 'network' | 'server' | 'timeout' | 'validation' | 'unknown';
+  message: string;
+  retryable: boolean;
+  retryDelay?: number;
+}
+
 /**
- * Converts technical error messages to user-friendly messages
+ * Map edge function errors to user-friendly messages
+ */
+export function mapEdgeFunctionError(error: any): ErrorContext {
+  // Network errors (no response from server)
+  if (!error.message && !error.status) {
+    return {
+      type: 'network',
+      message: 'Unable to connect to server. Please check your internet connection and try again.',
+      retryable: true,
+      retryDelay: 2000,
+    };
+  }
+
+  // HTTP status code errors
+  if (error.status) {
+    switch (error.status) {
+      case 400:
+        return {
+          type: 'validation',
+          message: error.message || 'Invalid request. Please try again or contact support.',
+          retryable: false,
+        };
+      
+      case 401:
+      case 403:
+        return {
+          type: 'validation',
+          message: 'Session expired. Please sign in again.',
+          retryable: false,
+        };
+      
+      case 404:
+        return {
+          type: 'server',
+          message: 'Service not found. Please refresh the page or contact support.',
+          retryable: true,
+          retryDelay: 5000,
+        };
+      
+      case 429:
+        return {
+          type: 'server',
+          message: 'Too many requests. Please wait a moment and try again.',
+          retryable: true,
+          retryDelay: 10000,
+        };
+      
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return {
+          type: 'server',
+          message: 'Server error. We\'re working on it. Please try again in a moment.',
+          retryable: true,
+          retryDelay: 5000,
+        };
+      
+      default:
+        return {
+          type: 'unknown',
+          message: `Unexpected error (${error.status}). Please try again or contact support.`,
+          retryable: true,
+          retryDelay: 3000,
+        };
+    }
+  }
+
+  // Edge function returned error message
+  if (error.message) {
+    // Check for specific error patterns
+    if (error.message.toLowerCase().includes('timeout')) {
+      return {
+        type: 'timeout',
+        message: 'Request timed out. Please try again.',
+        retryable: true,
+        retryDelay: 3000,
+      };
+    }
+
+    if (error.message.toLowerCase().includes('network')) {
+      return {
+        type: 'network',
+        message: 'Network error. Please check your connection and try again.',
+        retryable: true,
+        retryDelay: 2000,
+      };
+    }
+
+    if (error.message.toLowerCase().includes('rate limit')) {
+      return {
+        type: 'server',
+        message: 'Too many requests. Please wait a moment and try again.',
+        retryable: true,
+        retryDelay: 10000,
+      };
+    }
+
+    // Generic error with message
+    return {
+      type: 'server',
+      message: error.message,
+      retryable: true,
+      retryDelay: 3000,
+    };
+  }
+
+  // Fallback for unknown errors
+  return {
+    type: 'unknown',
+    message: 'Something went wrong. Please try again or contact support.',
+    retryable: true,
+    retryDelay: 3000,
+  };
+}
+
+/**
+ * Map network/fetch errors to user-friendly messages
+ */
+export function mapNetworkError(error: any): ErrorContext {
+  if (error instanceof TypeError) {
+    // Network request failed (offline, CORS, etc.)
+    return {
+      type: 'network',
+      message: 'Unable to connect. Please check your internet connection.',
+      retryable: true,
+      retryDelay: 2000,
+    };
+  }
+
+  if (error.name === 'AbortError') {
+    return {
+      type: 'timeout',
+      message: 'Request timed out. Please try again.',
+      retryable: true,
+      retryDelay: 3000,
+    };
+  }
+
+  return mapEdgeFunctionError(error);
+}
+
+/**
+ * Determine if an error should be automatically retried
+ */
+export function shouldRetry(errorContext: ErrorContext, attemptNumber: number): boolean {
+  // Don't retry non-retryable errors
+  if (!errorContext.retryable) {
+    return false;
+  }
+
+  // Don't retry validation errors
+  if (errorContext.type === 'validation') {
+    return false;
+  }
+
+  // Limit retry attempts
+  const maxAttempts = 3;
+  if (attemptNumber >= maxAttempts) {
+    return false;
+  }
+
+  // Retry network and server errors
+  return errorContext.type === 'network' || errorContext.type === 'server' || errorContext.type === 'timeout';
+}
+
+/**
+ * Get retry delay with exponential backoff
+ */
+export function getRetryDelay(attemptNumber: number, baseDelay: number = 1000): number {
+  // Exponential backoff: 1s, 2s, 4s, 8s, etc.
+  return baseDelay * Math.pow(2, attemptNumber);
+}
+
+/**
+ * Format error for logging/debugging
+ */
+export function formatErrorForLogging(error: any, context?: Record<string, any>): string {
+  const errorInfo: Record<string, any> = {
+    timestamp: new Date().toISOString(),
+    message: error?.message || 'Unknown error',
+    stack: error?.stack,
+    ...context,
+  };
+
+  // Include edge function specific info
+  if (error?.status) {
+    errorInfo.httpStatus = error.status;
+  }
+
+  if (error?.data) {
+    errorInfo.responseData = error.data;
+  }
+
+  return JSON.stringify(errorInfo, null, 2);
+}
+
+/**
+ * Check if user is online
+ */
+export function isOnline(): boolean {
+  return typeof navigator !== 'undefined' ? navigator.onLine : true;
+}
+
+/**
+ * Get user-friendly message for synthesis-specific errors
+ */
+export function mapSynthesisError(error: any): ErrorContext {
+  const context = mapEdgeFunctionError(error);
+
+  // Enhance message for synthesis-specific scenarios
+  if (context.type === 'timeout') {
+    return {
+      ...context,
+      message: 'Ritual generation is taking longer than expected. Please try again.',
+    };
+  }
+
+  if (context.type === 'server') {
+    return {
+      ...context,
+      message: 'Unable to generate rituals right now. Please try again in a moment.',
+    };
+  }
+
+  return context;
+}
+
+/**
+ * LEGACY FUNCTION: Converts technical error messages to user-friendly messages
+ * @deprecated Use mapEdgeFunctionError or mapNetworkError for better error context
  */
 export function getUserFriendlyError(error: unknown): string {
   if (!error) {
@@ -73,106 +313,3 @@ export function getUserFriendlyError(error: unknown): string {
   // Generic fallback
   return message.length > 100 ? 'An error occurred. Please try again.' : message;
 }
-
-/**
- * Retry a function with exponential backoff
- */
-export async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  options: {
-    maxRetries?: number;
-    initialDelay?: number;
-    maxDelay?: number;
-    shouldRetry?: (error: unknown) => boolean;
-  } = {}
-): Promise<T> {
-  const {
-    maxRetries = 3,
-    initialDelay = 1000,
-    maxDelay = 10000,
-    shouldRetry = () => true,
-  } = options;
-
-  let lastError: unknown;
-  let delay = initialDelay;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-
-      // Don't retry if we've exhausted attempts or if shouldRetry returns false
-      if (attempt === maxRetries || !shouldRetry(error)) {
-        throw error;
-      }
-
-      // Wait before retrying (exponential backoff)
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      delay = Math.min(delay * 2, maxDelay);
-
-      console.log(`[Retry] Attempt ${attempt + 1}/${maxRetries} failed, retrying in ${delay}ms...`);
-    }
-  }
-
-  throw lastError;
-}
-
-/**
- * Check if an error is retryable (network errors, timeouts, etc.)
- */
-export function isRetryableError(error: unknown): boolean {
-  if (!error) return false;
-
-  const message = error instanceof Error ? error.message : String(error);
-  const lowerMessage = message.toLowerCase();
-
-  // Retry on network errors
-  if (lowerMessage.includes('network') || lowerMessage.includes('fetch')) {
-    return true;
-  }
-
-  // Retry on timeouts
-  if (lowerMessage.includes('timeout') || lowerMessage.includes('aborted')) {
-    return true;
-  }
-
-  // Retry on 5xx server errors
-  if (lowerMessage.includes('500') || lowerMessage.includes('502') || lowerMessage.includes('503') || lowerMessage.includes('504')) {
-    return true;
-  }
-
-  // Don't retry on client errors (4xx) except 429 (rate limit)
-  if (lowerMessage.includes('400') || lowerMessage.includes('401') || lowerMessage.includes('403') || lowerMessage.includes('404')) {
-    return false;
-  }
-
-  // Retry on rate limits (429)
-  if (lowerMessage.includes('429') || lowerMessage.includes('rate limit')) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Log error with context for debugging
- */
-export function logError(error: unknown, context?: string) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  const errorStack = error instanceof Error ? error.stack : undefined;
-
-  console.error(`[Error${context ? `: ${context}` : ''}]`, {
-    message: errorMessage,
-    stack: errorStack,
-    timestamp: new Date().toISOString(),
-  });
-
-  // In production, send to error tracking service
-  if (import.meta.env.PROD) {
-    // TODO: Integrate with error tracking (Sentry, etc.)
-    // Sentry.captureException(error, { tags: { context } });
-  }
-}
-
-

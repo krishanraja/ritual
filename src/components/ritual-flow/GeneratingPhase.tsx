@@ -18,12 +18,14 @@ interface GeneratingPhaseProps {
   status: CycleStatus;
   onRetry: () => Promise<void>;
   error: string | null;
+  autoRetryInProgress?: boolean;
 }
 
-export function GeneratingPhase({ status, onRetry, error }: GeneratingPhaseProps) {
+export function GeneratingPhase({ status, onRetry, error, autoRetryInProgress = false }: GeneratingPhaseProps) {
   const [isRetrying, setIsRetrying] = useState(false);
-  
+
   const isFailed = status === 'generation_failed' || !!error;
+  const isAutoRetrying = autoRetryInProgress && !isFailed;
   
   const handleRetry = async () => {
     setIsRetrying(true);
@@ -77,15 +79,25 @@ export function GeneratingPhase({ status, onRetry, error }: GeneratingPhaseProps
             </div>
             
             <div>
-              <h2 className="text-2xl font-bold mb-2">Creating Your Rituals</h2>
+              <h2 className="text-2xl font-bold mb-2">
+                {isAutoRetrying ? 'Retrying...' : 'Creating Your Rituals'}
+              </h2>
               <p className="text-muted-foreground">
-                Crafting personalized experiences based on both your preferences...
+                {isAutoRetrying
+                  ? 'This is taking longer than expected. Trying again...'
+                  : 'Crafting personalized experiences based on both your preferences...'
+                }
               </p>
             </div>
-            
+
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Clock className="w-4 h-4" />
-              <span>This usually takes 10-20 seconds</span>
+              <span>
+                {isAutoRetrying
+                  ? 'This may take a moment'
+                  : 'This usually takes 10-20 seconds'
+                }
+              </span>
             </div>
           </>
         ) : (

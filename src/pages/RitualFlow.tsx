@@ -135,6 +135,7 @@ export default function RitualFlow() {
                 status={flow.status}
                 onRetry={flow.retryGeneration}
                 error={flow.error}
+                autoRetryInProgress={flow.autoRetryInProgress}
               />
             </PhaseWrapper>
           )}
