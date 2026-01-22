@@ -14,6 +14,8 @@ import { useRitualFlow } from '@/hooks/useRitualFlow';
 import { AnimatedGradientBackground } from '@/components/AnimatedGradientBackground';
 import { RitualLogo } from '@/components/RitualLogo';
 import { RitualSpinner } from '@/components/RitualSpinner';
+import { NetworkStatus } from '@/components/NetworkStatus';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   InputPhase,
   GeneratingPhase,
@@ -24,6 +26,7 @@ import {
 } from '@/components/ritual-flow';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { RefreshCw } from 'lucide-react';
 
 export default function RitualFlow() {
   const navigate = useNavigate();
@@ -83,19 +86,43 @@ export default function RitualFlow() {
   const partnerName = partnerProfile?.name || 'your partner';
   
   return (
-    <div className="h-full flex flex-col relative">
-      <AnimatedGradientBackground variant="warm" />
-      
-      {/* Status header - always visible */}
-      <div className="flex-none px-4 pt-4 pb-2 relative z-10">
-        <div className="flex items-center justify-between mb-2">
-          <RitualLogo size="sm" variant="icon" />
-          <PartnerStatus 
-            name={partnerName}
-            theirProgress={flow.partnerProgress}
-            status={flow.status}
-          />
-        </div>
+    <ErrorBoundary>
+      <div className="h-full flex flex-col relative">
+        <AnimatedGradientBackground variant="warm" />
+
+        {/* Network status indicator */}
+        <NetworkStatus
+          isRealtimeConnected={flow.isRealtimeConnected}
+          lastSyncTime={flow.lastSyncTime}
+        />
+
+        {/* Status header - always visible */}
+        <div className="flex-none px-4 pt-4 pb-2 relative z-10">
+          <div className="flex items-center justify-between mb-2">
+            <RitualLogo size="sm" variant="icon" />
+
+            <div className="flex items-center gap-2">
+              <PartnerStatus
+                name={partnerName}
+                theirProgress={flow.partnerProgress}
+                status={flow.status}
+              />
+
+              {/* Manual sync button */}
+              <button
+                onClick={() => flow.forceSync()}
+                disabled={flow.isSyncing}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
+                title="Sync now"
+                aria-label="Manual sync"
+              >
+                <RefreshCw className={cn(
+                  "w-4 h-4 text-white/80",
+                  flow.isSyncing && "animate-spin"
+                )} />
+              </button>
+            </div>
+          </div>
         
         {/* Progress indicator */}
         <FlowProgress phase={flow.phase} />
@@ -181,6 +208,7 @@ export default function RitualFlow() {
         </AnimatePresence>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
 
