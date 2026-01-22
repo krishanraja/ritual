@@ -16,6 +16,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCouple } from '@/contexts/CoupleContext';
+import { useSyncEngine } from '@/hooks/useSyncEngine';
 import {
   CycleStatus,
   FlowPhase,
@@ -94,6 +95,11 @@ interface UseRitualFlowReturn {
   retryGeneration: () => Promise<void>;
   refresh: () => Promise<void>;
   forceSync: () => Promise<void>;
+
+  // Sync engine state
+  isRealtimeConnected: boolean;
+  lastSyncTime: Date | null;
+  isSyncing: boolean;
 }
 
 export function useRitualFlow(): UseRitualFlowReturn {
@@ -353,54 +359,28 @@ export function useRitualFlow(): UseRitualFlowReturn {
   }, [couple?.id, user?.id, isPartnerOne, loadPicks, loadAvailability]);
 
   // ============================================================================
-  // Realtime Subscription
+  // Unified Sync Engine (Replaces: Realtime + Polling + Universal Sync)
   // ============================================================================
-  
-  useEffect(() => {
-    if (!cycle?.id || !user?.id) return;
-    
-    console.log('[useRitualFlow] Setting up realtime subscription for cycle:', cycle.id);
-    
-    const channel = supabase
-      .channel(`ritual-flow-${cycle.id}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'weekly_cycles',
-        filter: `id=eq.${cycle.id}`
-      }, (payload) => {
-        console.log('[useRitualFlow] Cycle updated via realtime:', payload.new);
-        setCycle(payload.new as WeeklyCycle);
-      })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'ritual_preferences',
-        filter: `weekly_cycle_id=eq.${cycle.id}`
-      }, () => {
-        // Reload picks when any change
-        loadPicks(cycle.id);
-      })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'availability_slots',
-        filter: `weekly_cycle_id=eq.${cycle.id}`
-      }, () => {
-        // Reload availability when any change
-        loadAvailability(cycle.id);
-      })
-      .subscribe((subStatus) => {
-        if (subStatus === 'SUBSCRIBED') {
-          console.log('[useRitualFlow] ✅ Realtime connected');
-        }
-      });
-    
-    return () => {
-      console.log('[useRitualFlow] Cleaning up realtime subscription');
-      supabase.removeChannel(channel);
-    };
-  }, [cycle?.id, user?.id, loadPicks, loadAvailability]);
+
+  const syncEngine = useSyncEngine({
+    cycleId: cycle?.id || null,
+    userId: user?.id || null,
+    partnerId: partnerId || null,
+    onCycleUpdate: useCallback((updatedCycle: WeeklyCycle) => {
+      console.log('[useRitualFlow] Sync engine: Cycle updated');
+      setCycle(updatedCycle);
+    }, []),
+    onPicksUpdate: useCallback((myPicks, partnerPicks) => {
+      console.log('[useRitualFlow] Sync engine: Picks updated');
+      setMyPicks(myPicks);
+      setPartnerPicks(partnerPicks);
+    }, []),
+    onSlotsUpdate: useCallback((mySlots, partnerSlots) => {
+      console.log('[useRitualFlow] Sync engine: Slots updated');
+      setMySlots(mySlots);
+      setPartnerSlots(partnerSlots);
+    }, []),
+  });
 
   // Initial load
   useEffect(() => {
@@ -483,45 +463,7 @@ export function useRitualFlow(): UseRitualFlowReturn {
     }
   }, [status, cycle?.partner_one_input, cycle?.partner_two_input, cycle?.synthesized_output, cycle?.id, synthesisTimedOut]);
 
-  // Polling fallback when in generating status (in case realtime fails)
-  useEffect(() => {
-    const isGenerating = status === 'generating' || 
-      (cycle?.partner_one_input && cycle?.partner_two_input && !cycle?.synthesized_output);
-    
-    if (!isGenerating || !cycle?.id) return;
-    
-    console.log('[useRitualFlow] Starting polling fallback for synthesis');
-    
-    const pollForCompletion = async () => {
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('weekly_cycles')
-          .select('synthesized_output, status')
-          .eq('id', cycle.id)
-          .single();
-        
-        if (fetchError) {
-          console.warn('[useRitualFlow] Polling error:', fetchError);
-          return;
-        }
-        
-        if (data?.synthesized_output) {
-          console.log('[useRitualFlow] ✅ Polling detected synthesis completion');
-          setCycle(prev => prev ? { ...prev, ...data } as typeof prev : prev);
-        }
-      } catch (err) {
-        console.warn('[useRitualFlow] Polling exception:', err);
-      }
-    };
-    
-    // Poll immediately, then every SYNTHESIS_POLL_INTERVAL_MS
-    pollForCompletion();
-    const pollInterval = setInterval(pollForCompletion, SYNTHESIS_POLL_INTERVAL_MS);
-    
-    return () => {
-      clearInterval(pollInterval);
-    };
-  }, [status, cycle?.id, cycle?.partner_one_input, cycle?.partner_two_input, cycle?.synthesized_output]);
+  // Synthesis polling is now handled by useSyncEngine (realtime-first with polling backup)
 
   // Timeout check interval
   useEffect(() => {
@@ -546,79 +488,7 @@ export function useRitualFlow(): UseRitualFlowReturn {
     };
   }, [status, cycle?.partner_one_input, cycle?.partner_two_input, cycle?.synthesized_output, synthesisTimedOut]);
 
-  // ============================================================================
-  // Universal Sync - Catches any state drift between partners
-  // ============================================================================
-  
-  // This runs in ALL phases to ensure both partners stay in sync
-  // Critical for fixing the "both partners hang" issue
-  useEffect(() => {
-    if (!cycle?.id) return;
-    
-    console.log('[useRitualFlow] Starting universal sync polling');
-    
-    const syncCycleState = async () => {
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('weekly_cycles')
-          .select('*')
-          .eq('id', cycle.id)
-          .single();
-        
-        if (fetchError) {
-          console.warn('[useRitualFlow] Universal sync error:', fetchError);
-          return;
-        }
-        
-        if (!data) return;
-        
-        // Check if server state differs from local state
-        const serverStatus = (data as any).status;
-        const localStatus = status;
-        const serverHasOutput = !!data.synthesized_output;
-        const localHasOutput = !!cycle.synthesized_output;
-        const serverP1Input = !!data.partner_one_input;
-        const serverP2Input = !!data.partner_two_input;
-        const localP1Input = !!cycle.partner_one_input;
-        const localP2Input = !!cycle.partner_two_input;
-        
-        // Detect state drift
-        const hasDrift = 
-          serverStatus !== localStatus ||
-          serverHasOutput !== localHasOutput ||
-          serverP1Input !== localP1Input ||
-          serverP2Input !== localP2Input;
-        
-        if (hasDrift) {
-          console.log('[useRitualFlow] 🔄 State drift detected, syncing from server', {
-            server: { status: serverStatus, hasOutput: serverHasOutput, p1: serverP1Input, p2: serverP2Input },
-            local: { status: localStatus, hasOutput: localHasOutput, p1: localP1Input, p2: localP2Input },
-          });
-          
-          // Update local state from server
-          setCycle(data);
-          
-          // Reload picks and availability if we now have output
-          if (serverHasOutput && !localHasOutput) {
-            await Promise.all([
-              loadPicks(cycle.id),
-              loadAvailability(cycle.id)
-            ]);
-          }
-        }
-      } catch (err) {
-        console.warn('[useRitualFlow] Universal sync exception:', err);
-      }
-    };
-    
-    // Sync immediately on mount and then periodically
-    syncCycleState();
-    const syncInterval = setInterval(syncCycleState, UNIVERSAL_SYNC_INTERVAL_MS);
-    
-    return () => {
-      clearInterval(syncInterval);
-    };
-  }, [cycle?.id, status, cycle?.synthesized_output, cycle?.partner_one_input, cycle?.partner_two_input, loadPicks, loadAvailability]);
+  // Universal sync is now handled by useSyncEngine (eliminates 8s polling interval)
 
   // ============================================================================
   // Actions - Input Phase
@@ -748,27 +618,20 @@ export function useRitualFlow(): UseRitualFlowReturn {
         hadPartnerTwoInput: !!cycle.partner_two_input,
       });
       
-      // Update status in database
-      const { error: statusError } = await supabase
-        .from('weekly_cycles')
-        .update({ status: newStatus })
-        .eq('id', cycle.id);
-      
-      if (statusError) {
-        console.warn('[useRitualFlow] ⚠️ Status update failed (non-blocking):', statusError);
-        // Continue anyway - the local state update is more important for UX
-      }
-      
+      // Status will be auto-computed by database trigger
+      // Just update the input data, trigger will handle status
+
       // CRITICAL: Optimistically update local state so UI transitions immediately
+      // Note: Status will be corrected by sync engine when database trigger fires
       const now = new Date().toISOString();
       setCycle(prev => prev ? {
         ...prev,
         [updateField]: inputData,
         [submittedField]: now,
-        status: newStatus
+        status: newStatus // Optimistic, will be synced from DB
       } as typeof prev : prev);
-      
-      console.log('[useRitualFlow] ✅ Local state updated with status:', newStatus);
+
+      console.log('[useRitualFlow] ✅ Local state updated (optimistic), DB trigger will compute status:', newStatus);
       
       // Trigger synthesis if both are now complete
       if (bothComplete) {
@@ -974,19 +837,17 @@ export function useRitualFlow(): UseRitualFlowReturn {
         ? 'awaiting_partner_two_pick'
         : 'awaiting_partner_one_pick';
     
-    console.log('[useRitualFlow] Submitting picks with status:', newStatus, {
+    console.log('[useRitualFlow] Submitting picks, DB trigger will compute status:', newStatus, {
       partnerHasPicks,
       partnerHasSlots,
       partnerDone,
       isPartnerOne
     });
-    
-    // Update cycle status in database
-    const { error: updateError } = await supabase
-      .from('weekly_cycles')
-      .update({ status: newStatus })
-      .eq('id', cycle.id);
-    
+
+    // Status will be auto-computed by database trigger (no manual update needed)
+    // The trigger on ritual_preferences/availability_slots will touch weekly_cycles
+    // which will trigger status recomputation
+
     if (updateError) {
       console.error('[useRitualFlow] Failed to update cycle status:', updateError);
       setError(updateError.message);
@@ -1110,41 +971,12 @@ export function useRitualFlow(): UseRitualFlowReturn {
     await loadCycleData();
   }, [loadCycleData]);
 
-  // Force sync - immediately fetches latest state from server
-  // Use this when user suspects state is out of sync
+  // Force sync - delegates to sync engine
   const forceSync = useCallback(async () => {
-    if (!cycle?.id) return;
-    
     console.log('[useRitualFlow] 🔄 Force sync triggered by user');
     setError(null);
-    
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('weekly_cycles')
-        .select('*')
-        .eq('id', cycle.id)
-        .single();
-      
-      if (fetchError) throw fetchError;
-      if (!data) throw new Error('Cycle not found');
-      
-      setCycle(data);
-      
-      // Reload all related data
-      await Promise.all([
-        loadPicks(cycle.id),
-        loadAvailability(cycle.id)
-      ]);
-      
-      console.log('[useRitualFlow] ✅ Force sync complete', {
-        status: (data as any).status,
-        hasOutput: !!data.synthesized_output,
-      });
-    } catch (err) {
-      console.error('[useRitualFlow] Force sync failed:', err);
-      setError('Sync failed. Please try again.');
-    }
-  }, [cycle?.id, loadPicks, loadAvailability]);
+    await syncEngine.forceSync();
+  }, [syncEngine]);
 
   // Compute overlapping time slots for MatchPhase
   const overlappingSlots = useMemo(() => {
@@ -1194,6 +1026,10 @@ export function useRitualFlow(): UseRitualFlowReturn {
     retryGeneration,
     refresh,
     forceSync,
+    // Sync engine state
+    isRealtimeConnected: syncEngine.isRealtimeConnected,
+    lastSyncTime: syncEngine.lastSyncTime,
+    isSyncing: syncEngine.isSyncing,
   };
 }
 
